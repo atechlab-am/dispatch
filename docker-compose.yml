@@ -1,0 +1,7 @@
+services:
+  ticketing:
+    build: .
+    container_name: atechsolutions-ticketing
+    ports:
+      - "3000:80"
+    restart: unless-stopped
