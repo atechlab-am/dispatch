@@ -1,9 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { fmt, esc, calcServiceTotal, calcHourTotal } from "./helpers.js";
+import { setTokens, clearTokens, registerLogoutHandler } from "./api/client.js";
+import { me, logout as apiLogout } from "./api/auth.js";
+import { listTickets, getTicket, createTicket, updateTicket, deleteTicket } from "./api/tickets.js";
+import LoginPage from "./LoginPage.jsx";
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const brand = {
   blue: "#1A5CBA",
-  blueLight: "#1e6ed4",
   blueDark: "#143f80",
   accent: "#E8A020",
   accentLight: "#f5c05a",
@@ -76,51 +80,74 @@ const TRAVEL_FEES = [
 const STATUS_OPTIONS   = ["Open", "In Progress", "Awaiting Client", "Resolved", "Closed"];
 const PRIORITY_OPTIONS = ["Low", "Medium", "High", "Urgent"];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const fmt = (n) => `$${Number(n).toFixed(2)}`;
-
-const newId = () =>
-  `TKT-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
-
-const newTicket = () => ({
-  id: newId(),
-  createdAt: new Date().toISOString().split("T")[0],
-  clientType: "business",
-  status: "Open",
-  priority: "Medium",
-  clientName: "",
-  clientEmail: "",
-  clientPhone: "",
-  clientAddress: "",
-  title: "",
-  description: "",
-  internalNotes: "",
-  travelFee: "travel_none",
-  services: [],
-  hourLogs: [],
+// ─── API shape ↔ editor shape mappers ────────────────────────────────────────
+const apiToEditor = (t) => ({
+  id:            t.id,
+  createdAt:     t.created_at?.split("T")[0] ?? "",
+  clientType:    t.client_type,
+  status:        t.status,
+  priority:      t.priority,
+  clientName:    t.client_name,
+  clientEmail:   t.client_email,
+  clientPhone:   t.client_phone,
+  clientAddress: t.client_address,
+  title:         t.title,
+  description:   t.description,
+  internalNotes: t.internal_notes,
+  travelFee:     t.travel_fee,
+  services: (t.service_lines ?? []).map((sl) => ({
+    _id:          sl.id,
+    serviceId:    sl.service_id,
+    name:         sl.name,
+    type:         sl.type,
+    rate:         Number(sl.rate),
+    base:         Number(sl.base),
+    perUnit:      Number(sl.per_unit),
+    perUnitLabel: sl.per_unit_label,
+    unitLabel:    sl.unit_label,
+    qty:          sl.qty,
+    extraQty:     sl.extra_qty,
+  })),
+  hourLogs: (t.hour_logs ?? []).map((hl) => ({
+    _id:         hl.id,
+    date:        hl.date,
+    hours:       String(hl.hours),
+    rate:        Number(hl.rate),
+    description: hl.description,
+  })),
 });
 
-const calcServiceTotal = (svc) => {
-  if (!svc.serviceId) return 0;
-  if (svc.type === "hourly")    return 0;
-  if (svc.type === "per_unit")  return (svc.rate || 0) * (svc.qty || 1);
-  if (svc.type === "flat") {
-    let t = svc.base || 0;
-    if (svc.extraQty && svc.perUnit) t += svc.extraQty * svc.perUnit;
-    return t;
-  }
-  return 0;
-};
-
-const calcHourTotal = (logs) =>
-  logs.reduce((s, l) => s + (parseFloat(l.hours) || 0) * (parseFloat(l.rate) || 0), 0);
-
-const calcGrandTotal = (ticket) => {
-  const svc   = ticket.services.reduce((s, sv) => s + calcServiceTotal(sv), 0);
-  const hours = calcHourTotal(ticket.hourLogs);
-  const trav  = TRAVEL_FEES.find((t) => t.id === ticket.travelFee)?.fee || 0;
-  return svc + hours + trav;
-};
+const editorToApi = (t) => ({
+  status:        t.status,
+  priority:      t.priority,
+  client_type:   t.clientType,
+  client_name:   t.clientName,
+  client_email:  t.clientEmail,
+  client_phone:  t.clientPhone,
+  client_address:t.clientAddress,
+  title:         t.title,
+  description:   t.description,
+  internal_notes:t.internalNotes,
+  travel_fee:    t.travelFee,
+  service_lines: t.services.filter((s) => s.serviceId).map((s) => ({
+    service_id:    s.serviceId,
+    name:          s.name,
+    type:          s.type,
+    rate:          s.rate ?? 0,
+    base:          s.base ?? 0,
+    per_unit:      s.perUnit ?? 0,
+    per_unit_label:s.perUnitLabel ?? "",
+    unit_label:    s.unitLabel ?? "unit",
+    qty:           s.qty ?? 1,
+    extra_qty:     s.extraQty ?? 0,
+  })),
+  hour_logs: t.hourLogs.filter((h) => h.hours).map((h) => ({
+    date:        h.date,
+    hours:       parseFloat(h.hours) || 0,
+    rate:        parseFloat(h.rate) || 0,
+    description: h.description,
+  })),
+});
 
 // ─── PDF / Print ──────────────────────────────────────────────────────────────
 const printTicket = (ticket) => {
@@ -142,10 +169,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#0D1B2A;paddin
 .meta strong{color:#0D1B2A;font-size:15px;display:block;margin-bottom:4px}
 .badges{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
 .badge{padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase}
-.b-blue{background:#1A5CBA;color:#fff}
-.b-amber{background:#E8A020;color:#fff}
-.b-green{background:#1a8f4a;color:#fff}
-.b-gray{background:#e2e8f0;color:#5B6D82}
+.b-blue{background:#1A5CBA;color:#fff}.b-amber{background:#E8A020;color:#fff}
+.b-green{background:#1a8f4a;color:#fff}.b-gray{background:#e2e8f0;color:#5B6D82}
 .b-red{background:#c0392b;color:#fff}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
 .card{background:#F4F7FC;border:1px solid #D8E2F0;border-radius:6px;padding:14px}
@@ -160,99 +185,82 @@ tr:nth-child(even) td{background:#F4F7FC}
 .totals-wrap{display:flex;justify-content:flex-end;margin-bottom:20px}
 .totals{width:280px;border-collapse:collapse}
 .totals td{padding:6px 10px;font-size:12px;border-bottom:1px solid #D8E2F0}
-.totals .lbl{color:#5B6D82}
-.totals .val{text-align:right;font-weight:600}
+.totals .lbl{color:#5B6D82}.totals .val{text-align:right;font-weight:600}
 .grand td{font-size:15px;font-weight:800;color:#1A5CBA;border-top:2px solid #1A5CBA!important}
 .notes-box{background:#fffbf0;border:1px solid #E8A020;border-radius:6px;padding:14px;margin-bottom:20px}
 .notes-box h3{font-size:10px;font-weight:700;text-transform:uppercase;color:#E8A020;letter-spacing:0.5px;margin-bottom:8px}
 .footer{text-align:center;color:#5B6D82;font-size:10px;border-top:1px solid #D8E2F0;padding-top:14px;margin-top:20px}
 @media print{body{padding:16px}}
 </style></head><body>
-
 <div class="header">
   <div>
     <div class="logo">ATech<span>Solutions</span></div>
     <div style="color:#5B6D82;font-size:11px;margin-top:4px">atechsolutions.org &nbsp;|&nbsp; (514) 826-5351 &nbsp;|&nbsp; info@atechsolutions.org</div>
   </div>
   <div class="meta">
-    <strong>${ticket.id}</strong>
-    Date: ${ticket.createdAt}<br/>
+    <strong>${esc(ticket.id)}</strong>
+    Date: ${esc(ticket.createdAt)}<br/>
     Type: ${ticket.clientType === "business" ? "Business" : "Residential"}
     <div class="badges">
-      <span class="badge ${ticket.status === "Resolved" || ticket.status === "Closed" ? "b-green" : ticket.status === "In Progress" ? "b-amber" : "b-blue"}">${ticket.status}</span>
-      <span class="badge ${ticket.priority === "Urgent" ? "b-red" : ticket.priority === "High" ? "b-amber" : "b-gray"}">${ticket.priority}</span>
+      <span class="badge ${ticket.status === "Resolved" || ticket.status === "Closed" ? "b-green" : ticket.status === "In Progress" ? "b-amber" : "b-blue"}">${esc(ticket.status)}</span>
+      <span class="badge ${ticket.priority === "Urgent" ? "b-red" : ticket.priority === "High" ? "b-amber" : "b-gray"}">${esc(ticket.priority)}</span>
     </div>
   </div>
 </div>
-
 <div class="grid2">
   <div class="card">
     <h3>Client Information</h3>
-    <p><span class="label">Name</span>${ticket.clientName || "—"}</p>
-    <p><span class="label">Email</span>${ticket.clientEmail || "—"}</p>
-    <p><span class="label">Phone</span>${ticket.clientPhone || "—"}</p>
-    ${ticket.clientAddress ? `<p><span class="label">Address</span>${ticket.clientAddress}</p>` : ""}
+    <p><span class="label">Name</span>${esc(ticket.clientName) || "—"}</p>
+    <p><span class="label">Email</span>${esc(ticket.clientEmail) || "—"}</p>
+    <p><span class="label">Phone</span>${esc(ticket.clientPhone) || "—"}</p>
+    ${ticket.clientAddress ? `<p><span class="label">Address</span>${esc(ticket.clientAddress)}</p>` : ""}
   </div>
   <div class="card">
     <h3>Issue Details</h3>
-    <p><span class="label">Title</span>${ticket.title || "—"}</p>
-    <p style="margin-top:8px"><span class="label">Description</span>${(ticket.description || "—").replace(/\n/g, "<br/>")}</p>
+    <p><span class="label">Title</span>${esc(ticket.title) || "—"}</p>
+    <p style="margin-top:8px"><span class="label">Description</span>${esc(ticket.description || "—").replace(/\n/g, "<br/>")}</p>
   </div>
 </div>
-
 ${ticket.services.length > 0 ? `
 <table>
   <thead><tr><th>Service</th><th>Details</th><th class="right">Subtotal</th></tr></thead>
   <tbody>
     ${ticket.services.map((sv) => {
       let detail = "";
-      if (sv.type === "per_unit") detail = `${sv.qty || 1} ${sv.unitLabel || "unit"}(s) × ${fmt(sv.rate)}`;
+      if (sv.type === "per_unit") detail = `${sv.qty || 1} ${esc(sv.unitLabel) || "unit"}(s) × ${fmt(sv.rate)}`;
       if (sv.type === "flat") {
         detail = `Base: ${fmt(sv.base)}`;
-        if (sv.extraQty) detail += ` + ${sv.extraQty} × ${fmt(sv.perUnit)} (${sv.perUnitLabel})`;
+        if (sv.extraQty) detail += ` + ${sv.extraQty} × ${fmt(sv.perUnit)} (${esc(sv.perUnitLabel)})`;
       }
       if (sv.type === "hourly") detail = "See hours log";
-      return `<tr><td>${sv.name || "—"}</td><td>${detail}</td><td class="right">${sv.type === "hourly" ? "—" : fmt(calcServiceTotal(sv))}</td></tr>`;
+      return `<tr><td>${esc(sv.name) || "—"}</td><td>${detail}</td><td class="right">${sv.type === "hourly" ? "—" : fmt(calcServiceTotal(sv))}</td></tr>`;
     }).join("")}
   </tbody>
 </table>` : ""}
-
 ${ticket.hourLogs.length > 0 ? `
 <table>
   <thead><tr><th>Date</th><th>Hours</th><th>Rate</th><th>Description</th><th class="right">Subtotal</th></tr></thead>
   <tbody>
     ${ticket.hourLogs.map((l) => `<tr>
-      <td>${l.date || "—"}</td>
-      <td>${l.hours || 0} hr(s)</td>
-      <td>${fmt(l.rate)}/hr</td>
-      <td>${l.description || "—"}</td>
+      <td>${esc(l.date) || "—"}</td><td>${esc(l.hours) || 0} hr(s)</td>
+      <td>${fmt(l.rate)}/hr</td><td>${esc(l.description) || "—"}</td>
       <td class="right">${fmt((parseFloat(l.hours) || 0) * (parseFloat(l.rate) || 0))}</td>
     </tr>`).join("")}
   </tbody>
 </table>` : ""}
-
 <div class="totals-wrap">
-  <table class="totals">
-    <tbody>
-      ${svcTotal > 0 ? `<tr><td class="lbl">Services Subtotal</td><td class="val">${fmt(svcTotal)}</td></tr>` : ""}
-      ${hourTotal > 0 ? `<tr><td class="lbl">Labour Subtotal</td><td class="val">${fmt(hourTotal)}</td></tr>` : ""}
-      ${travelFee > 0 ? `<tr><td class="lbl">Travel Fee (${travel.label})</td><td class="val">${fmt(travelFee)}</td></tr>` : ""}
-      <tr class="grand"><td><strong>Total</strong></td><td class="val"><strong>${fmt(grand)}</strong></td></tr>
-    </tbody>
-  </table>
+  <table class="totals"><tbody>
+    ${svcTotal > 0 ? `<tr><td class="lbl">Services Subtotal</td><td class="val">${fmt(svcTotal)}</td></tr>` : ""}
+    ${hourTotal > 0 ? `<tr><td class="lbl">Labour Subtotal</td><td class="val">${fmt(hourTotal)}</td></tr>` : ""}
+    ${travelFee > 0 ? `<tr><td class="lbl">Travel Fee (${esc(travel.label)})</td><td class="val">${fmt(travelFee)}</td></tr>` : ""}
+    <tr class="grand"><td><strong>Total</strong></td><td class="val"><strong>${fmt(grand)}</strong></td></tr>
+  </tbody></table>
 </div>
-
-${ticket.internalNotes ? `
-<div class="notes-box">
-  <h3>Notes</h3>
-  <p>${ticket.internalNotes.replace(/\n/g, "<br/>")}</p>
-</div>` : ""}
-
+${ticket.internalNotes ? `<div class="notes-box"><h3>Notes</h3><p>${esc(ticket.internalNotes).replace(/\n/g, "<br/>")}</p></div>` : ""}
 <div class="footer">
   ATechSolutions &nbsp;|&nbsp; amartins@atechsolutions.org &nbsp;|&nbsp; (514) 826-5351 &nbsp;|&nbsp; atechsolutions.org<br/>
   Sainte-Marthe-sur-le-Lac, QC &nbsp;|&nbsp; Serving the North Shore &amp; Laurentians
 </div>
-
 <script>window.onload=()=>window.print();</script>
 </body></html>`;
 
@@ -289,7 +297,7 @@ const Textarea = ({ value, onChange, placeholder, rows=3 }) => (
   <textarea rows={rows} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={{...inp, resize:"vertical"}} />
 );
 
-const Btn = ({ onClick, children, variant="primary", small }) => {
+const Btn = ({ onClick, children, variant="primary", small, disabled }) => {
   const s = {
     primary:   { background:brand.blue,   color:"#fff", border:"none" },
     secondary: { background:"#fff",        color:brand.blue,  border:`1.5px solid ${brand.blue}` },
@@ -298,7 +306,7 @@ const Btn = ({ onClick, children, variant="primary", small }) => {
     ghost:     { background:"transparent", color:brand.muted, border:`1px solid ${brand.border}` },
   }[variant];
   return (
-    <button onClick={onClick} style={{...s, padding:small?"6px 12px":"9px 18px", borderRadius:6, fontSize:small?12:13, fontWeight:600, cursor:"pointer", fontFamily:"inherit"}}>
+    <button onClick={onClick} disabled={disabled} style={{...s, padding:small?"6px 12px":"9px 18px", borderRadius:6, fontSize:small?12:13, fontWeight:600, cursor:disabled?"not-allowed":"pointer", fontFamily:"inherit", opacity:disabled?0.6:1}}>
       {children}
     </button>
   );
@@ -308,18 +316,31 @@ const FieldLabel = ({ children }) => (
   <div style={{ fontSize:11, fontWeight:700, color:brand.muted, textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:5 }}>{children}</div>
 );
 
+const Spinner = () => (
+  <div style={{ display:"flex", justifyContent:"center", alignItems:"center", padding:"60px 20px", color:brand.muted, fontSize:14 }}>
+    Loading…
+  </div>
+);
+
+const Toast = ({ msg, type, onClose }) => {
+  const bg = type === "err" ? brand.danger : type === "warn" ? brand.accent : brand.success;
+  return (
+    <div style={{ position:"fixed", bottom:24, right:24, background:bg, color:"#fff", borderRadius:8, padding:"12px 18px", fontSize:13, fontWeight:600, zIndex:9999, maxWidth:340, display:"flex", gap:12, alignItems:"center", boxShadow:"0 4px 20px rgba(0,0,0,0.15)" }}>
+      <span style={{ flex:1 }}>{msg}</span>
+      <button onClick={onClose} style={{ background:"none", border:"none", color:"#fff", cursor:"pointer", fontSize:18, lineHeight:1 }}>×</button>
+    </div>
+  );
+};
+
 // ─── Service row ──────────────────────────────────────────────────────────────
 const ServiceRow = ({ svc, catalogue, onChange, onRemove }) => {
   const def = catalogue.find(c => c.id === svc.serviceId);
-
   const handleChange = (id) => {
     const d = catalogue.find(c => c.id === id);
     if (!d) return onChange({ ...svc, serviceId:"", name:"", type:"" });
     onChange({ ...svc, serviceId:id, name:d.name, type:d.type, rate:d.rate||0, base:d.base||0, perUnit:d.perUnit||0, perUnitLabel:d.perUnitLabel||"", unitLabel:d.unitLabel||"unit", qty:1, extraQty:0 });
   };
-
   const cellStyle = { padding:"8px 10px", border:`1px solid ${brand.border}`, borderRadius:6, fontSize:12, color:brand.text, background:"#fff", width:"100%" };
-
   return (
     <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
       <div style={{ display:"flex", gap:8, alignItems:"flex-start" }}>
@@ -330,32 +351,27 @@ const ServiceRow = ({ svc, catalogue, onChange, onRemove }) => {
             {catalogue.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
-
         {def?.type === "per_unit" && (
           <div style={{ width:110 }}>
             <FieldLabel>Qty ({def.unitLabel})</FieldLabel>
             <input type="number" min={1} value={svc.qty||1} onChange={e=>onChange({...svc,qty:parseInt(e.target.value)||1})} style={cellStyle} />
           </div>
         )}
-
         {def?.type === "flat" && def.perUnit > 0 && (
           <div style={{ width:160 }}>
             <FieldLabel>{def.perUnitLabel}</FieldLabel>
             <input type="number" min={0} value={svc.extraQty||0} onChange={e=>onChange({...svc,extraQty:parseInt(e.target.value)||0})} style={cellStyle} />
           </div>
         )}
-
         {def?.type === "hourly" && (
           <div style={{ width:160, paddingTop:22, fontSize:11, color:brand.muted }}>Billed via hours log ↓</div>
         )}
-
         <div style={{ width:90, textAlign:"right" }}>
           <FieldLabel>Subtotal</FieldLabel>
-          <div style={{ paddingTop:10, fontWeight:700, fontSize:14, color: def?.type==="hourly" ? brand.muted : brand.blue }}>
+          <div style={{ paddingTop:10, fontWeight:700, fontSize:14, color:def?.type==="hourly"?brand.muted:brand.blue }}>
             {!svc.serviceId ? "—" : def?.type==="hourly" ? "—" : fmt(calcServiceTotal(svc))}
           </div>
         </div>
-
         <div style={{ paddingTop:20 }}>
           <button onClick={onRemove} style={{ background:"none", border:"none", color:brand.danger, cursor:"pointer", fontSize:20, lineHeight:1, padding:"2px 6px" }}>×</button>
         </div>
@@ -368,7 +384,6 @@ const ServiceRow = ({ svc, catalogue, onChange, onRemove }) => {
 const HourRow = ({ log, defaultRate, onChange, onRemove }) => {
   const cellStyle = { padding:"7px 8px", border:`1px solid ${brand.border}`, borderRadius:6, fontSize:12, color:brand.text, background:"#fff", width:"100%" };
   const sub = (parseFloat(log.hours)||0) * (parseFloat(log.rate)||defaultRate);
-
   return (
     <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
       <div style={{ display:"flex", gap:8, alignItems:"flex-start" }}>
@@ -401,37 +416,33 @@ const HourRow = ({ log, defaultRate, onChange, onRemove }) => {
 };
 
 // ─── Ticket list ──────────────────────────────────────────────────────────────
-const TicketList = ({ tickets, onSelect, onNew }) => {
-  const [filter, setFilter] = useState("All");
-  const [search, setSearch] = useState("");
-
+const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch, statusFilter, onStatusFilter }) => {
   const statusColor = { Open:"blue", "In Progress":"amber", "Awaiting Client":"gray", Resolved:"green", Closed:"gray" };
   const priorityColor = { Low:"gray", Medium:"blue", High:"amber", Urgent:"red" };
 
-  const filtered = tickets.filter(t => {
-    const matchStatus = filter === "All" || t.status === filter;
-    const q = search.toLowerCase();
-    const matchSearch = !q || t.clientName.toLowerCase().includes(q) || t.title.toLowerCase().includes(q) || t.id.toLowerCase().includes(q);
-    return matchStatus && matchSearch;
-  });
+  const grandTotal = (t) => {
+    const svc   = (t.service_lines ?? []).reduce((s, sv) => s + calcServiceTotal({ serviceId: sv.service_id, type: sv.type, rate: Number(sv.rate), base: Number(sv.base), perUnit: Number(sv.per_unit), qty: sv.qty, extraQty: sv.extra_qty }), 0);
+    const hours = (t.hour_logs ?? []).reduce((s, l) => s + (parseFloat(l.hours) || 0) * (parseFloat(l.rate) || 0), 0);
+    const trav  = TRAVEL_FEES.find(f => f.id === t.travel_fee)?.fee || 0;
+    return svc + hours + trav;
+  };
 
   const stats = {
-    open: tickets.filter(t => t.status === "Open").length,
+    open:       tickets.filter(t => t.status === "Open").length,
     inProgress: tickets.filter(t => t.status === "In Progress").length,
-    total: tickets.length,
-    revenue: tickets.reduce((s,t) => s + calcGrandTotal(t), 0),
+    total,
+    revenue:    tickets.reduce((s, t) => s + grandTotal(t), 0),
   };
 
   return (
     <div>
-      {/* Stats */}
-      {tickets.length > 0 && (
+      {total > 0 && (
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:24 }}>
           {[
-            { label:"Total Tickets", value:stats.total, color:brand.blue },
-            { label:"Open",          value:stats.open,  color:brand.accent },
-            { label:"In Progress",   value:stats.inProgress, color:"#7c3aed" },
-            { label:"Total Revenue", value:fmt(stats.revenue), color:brand.success },
+            { label:"Total Tickets", value:stats.total,         color:brand.blue },
+            { label:"Open",          value:stats.open,          color:brand.accent },
+            { label:"In Progress",   value:stats.inProgress,    color:"#7c3aed" },
+            { label:"Total Revenue", value:fmt(stats.revenue),  color:brand.success },
           ].map(s => (
             <div key={s.label} style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"14px 16px" }}>
               <div style={{ fontSize:11, fontWeight:700, color:brand.muted, textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:6 }}>{s.label}</div>
@@ -441,17 +452,12 @@ const TicketList = ({ tickets, onSelect, onNew }) => {
         </div>
       )}
 
-      {/* Header + search */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, gap:12 }}>
-        <input
-          value={search}
-          onChange={e=>setSearch(e.target.value)}
-          placeholder="Search tickets…"
-          style={{ ...inp, maxWidth:280 }}
-        />
+        <input value={search} onChange={e=>onSearch(e.target.value)} placeholder="Search tickets…" style={{ ...inp, maxWidth:280 }} />
         <div style={{ display:"flex", gap:6 }}>
           {["All", ...STATUS_OPTIONS].map(s => (
-            <button key={s} onClick={()=>setFilter(s)} style={{ padding:"6px 14px", borderRadius:20, fontSize:12, fontWeight:600, cursor:"pointer", border:`1.5px solid ${filter===s?brand.blue:brand.border}`, background:filter===s?brand.blue:"#fff", color:filter===s?"#fff":brand.muted }}>
+            <button key={s} onClick={()=>onStatusFilter(s)}
+              style={{ padding:"6px 14px", borderRadius:20, fontSize:12, fontWeight:600, cursor:"pointer", border:`1.5px solid ${statusFilter===s?brand.blue:brand.border}`, background:statusFilter===s?brand.blue:"#fff", color:statusFilter===s?"#fff":brand.muted }}>
               {s}
             </button>
           ))}
@@ -459,17 +465,19 @@ const TicketList = ({ tickets, onSelect, onNew }) => {
         <Btn onClick={onNew} variant="accent">+ New Ticket</Btn>
       </div>
 
-      {filtered.length === 0 && (
+      {loading && <Spinner />}
+
+      {!loading && tickets.length === 0 && (
         <div style={{ textAlign:"center", padding:"60px 20px", color:brand.muted }}>
           <div style={{ fontSize:44, marginBottom:14 }}>📋</div>
-          <div style={{ fontSize:16, fontWeight:700 }}>{tickets.length === 0 ? "No tickets yet" : "No matches"}</div>
-          <div style={{ fontSize:13, marginTop:6 }}>{tickets.length === 0 ? "Create your first ticket to get started." : "Try adjusting your search or filter."}</div>
+          <div style={{ fontSize:16, fontWeight:700 }}>{total === 0 ? "No tickets yet" : "No matches"}</div>
+          <div style={{ fontSize:13, marginTop:6 }}>{total === 0 ? "Create your first ticket to get started." : "Try adjusting your search or filter."}</div>
         </div>
       )}
 
-      {filtered.map(t => (
+      {tickets.map(t => (
         <div key={t.id} onClick={()=>onSelect(t.id)}
-          style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"14px 18px", marginBottom:10, cursor:"pointer", borderLeft:`4px solid ${t.clientType==="business"?brand.blue:brand.accent}`, transition:"box-shadow 0.15s" }}
+          style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"14px 18px", marginBottom:10, cursor:"pointer", borderLeft:`4px solid ${t.client_type==="business"?brand.blue:brand.accent}`, transition:"box-shadow 0.15s" }}
           onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 12px rgba(26,92,186,0.12)"}
           onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}
         >
@@ -479,16 +487,15 @@ const TicketList = ({ tickets, onSelect, onNew }) => {
                 <span style={{ fontSize:11, fontWeight:700, color:brand.muted, fontFamily:"monospace" }}>{t.id}</span>
                 <Badge color={statusColor[t.status]||"gray"}>{t.status}</Badge>
                 <Badge color={priorityColor[t.priority]||"gray"}>{t.priority}</Badge>
-                <Badge color={t.clientType==="business"?"blue":"amber"}>{t.clientType==="business"?"🏢 Business":"🏠 Residential"}</Badge>
+                <Badge color={t.client_type==="business"?"blue":"amber"}>{t.client_type==="business"?"🏢 Business":"🏠 Residential"}</Badge>
               </div>
               <div style={{ fontWeight:700, fontSize:15, color:brand.text }}>{t.title||"(No title)"}</div>
               <div style={{ fontSize:12, color:brand.muted, marginTop:3 }}>
-                {t.clientName||"No client name"} &nbsp;·&nbsp; Created {t.createdAt}
-                {t.hourLogs.length > 0 && ` &nbsp;·&nbsp; ${t.hourLogs.reduce((s,l)=>s+(parseFloat(l.hours)||0),0).toFixed(2)} hrs logged`}
+                {t.client_name||"No client name"} &nbsp;·&nbsp; Created {t.created_at?.split("T")[0]}
               </div>
             </div>
             <div style={{ fontWeight:800, fontSize:18, color:brand.blue, whiteSpace:"nowrap", marginLeft:20 }}>
-              {fmt(calcGrandTotal(t))}
+              {fmt(grandTotal(t))}
             </div>
           </div>
         </div>
@@ -498,33 +505,30 @@ const TicketList = ({ tickets, onSelect, onNew }) => {
 };
 
 // ─── Ticket editor ────────────────────────────────────────────────────────────
-const TicketEditor = ({ ticket, onSave, onBack, onDelete }) => {
+const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving }) => {
   const [t, setT] = useState(ticket);
   const up = (field, val) => setT(prev => ({ ...prev, [field]: val }));
 
-  const catalogue    = SERVICES[t.clientType] || [];
-  const defaultRate  = t.clientType === "residential" ? 85 : 110;
-  const travel       = TRAVEL_FEES.find(f => f.id === t.travelFee);
-  const svcTotal     = t.services.reduce((s, sv) => s + calcServiceTotal(sv), 0);
-  const hourTotal    = calcHourTotal(t.hourLogs);
-  const grand        = svcTotal + hourTotal + (travel?.fee || 0);
-  const totalHours   = t.hourLogs.reduce((s,l) => s + (parseFloat(l.hours)||0), 0);
+  const catalogue   = SERVICES[t.clientType] || [];
+  const defaultRate = t.clientType === "residential" ? 85 : 110;
+  const travel      = TRAVEL_FEES.find(f => f.id === t.travelFee);
+  const svcTotal    = t.services.reduce((s, sv) => s + calcServiceTotal(sv), 0);
+  const hourTotal   = calcHourTotal(t.hourLogs);
+  const grand       = svcTotal + hourTotal + (travel?.fee || 0);
+  const totalHours  = t.hourLogs.reduce((s,l) => s + (parseFloat(l.hours)||0), 0);
 
-  const addSvc    = () => setT(p => ({ ...p, services: [...p.services, { _id:Date.now(), serviceId:"", name:"", type:"" }] }));
-  const updSvc    = (i,v) => setT(p => { const s=[...p.services]; s[i]=v; return {...p,services:s}; });
-  const remSvc    = (i)   => setT(p => ({ ...p, services: p.services.filter((_,idx)=>idx!==i) }));
+  const addSvc  = () => setT(p => ({ ...p, services: [...p.services, { _id:Date.now(), serviceId:"", name:"", type:"" }] }));
+  const updSvc  = (i,v) => setT(p => { const s=[...p.services]; s[i]=v; return {...p,services:s}; });
+  const remSvc  = (i)   => setT(p => ({ ...p, services: p.services.filter((_,idx)=>idx!==i) }));
 
-  const addHour   = () => setT(p => ({ ...p, hourLogs: [...p.hourLogs, { _id:Date.now(), date:new Date().toISOString().split("T")[0], hours:"", rate:defaultRate, description:"" }] }));
-  const updHour   = (i,v) => setT(p => { const h=[...p.hourLogs]; h[i]=v; return {...p,hourLogs:h}; });
-  const remHour   = (i)   => setT(p => ({ ...p, hourLogs: p.hourLogs.filter((_,idx)=>idx!==i) }));
+  const addHour = () => setT(p => ({ ...p, hourLogs: [...p.hourLogs, { _id:Date.now(), date:new Date().toISOString().split("T")[0], hours:"", rate:defaultRate, description:"" }] }));
+  const updHour = (i,v) => setT(p => { const h=[...p.hourLogs]; h[i]=v; return {...p,hourLogs:h}; });
+  const remHour = (i)   => setT(p => ({ ...p, hourLogs: p.hourLogs.filter((_,idx)=>idx!==i) }));
 
   const changeType = (val) => setT(p => ({ ...p, clientType:val, services:[], hourLogs:[] }));
 
-  const handleSave = () => { onSave(t); onBack(); };
-
   return (
     <div>
-      {/* Top bar */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20, gap:12 }}>
         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
           <button onClick={onBack} style={{ background:"none", border:`1px solid ${brand.border}`, color:brand.blue, cursor:"pointer", fontSize:18, borderRadius:6, width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center" }}>←</button>
@@ -535,11 +539,10 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete }) => {
         </div>
         <div style={{ display:"flex", gap:8 }}>
           <Btn onClick={()=>printTicket(t)} variant="secondary">🖨 Export PDF</Btn>
-          <Btn onClick={handleSave} variant="accent">✓ Save Ticket</Btn>
+          <Btn onClick={()=>onSave(t)} variant="accent" disabled={saving}>{saving ? "Saving…" : "✓ Save Ticket"}</Btn>
         </div>
       </div>
 
-      {/* Status bar */}
       <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"14px 18px", marginBottom:20, display:"grid", gridTemplateColumns:"auto 1fr 1fr", gap:16, alignItems:"center" }}>
         <div>
           <FieldLabel>Client Type</FieldLabel>
@@ -563,8 +566,6 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete }) => {
       </div>
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
-
-        {/* ── LEFT ── */}
         <div>
           <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
             <SectionHeader>Client Information</SectionHeader>
@@ -577,7 +578,6 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete }) => {
               ))}
             </div>
           </div>
-
           <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px" }}>
             <SectionHeader>Issue Details</SectionHeader>
             <div style={{ marginBottom:12 }}>
@@ -595,9 +595,7 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete }) => {
           </div>
         </div>
 
-        {/* ── RIGHT ── */}
         <div>
-          {/* Services */}
           <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
             <SectionHeader>Services</SectionHeader>
             {t.services.map((sv,i) => (
@@ -606,7 +604,6 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete }) => {
             <Btn onClick={addSvc} variant="secondary" small>+ Add Service</Btn>
           </div>
 
-          {/* Hours */}
           <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <SectionHeader>Hours Log</SectionHeader>
@@ -618,7 +615,6 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete }) => {
             <Btn onClick={addHour} variant="secondary" small>+ Log Hours</Btn>
           </div>
 
-          {/* Travel */}
           <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
             <SectionHeader>Travel Fee</SectionHeader>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
@@ -632,7 +628,6 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete }) => {
             </div>
           </div>
 
-          {/* Total panel */}
           <div style={{ background:brand.blueDark, borderRadius:10, padding:"18px 20px", color:"#fff" }}>
             <div style={{ fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.5px", color:"rgba(255,255,255,0.5)", marginBottom:14 }}>Invoice Summary</div>
             {svcTotal > 0 && (
@@ -661,7 +656,7 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete }) => {
 
           {onDelete && (
             <div style={{ marginTop:12, display:"flex", justifyContent:"flex-end" }}>
-              <Btn onClick={()=>{ if(window.confirm("Delete this ticket? This cannot be undone.")) { onDelete(t.id); onBack(); } }} variant="danger" small>🗑 Delete Ticket</Btn>
+              <Btn onClick={()=>{ if(window.confirm("Delete this ticket? This cannot be undone.")) onDelete(t.id); }} variant="danger" small>🗑 Delete Ticket</Btn>
             </div>
           )}
         </div>
@@ -672,24 +667,121 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete }) => {
 
 // ─── App shell ────────────────────────────────────────────────────────────────
 export default function App() {
-  const [tickets, setTickets] = useState([]);
-  const [view, setView]       = useState("list");
-  const [activeId, setActiveId] = useState(null);
+  const [authed, setAuthed]         = useState(false);
+  const [user, setUser]             = useState(null);
+  const [tickets, setTickets]       = useState([]);
+  const [total, setTotal]           = useState(0);
+  const [view, setView]             = useState("list");
+  const [activeTicket, setActive]   = useState(null);
+  const [loadingList, setLoadingList] = useState(false);
+  const [saving, setSaving]         = useState(false);
+  const [search, setSearch]         = useState("");
+  const [statusFilter, setStatus]   = useState("All");
+  const [toast, setToast]           = useState(null);
 
-  const activeTicket = tickets.find(t => t.id === activeId) || null;
-
-  const handleNew = () => {
-    const t = newTicket();
-    setTickets(prev => [t, ...prev]);
-    setActiveId(t.id);
-    setView("edit");
+  const showToast = (msg, type = "ok") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 4000);
   };
 
-  const handleSelect = (id) => { setActiveId(id); setView("edit"); };
+  const handleLogout = useCallback(async () => {
+    await apiLogout();
+    clearTokens();
+    setAuthed(false);
+    setUser(null);
+    setTickets([]);
+    setView("list");
+  }, []);
 
-  const handleSave = (updated) => setTickets(prev => prev.map(t => t.id === updated.id ? updated : t));
+  // Register the logout handler so the Axios interceptor can call it on 401
+  useEffect(() => {
+    registerLogoutHandler(handleLogout);
+  }, [handleLogout]);
 
-  const handleDelete = (id) => { setTickets(prev => prev.filter(t => t.id !== id)); };
+  // After login, fetch the current user profile
+  const handleLogin = async () => {
+    try {
+      const profile = await me();
+      setUser(profile);
+      setAuthed(true);
+    } catch {
+      clearTokens();
+      showToast("Could not load user profile. Please try again.", "err");
+    }
+  };
+
+  // Load ticket list whenever search or filter changes
+  const loadList = useCallback(async () => {
+    setLoadingList(true);
+    try {
+      const params = {};
+      if (search) params.search = search;
+      if (statusFilter !== "All") params.status = statusFilter;
+      const data = await listTickets(params);
+      setTickets(data.items);
+      setTotal(data.total);
+    } catch {
+      showToast("Failed to load tickets.", "err");
+    } finally {
+      setLoadingList(false);
+    }
+  }, [search, statusFilter]);
+
+  useEffect(() => {
+    if (authed) loadList();
+  }, [authed, loadList]);
+
+  const handleNew = async () => {
+    try {
+      const created = await createTicket({
+        status: "Open", priority: "Medium", client_type: "business",
+        client_name: "", client_email: "", client_phone: "", client_address: "",
+        title: "", description: "", internal_notes: "",
+        travel_fee: "travel_none", service_lines: [], hour_logs: [],
+      });
+      setActive(apiToEditor(created));
+      setView("edit");
+    } catch {
+      showToast("Failed to create ticket.", "err");
+    }
+  };
+
+  const handleSelect = async (id) => {
+    try {
+      const data = await getTicket(id);
+      setActive(apiToEditor(data));
+      setView("edit");
+    } catch {
+      showToast("Failed to load ticket.", "err");
+    }
+  };
+
+  const handleSave = async (editorTicket) => {
+    setSaving(true);
+    try {
+      await updateTicket(editorTicket.id, editorToApi(editorTicket));
+      showToast("Ticket saved.", "ok");
+      setView("list");
+      loadList();
+    } catch {
+      showToast("Failed to save ticket.", "err");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await deleteTicket(id);
+      showToast("Ticket deleted.", "ok");
+      setView("list");
+      loadList();
+    } catch {
+      showToast("Failed to delete ticket.", "err");
+    }
+  };
+
+  if (!authed) return <LoginPage onLogin={handleLogin} />;
 
   return (
     <div style={{ minHeight:"100vh", background:brand.bg, fontFamily:"'Segoe UI', Arial, sans-serif" }}>
@@ -702,17 +794,38 @@ export default function App() {
           <span style={{ color:"rgba(255,255,255,0.35)", fontSize:16 }}>|</span>
           <span style={{ color:"rgba(255,255,255,0.7)", fontSize:13, fontWeight:500 }}>Ticket Manager</span>
         </div>
-        <div style={{ color:"rgba(255,255,255,0.55)", fontSize:11 }}>
-          amartins@atechsolutions.org &nbsp;·&nbsp; (514) 826-5351
+        <div style={{ display:"flex", alignItems:"center", gap:16 }}>
+          {user && <span style={{ color:"rgba(255,255,255,0.7)", fontSize:12 }}>{user.name} &nbsp;·&nbsp; {user.role}</span>}
+          <button onClick={handleLogout} style={{ background:"none", border:"1px solid rgba(255,255,255,0.3)", color:"rgba(255,255,255,0.8)", cursor:"pointer", borderRadius:6, padding:"5px 12px", fontSize:12, fontFamily:"inherit" }}>Sign out</button>
         </div>
       </div>
 
       <div style={{ maxWidth:1140, margin:"0 auto", padding:"28px 20px" }}>
-        {view === "list" && <TicketList tickets={tickets} onSelect={handleSelect} onNew={handleNew} />}
+        {view === "list" && (
+          <TicketList
+            tickets={tickets}
+            total={total}
+            loading={loadingList}
+            onSelect={handleSelect}
+            onNew={handleNew}
+            search={search}
+            onSearch={setSearch}
+            statusFilter={statusFilter}
+            onStatusFilter={setStatus}
+          />
+        )}
         {view === "edit" && activeTicket && (
-          <TicketEditor ticket={activeTicket} onSave={handleSave} onBack={()=>setView("list")} onDelete={handleDelete} />
+          <TicketEditor
+            ticket={activeTicket}
+            onSave={handleSave}
+            onBack={() => { setView("list"); loadList(); }}
+            onDelete={handleDelete}
+            saving={saving}
+          />
         )}
       </div>
+
+      {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 }

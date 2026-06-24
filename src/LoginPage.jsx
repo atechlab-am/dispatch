@@ -1,0 +1,109 @@
+import { useState } from "react";
+import { login } from "./api/auth.js";
+import { setTokens } from "./api/client.js";
+
+const brand = {
+  blue: "#1A5CBA",
+  accent: "#E8A020",
+  bg: "#F4F7FC",
+  surface: "#FFFFFF",
+  border: "#D8E2F0",
+  text: "#0D1B2A",
+  muted: "#5B6D82",
+  danger: "#c0392b",
+};
+
+const inp = {
+  width: "100%",
+  padding: "10px 14px",
+  border: `1px solid ${brand.border}`,
+  borderRadius: 6,
+  fontSize: 14,
+  color: brand.text,
+  background: "#fff",
+  outline: "none",
+  fontFamily: "inherit",
+  boxSizing: "border-box",
+};
+
+export default function LoginPage({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const tokens = await login(email, password);
+      setTokens(tokens.access_token, tokens.refresh_token);
+      onLogin();
+    } catch {
+      setError("Incorrect email or password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: brand.bg, display: "flex", flexDirection: "column", fontFamily: "'Segoe UI', Arial, sans-serif" }}>
+      {/* Nav */}
+      <div style={{ background: brand.blue, padding: "0 28px", height: 54, display: "flex", alignItems: "center" }}>
+        <span style={{ color: "#fff", fontWeight: 800, fontSize: 18, letterSpacing: "-0.3px" }}>
+          ATech<span style={{ color: brand.accent }}>Solutions</span>
+        </span>
+        <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 16, margin: "0 10px" }}>|</span>
+        <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 500 }}>Ticket Manager</span>
+      </div>
+
+      {/* Card */}
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 12, padding: "36px 40px", width: "100%", maxWidth: 400 }}>
+          <div style={{ fontWeight: 800, fontSize: 22, color: brand.text, marginBottom: 6 }}>Sign in</div>
+          <div style={{ fontSize: 13, color: brand.muted, marginBottom: 28 }}>ATechSolutions internal use only</div>
+
+          <form onSubmit={handleSubmit}>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 5 }}>Email</div>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@atechsolutions.org"
+                required
+                style={inp}
+              />
+            </div>
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 5 }}>Password</div>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                style={inp}
+              />
+            </div>
+
+            {error && (
+              <div style={{ background: "#fef2f2", border: `1px solid ${brand.danger}`, borderRadius: 6, padding: "10px 14px", color: brand.danger, fontSize: 13, marginBottom: 16 }}>
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{ width: "100%", padding: "11px", background: loading ? brand.muted : brand.accent, color: "#fff", border: "none", borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit" }}
+            >
+              {loading ? "Signing in…" : "Sign in"}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
