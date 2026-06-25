@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { fmt, esc, calcServiceTotal, calcHourTotal } from "./helpers.js";
 import { setTokens, clearTokens, registerLogoutHandler } from "./api/client.js";
 import { me, logout as apiLogout } from "./api/auth.js";
-import { listTickets, getTicket, createTicket, updateTicket, deleteTicket } from "./api/tickets.js";
+import { listTickets, getTicket, createTicket, updateTicket, deleteTicket, exportTickets } from "./api/tickets.js";
 import { listClients, createClient, updateClient, deleteClient } from "./api/clients.js";
 import LoginPage from "./LoginPage.jsx";
 import SettingsPage from "./SettingsPage.jsx";
@@ -606,8 +606,81 @@ const NewTicketModal = ({ onCreate, onCancel, clients, onClientCreated }) => {
   );
 };
 
+// ─── Export modal ─────────────────────────────────────────────────────────────
+const ExportModal = ({ clients, onClose, onExport }) => {
+  const [statusF,   setStatusF]   = useState("All");
+  const [priorityF, setPriorityF] = useState("All");
+  const [clientF,   setClientF]   = useState("");
+  const [dateFrom,  setDateFrom]  = useState("");
+  const [dateTo,    setDateTo]    = useState("");
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params = {};
+      if (statusF   !== "All") params.status   = statusF;
+      if (priorityF !== "All") params.priority  = priorityF;
+      if (clientF.trim())      params.client_name = clientF.trim();
+      if (dateFrom)            params.date_from = dateFrom;
+      if (dateTo)              params.date_to   = dateTo;
+      await onExport(params);
+      onClose();
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(13,27,42,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ background:"#fff", borderRadius:12, padding:"28px 32px", width:480, boxShadow:"0 8px 40px rgba(0,0,0,0.18)" }}>
+        <div style={{ fontWeight:800, fontSize:18, color:brand.text, marginBottom:20 }}>Export Tickets</div>
+
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:16 }}>
+          <div>
+            <FieldLabel>Status</FieldLabel>
+            <Select value={statusF} onChange={setStatusF} options={["All", ...STATUS_OPTIONS]} />
+          </div>
+          <div>
+            <FieldLabel>Priority</FieldLabel>
+            <Select value={priorityF} onChange={setPriorityF} options={["All", ...PRIORITY_OPTIONS]} />
+          </div>
+        </div>
+
+        <div style={{ marginBottom:12 }}>
+          <FieldLabel>Client Name (partial match)</FieldLabel>
+          <Input value={clientF} onChange={setClientF} placeholder="e.g. Acme" />
+        </div>
+
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:24 }}>
+          <div>
+            <FieldLabel>Date From</FieldLabel>
+            <Input type="date" value={dateFrom} onChange={setDateFrom} />
+          </div>
+          <div>
+            <FieldLabel>Date To</FieldLabel>
+            <Input type="date" value={dateTo} onChange={setDateTo} />
+          </div>
+        </div>
+
+        <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:8, padding:"10px 14px", marginBottom:20, fontSize:12, color:brand.muted }}>
+          Exports as CSV — includes ticket details, service totals, labour totals, and SLA deadlines.
+        </div>
+
+        <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+          <Btn onClick={onClose} variant="ghost">Cancel</Btn>
+          <Btn onClick={handleExport} variant="accent" disabled={exporting}>
+            {exporting ? "Exporting…" : "⬇ Download CSV"}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── Ticket list ──────────────────────────────────────────────────────────────
-const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch, statusFilter, onStatusFilter, quickFilter, onClearQuickFilter }) => {
+const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch, statusFilter, onStatusFilter, quickFilter, onClearQuickFilter, onExport }) => {
+  const [showExport, setShowExport] = useState(false);
   const statusColor = { Open:"blue", "In Progress":"amber", "Awaiting Client":"gray", Resolved:"green", Closed:"gray" };
   const priorityColor = { Low:"gray", Medium:"blue", High:"amber", Urgent:"red" };
 
@@ -660,8 +733,18 @@ const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch
             </button>
           ))}
         </div>
-        <Btn onClick={onNew} variant="accent">+ New Ticket</Btn>
+        <div style={{ display:"flex", gap:8 }}>
+          <Btn onClick={() => setShowExport(true)} variant="secondary">⬇ Export</Btn>
+          <Btn onClick={onNew} variant="accent">+ New Ticket</Btn>
+        </div>
       </div>
+
+      {showExport && (
+        <ExportModal
+          onClose={() => setShowExport(false)}
+          onExport={onExport}
+        />
+      )}
 
       {loading && <Spinner />}
 
@@ -1164,6 +1247,7 @@ export default function App() {
             onStatusFilter={(s) => { setStatus(s); setQuickFilter(null); }}
             quickFilter={quickFilter}
             onClearQuickFilter={() => setQuickFilter(null)}
+            onExport={exportTickets}
           />
         )}
         {view === "edit" && activeTicket && (

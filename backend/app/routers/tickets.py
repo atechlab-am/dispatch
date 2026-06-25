@@ -1,7 +1,10 @@
+import csv
+import io
 from datetime import datetime, date, timezone, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -82,6 +85,90 @@ def _apply_hour_logs(ticket: Ticket, logs: list, db: Session):
             rate=hl.rate,
             description=hl.description,
         ))
+
+
+def _ticket_total(ticket: Ticket) -> float:
+    TRAVEL = {"travel_none": 0, "travel_15": 40, "travel_30": 60, "travel_30p": 80}
+    svc = sum(
+        (sl.base + (sl.per_unit * sl.extra_qty) if sl.type == "flat" else
+         sl.rate * sl.qty if sl.type == "per_unit" else 0)
+        for sl in ticket.service_lines
+    )
+    hrs = sum((hl.hours * hl.rate) for hl in ticket.hour_logs)
+    travel = TRAVEL.get(ticket.travel_fee.value if hasattr(ticket.travel_fee, "value") else ticket.travel_fee, 0)
+    return round(svc + hrs + travel, 2)
+
+
+@router.get("/export")
+def export_tickets(
+    status_filter: Optional[str] = Query(None, alias="status"),
+    priority: Optional[str] = Query(None),
+    client_name: Optional[str] = Query(None),
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    fmt: str = Query("csv"),
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    q = db.query(Ticket)
+    if status_filter and status_filter != "All":
+        q = q.filter(Ticket.status == status_filter)
+    if priority and priority != "All":
+        q = q.filter(Ticket.priority == priority)
+    if client_name:
+        q = q.filter(Ticket.client_name.ilike(f"%{client_name}%"))
+    if date_from:
+        q = q.filter(Ticket.created_at >= datetime(date_from.year, date_from.month, date_from.day, tzinfo=timezone.utc))
+    if date_to:
+        q = q.filter(Ticket.created_at < datetime(date_to.year, date_to.month, date_to.day + 1, tzinfo=timezone.utc))
+
+    tickets = q.order_by(Ticket.created_at.desc()).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Ticket ID", "Type", "Status", "Priority", "Client Type",
+        "Client Name", "Client Email", "Client Phone",
+        "Title", "Travel Fee", "Services Total", "Labour Total", "Grand Total",
+        "SLA Response Due", "SLA Resolution Due",
+        "Created At", "Updated At",
+    ])
+    for t in tickets:
+        svc = sum(
+            (sl.base + (sl.per_unit * sl.extra_qty) if sl.type == "flat" else
+             sl.rate * sl.qty if sl.type == "per_unit" else 0)
+            for sl in t.service_lines
+        )
+        hrs = sum(hl.hours * hl.rate for hl in t.hour_logs)
+        travel_fee_key = t.travel_fee.value if hasattr(t.travel_fee, "value") else t.travel_fee
+        travel = {"travel_none": 0, "travel_15": 40, "travel_30": 60, "travel_30p": 80}.get(travel_fee_key, 0)
+        writer.writerow([
+            t.id,
+            t.ticket_type.value if hasattr(t.ticket_type, "value") else t.ticket_type,
+            t.status.value if hasattr(t.status, "value") else t.status,
+            t.priority.value if hasattr(t.priority, "value") else t.priority,
+            t.client_type.value if hasattr(t.client_type, "value") else t.client_type,
+            t.client_name,
+            t.client_email,
+            t.client_phone,
+            t.title,
+            travel,
+            round(svc, 2),
+            round(hrs, 2),
+            round(svc + hrs + travel, 2),
+            t.sla_response_due.isoformat() if t.sla_response_due else "",
+            t.sla_resolution_due.isoformat() if t.sla_resolution_due else "",
+            t.created_at.isoformat() if t.created_at else "",
+            t.updated_at.isoformat() if t.updated_at else "",
+        ])
+
+    output.seek(0)
+    filename = f"tickets_export_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 @router.get("", response_model=TicketsPage)
