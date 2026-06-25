@@ -3,6 +3,9 @@ import { fmt, esc, calcServiceTotal, calcHourTotal } from "./helpers.js";
 import { setTokens, clearTokens, registerLogoutHandler } from "./api/client.js";
 import { me, logout as apiLogout } from "./api/auth.js";
 import { listTickets, getTicket, createTicket, updateTicket, deleteTicket, exportTickets } from "./api/tickets.js";
+import { listComments, addComment, deleteComment } from "./api/comments.js";
+import { listTemplates, createTemplate, deleteTemplate } from "./api/templates.js";
+import { listUsers } from "./api/users.js";
 import { listClients, createClient, updateClient, deleteClient } from "./api/clients.js";
 import LoginPage from "./LoginPage.jsx";
 import SettingsPage from "./SettingsPage.jsx";
@@ -115,6 +118,7 @@ const apiToEditor = (t) => ({
   slaResponseDue:    t.sla_response_due ?? null,
   slaResolutionDue:  t.sla_resolution_due ?? null,
   clientId:          t.client_id ?? null,
+  assignedTo:        t.assigned_to ?? null,
   ticketType:    t.ticket_type,
   clientType:    t.client_type,
   status:        t.status,
@@ -151,6 +155,7 @@ const apiToEditor = (t) => ({
 
 const editorToApi = (t) => ({
   client_id:     t.clientId ?? null,
+  assigned_to:   t.assignedTo ?? null,
   ticket_type:   t.ticketType,
   status:        t.status,
   priority:      t.priority,
@@ -450,7 +455,7 @@ const HourRow = ({ log, defaultRate, onChange, onRemove }) => {
 };
 
 // ─── New ticket modal ─────────────────────────────────────────────────────────
-const NewTicketModal = ({ onCreate, onCancel, clients, onClientCreated }) => {
+const NewTicketModal = ({ onCreate, onCancel, clients, onClientCreated, templates }) => {
   const [ticketType,   setTicketType]   = useState("Incident");
   const [clientType,   setClientType]   = useState("business");
   const [title,        setTitle]        = useState("");
@@ -458,6 +463,13 @@ const NewTicketModal = ({ onCreate, onCancel, clients, onClientCreated }) => {
   const [clientId,     setClientId]     = useState("");
   const [search,       setSearch]       = useState("");
   const [showNewClient,setShowNewClient]= useState(false);
+
+  const applyTemplate = (tpl) => {
+    setTicketType(tpl.ticket_type);
+    setClientType(tpl.client_type);
+    setPriority(tpl.priority);
+    setTitle(tpl.title);
+  };
   const [newName,      setNewName]      = useState("");
   const [newEmail,     setNewEmail]     = useState("");
   const [newPhone,     setNewPhone]     = useState("");
@@ -498,6 +510,20 @@ const NewTicketModal = ({ onCreate, onCancel, clients, onClientCreated }) => {
     <div style={{ position:"fixed", inset:0, background:"rgba(13,27,42,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center" }}>
       <div style={{ background:"#fff", borderRadius:12, padding:"28px 32px", width:540, maxHeight:"90vh", overflowY:"auto", boxShadow:"0 8px 40px rgba(0,0,0,0.18)" }}>
         <div style={{ fontWeight:800, fontSize:18, color:brand.text, marginBottom:20 }}>New Ticket</div>
+
+        {templates && templates.length > 0 && (
+          <div style={{ marginBottom:16 }}>
+            <FieldLabel>Start from Template</FieldLabel>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+              {templates.map(tpl => (
+                <button key={tpl.id} onClick={() => applyTemplate(tpl)}
+                  style={{ padding:"5px 12px", borderRadius:20, fontSize:12, fontWeight:600, cursor:"pointer", border:`1.5px solid ${brand.blue}`, background:"#fff", color:brand.blue }}>
+                  {tpl.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div style={{ marginBottom:16 }}>
           <FieldLabel>Ticket Type</FieldLabel>
@@ -679,7 +705,7 @@ const ExportModal = ({ clients, onClose, onExport }) => {
 };
 
 // ─── Ticket list ──────────────────────────────────────────────────────────────
-const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch, statusFilter, onStatusFilter, quickFilter, onClearQuickFilter, onExport }) => {
+const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch, statusFilter, onStatusFilter, quickFilter, onClearQuickFilter, onExport, users, assigneeFilter, onAssigneeFilter }) => {
   const [showExport, setShowExport] = useState(false);
   const statusColor = { Open:"blue", "In Progress":"amber", "Awaiting Client":"gray", Resolved:"green", Closed:"gray" };
   const priorityColor = { Low:"gray", Medium:"blue", High:"amber", Urgent:"red" };
@@ -724,7 +750,15 @@ const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch
       )}
 
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, gap:12 }}>
-        <input value={search} onChange={e=>onSearch(e.target.value)} placeholder="Search tickets…" style={{ ...inp, maxWidth:280 }} />
+        <div style={{ display:"flex", gap:8 }}>
+          <input value={search} onChange={e=>onSearch(e.target.value)} placeholder="Search tickets…" style={{ ...inp, maxWidth:220 }} />
+          {users && users.length > 0 && (
+            <select value={assigneeFilter||""} onChange={e => onAssigneeFilter(e.target.value ? parseInt(e.target.value) : null)} style={{ ...inp, maxWidth:180 }}>
+              <option value="">All Assignees</option>
+              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          )}
+        </div>
         <div style={{ display:"flex", gap:6 }}>
           {["All", ...STATUS_OPTIONS].map(s => (
             <button key={s} onClick={()=>onStatusFilter(s)}
@@ -775,6 +809,7 @@ const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch
               <div style={{ fontWeight:700, fontSize:15, color:brand.text }}>{t.title||"(No title)"}</div>
               <div style={{ fontSize:12, color:brand.muted, marginTop:3 }}>
                 {t.client_name||"No client name"} &nbsp;·&nbsp; Created {t.created_at?.split("T")[0]}
+                {t.assigned_to && users && (() => { const u = users.find(u => u.id === t.assigned_to); return u ? <> &nbsp;·&nbsp; <span style={{ color:brand.blue, fontWeight:600 }}>Assigned: {u.name}</span></> : null; })()}
               </div>
             </div>
             <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6, marginLeft:20 }}>
@@ -802,10 +837,96 @@ const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch
   );
 };
 
+// ─── Comments section ─────────────────────────────────────────────────────────
+const CommentsSection = ({ ticketId, currentUser }) => {
+  const [comments, setComments] = useState([]);
+  const [body,       setBody]       = useState("");
+  const [isInternal, setIsInternal] = useState(false);
+  const [posting,    setPosting]    = useState(false);
+
+  useEffect(() => {
+    listComments(ticketId).then(setComments).catch(() => {});
+  }, [ticketId]);
+
+  const handlePost = async () => {
+    if (!body.trim()) return;
+    setPosting(true);
+    try {
+      const c = await addComment(ticketId, { body: body.trim(), is_internal: isInternal });
+      setComments(prev => [...prev, c]);
+      setBody("");
+    } finally { setPosting(false); }
+  };
+
+  const handleDelete = async (id) => {
+    await deleteComment(ticketId, id);
+    setComments(prev => prev.filter(c => c.id !== id));
+  };
+
+  return (
+    <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "16px 18px", marginTop: 20 }}>
+      <SectionHeader>Comments</SectionHeader>
+      {comments.length === 0 && (
+        <div style={{ color: brand.muted, fontSize: 13, marginBottom: 14 }}>No comments yet.</div>
+      )}
+      {comments.map(c => (
+        <div key={c.id} style={{ background: c.is_internal ? "#fffbf0" : brand.bg, border: `1px solid ${c.is_internal ? brand.accent + "55" : brand.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <span style={{ fontWeight: 700, fontSize: 13, color: brand.text }}>{c.author_name}</span>
+              {c.is_internal && <span style={{ fontSize: 10, fontWeight: 700, background: brand.accent, color: "#fff", borderRadius: 20, padding: "1px 8px", textTransform: "uppercase" }}>Internal</span>}
+              <span style={{ fontSize: 11, color: brand.muted }}>{new Date(c.created_at).toLocaleString()}</span>
+            </div>
+            {(currentUser?.id === c.author_id || currentUser?.role === "admin") && (
+              <button onClick={() => handleDelete(c.id)} style={{ background: "none", border: "none", color: brand.muted, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>×</button>
+            )}
+          </div>
+          <div style={{ fontSize: 13, color: brand.text, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{c.body}</div>
+        </div>
+      ))}
+      <div style={{ marginTop: 12 }}>
+        <textarea rows={3} value={body} onChange={e => setBody(e.target.value)} placeholder="Add a comment…" style={{ ...inp, resize: "vertical", marginBottom: 8 }} />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: brand.muted, cursor: "pointer" }}>
+            <input type="checkbox" checked={isInternal} onChange={e => setIsInternal(e.target.checked)} />
+            Internal note (not visible to client)
+          </label>
+          <Btn onClick={handlePost} variant="secondary" small disabled={posting || !body.trim()}>
+            {posting ? "Posting…" : "Post Comment"}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── Ticket editor ────────────────────────────────────────────────────────────
-const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoice }) => {
+const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoice, users, currentUser, onTemplateSaved, showToast }) => {
   const [t, setT] = useState(ticket);
+  const [savingTpl, setSavingTpl] = useState(false);
   const up = (field, val) => setT(prev => ({ ...prev, [field]: val }));
+
+  const handleSaveAsTemplate = async () => {
+    const name = window.prompt("Template name:", t.title || "New Template");
+    if (!name) return;
+    setSavingTpl(true);
+    try {
+      await createTemplate({
+        name,
+        ticket_type: t.ticketType,
+        client_type: t.clientType,
+        priority: t.priority,
+        title: t.title,
+        description: t.description,
+        internal_notes: t.internalNotes,
+        travel_fee: t.travelFee,
+      });
+      showToast?.("Template saved.", "ok");
+      onTemplateSaved?.();
+    } catch {
+      showToast?.("Failed to save template.", "err");
+    } finally { setSavingTpl(false); }
+  };
 
   const catalogue   = SERVICES[t.clientType] || [];
   const defaultRate = t.clientType === "residential" ? 85 : 110;
@@ -836,6 +957,7 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
           </div>
         </div>
         <div style={{ display:"flex", gap:8 }}>
+          <Btn onClick={handleSaveAsTemplate} variant="ghost" disabled={savingTpl}>{savingTpl ? "Saving…" : "Save as Template"}</Btn>
           <Btn onClick={()=>printTicket(t)} variant="secondary">🖨 Export PDF</Btn>
           <Btn onClick={()=>onSave(t)} variant="accent" disabled={saving}>{saving ? "Saving…" : "✓ Save Ticket"}</Btn>
         </div>
@@ -864,6 +986,13 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
         <div>
           <FieldLabel>Priority</FieldLabel>
           <Select value={t.priority} onChange={v=>up("priority",v)} options={PRIORITY_OPTIONS} />
+        </div>
+        <div>
+          <FieldLabel>Assigned To</FieldLabel>
+          <select value={t.assignedTo||""} onChange={e=>up("assignedTo", e.target.value ? parseInt(e.target.value) : null)} style={inp}>
+            <option value="">— Unassigned —</option>
+            {(users||[]).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
         </div>
       </div>
 
@@ -1002,6 +1131,8 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
           )}
         </div>
       </div>
+
+      {t.id && <CommentsSection ticketId={t.id} currentUser={currentUser} />}
     </div>
   );
 };
@@ -1019,9 +1150,12 @@ export default function App() {
   const [saving, setSaving]         = useState(false);
   const [newModal, setNewModal]     = useState(false);
   const [clients, setClients]       = useState([]);
+  const [users, setUsers]           = useState([]);
+  const [templates, setTemplates]   = useState([]);
   const [search, setSearch]         = useState("");
   const [statusFilter, setStatus]   = useState("All");
   const [quickFilter, setQuickFilter] = useState(null); // { label, fn } — client-side post-filter
+  const [assigneeFilter, setAssigneeFilter] = useState(null);
   const [toast, setToast]           = useState(null);
   const [invoiceDraft, setInvoiceDraft] = useState(null);
 
@@ -1056,12 +1190,18 @@ export default function App() {
     try { setClients(await listClients()); } catch {}
   }, []);
 
+  const loadTemplates = useCallback(async () => {
+    try { setTemplates(await listTemplates()); } catch {}
+  }, []);
+
   const handleLogin = async () => {
     try {
       const profile = await me();
       setUser(profile);
       setAuthed(true);
       listClients().then(setClients).catch(() => {});
+      listUsers().then(setUsers).catch(() => {});
+      listTemplates().then(setTemplates).catch(() => {});
     } catch {
       clearTokens();
       showToast("Could not load user profile. Please try again.", "err");
@@ -1075,6 +1215,7 @@ export default function App() {
       const params = {};
       if (search) params.search = search;
       if (statusFilter !== "All") params.status = statusFilter;
+      if (assigneeFilter) params.assigned_to = assigneeFilter;
       const data = await listTickets(params);
       setTickets(data.items);
       setTotal(data.total);
@@ -1083,7 +1224,7 @@ export default function App() {
     } finally {
       setLoadingList(false);
     }
-  }, [search, statusFilter]);
+  }, [search, statusFilter, assigneeFilter]);
 
   useEffect(() => {
     if (authed) loadList();
@@ -1248,6 +1389,9 @@ export default function App() {
             quickFilter={quickFilter}
             onClearQuickFilter={() => setQuickFilter(null)}
             onExport={exportTickets}
+            users={users}
+            assigneeFilter={assigneeFilter}
+            onAssigneeFilter={setAssigneeFilter}
           />
         )}
         {view === "edit" && activeTicket && (
@@ -1258,6 +1402,10 @@ export default function App() {
             onDelete={handleDelete}
             saving={saving}
             onCreateInvoice={handleCreateInvoiceFromTicket}
+            users={users}
+            currentUser={user}
+            onTemplateSaved={loadTemplates}
+            showToast={showToast}
           />
         )}
         {view === "clients" && (
@@ -1277,6 +1425,7 @@ export default function App() {
           onCancel={() => setNewModal(false)}
           clients={clients}
           onClientCreated={loadClients}
+          templates={templates}
         />
       )}
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}

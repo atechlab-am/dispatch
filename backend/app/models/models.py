@@ -80,8 +80,10 @@ class User(Base):
     active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
-    tickets = relationship("Ticket", back_populates="creator")
+    tickets = relationship("Ticket", foreign_keys="Ticket.created_by", back_populates="creator")
+    assigned_tickets = relationship("Ticket", foreign_keys="Ticket.assigned_to", back_populates="assignee")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+    comments = relationship("TicketComment", back_populates="author", cascade="all, delete-orphan")
 
 
 class RefreshToken(Base):
@@ -120,11 +122,14 @@ class Ticket(Base):
     sla_resolution_due = Column(DateTime, nullable=True)
     client_id = Column(Integer, ForeignKey("clients.id"), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     client = relationship("Client", back_populates="tickets")
-    creator = relationship("User", back_populates="tickets")
+    creator = relationship("User", foreign_keys=[created_by], back_populates="tickets")
+    assignee = relationship("User", foreign_keys=[assigned_to], back_populates="assigned_tickets")
     service_lines = relationship("ServiceLine", back_populates="ticket", cascade="all, delete-orphan")
     hour_logs = relationship("HourLog", back_populates="ticket", cascade="all, delete-orphan")
+    comments = relationship("TicketComment", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketComment.created_at")
 
 
 class InvoiceStatus(str, enum.Enum):
@@ -205,3 +210,33 @@ class HourLog(Base):
     description = Column(Text, nullable=False, default="")
 
     ticket = relationship("Ticket", back_populates="hour_logs")
+
+
+class TicketComment(Base):
+    __tablename__ = "ticket_comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_id = Column(String(32), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False)
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    body = Column(Text, nullable=False)
+    is_internal = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    ticket = relationship("Ticket", back_populates="comments")
+    author = relationship("User", back_populates="comments")
+
+
+class TicketTemplate(Base):
+    __tablename__ = "ticket_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    ticket_type = Column(SAEnum(TicketType, values_callable=lambda e: [m.value for m in e]), nullable=False, default=TicketType.incident)
+    client_type = Column(SAEnum(ClientType, values_callable=lambda e: [m.value for m in e]), nullable=False, default=ClientType.business)
+    priority = Column(SAEnum(TicketPriority, values_callable=lambda e: [m.value for m in e]), nullable=False, default=TicketPriority.medium)
+    title = Column(String(500), nullable=False, default="")
+    description = Column(Text, nullable=False, default="")
+    internal_notes = Column(Text, nullable=False, default="")
+    travel_fee = Column(SAEnum(TravelFee, values_callable=lambda e: [m.value for m in e]), nullable=False, default=TravelFee.none)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))

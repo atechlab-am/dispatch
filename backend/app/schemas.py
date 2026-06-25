@@ -1,7 +1,7 @@
 from datetime import datetime, date
 from typing import Optional
 from pydantic import BaseModel, EmailStr, Field
-from .models.models import TicketType, TicketStatus, TicketPriority, ClientType, TravelFee, ServiceLineType
+from .models.models import TicketType, TicketStatus, TicketPriority, ClientType, TravelFee, ServiceLineType, UserRole
 
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -71,6 +71,7 @@ class HourLogOut(HourLogIn):
 
 class TicketIn(BaseModel):
     client_id: Optional[int] = None
+    assigned_to: Optional[int] = None
     ticket_type: TicketType = TicketType.incident
     status: TicketStatus = TicketStatus.open
     priority: TicketPriority = TicketPriority.medium
@@ -90,6 +91,7 @@ class TicketIn(BaseModel):
 class TicketOut(BaseModel):
     id: str
     client_id: Optional[int] = None
+    assigned_to: Optional[int] = None
     ticket_type: TicketType
     status: TicketStatus
     priority: TicketPriority
@@ -124,6 +126,7 @@ class TicketListItem(BaseModel):
     created_at: datetime
     updated_at: datetime
     created_by: int
+    assigned_to: Optional[int] = None
     sla_response_due: Optional[datetime] = None
     sla_resolution_due: Optional[datetime] = None
 
@@ -135,3 +138,43 @@ class TicketsPage(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+# ─── Comments ─────────────────────────────────────────────────────────────────
+
+class CommentIn(BaseModel):
+    body: str = Field(..., min_length=1, max_length=10000)
+    is_internal: bool = False
+
+
+class CommentOut(BaseModel):
+    id: int
+    ticket_id: str
+    author_id: int
+    author_name: str
+    body: str
+    is_internal: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ─── Templates ────────────────────────────────────────────────────────────────
+
+class TemplateIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    ticket_type: TicketType = TicketType.incident
+    client_type: ClientType = ClientType.business
+    priority: TicketPriority = TicketPriority.medium
+    title: str = Field("", max_length=500)
+    description: str = Field("", max_length=20000)
+    internal_notes: str = Field("", max_length=20000)
+    travel_fee: TravelFee = TravelFee.none
+
+
+class TemplateOut(TemplateIn):
+    id: int
+    created_by: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

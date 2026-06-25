@@ -5,7 +5,6 @@ node_modules/
 dist/
 
 # Environment — .env.demo is intentionally committed (no real secrets)
-.env
 .env.local
 .env.*.local
 !.env.demo
@@ -32,3 +31,5 @@ coverage.json
 .idea/
 *.swp
 *.swo
+
+.claude/*

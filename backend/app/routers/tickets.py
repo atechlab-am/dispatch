@@ -12,6 +12,7 @@ from ..database import get_db
 from ..models.models import User, Ticket, ServiceLine, HourLog, TicketStatus
 from ..schemas import TicketIn, TicketOut, TicketsPage, TicketListItem
 from ..security import get_current_user
+from .. import email as mailer
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
 
@@ -175,6 +176,7 @@ def export_tickets(
 def list_tickets(
     search: Optional[str] = Query(None),
     status_filter: Optional[str] = Query(None, alias="status"),
+    assigned_to: Optional[int] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -184,6 +186,9 @@ def list_tickets(
 
     if status_filter and status_filter != "All":
         q = q.filter(Ticket.status == status_filter)
+
+    if assigned_to:
+        q = q.filter(Ticket.assigned_to == assigned_to)
 
     if search:
         term = f"%{search}%"
@@ -216,6 +221,7 @@ def create_ticket(
     ticket = Ticket(
         id=ticket_id,
         client_id=body.client_id,
+        assigned_to=body.assigned_to,
         ticket_type=body.ticket_type,
         status=body.status,
         priority=body.priority,
@@ -239,6 +245,20 @@ def create_ticket(
     _apply_hour_logs(ticket, body.hour_logs, db)
     db.commit()
     db.refresh(ticket)
+
+    assignee_email = ""
+    if body.assigned_to:
+        assignee = db.query(User).filter(User.id == body.assigned_to).first()
+        assignee_email = assignee.email if assignee else ""
+    mailer.notify_ticket_created(
+        ticket_id=ticket_id,
+        title=body.title,
+        priority=body.priority.value,
+        client_email=body.client_email,
+        client_name=body.client_name,
+        assignee_email=assignee_email,
+    )
+
     return ticket
 
 
@@ -265,8 +285,10 @@ def update_ticket(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
+    prev_status = ticket.status.value if hasattr(ticket.status, "value") else ticket.status
     priority_changed = ticket.priority != body.priority
     ticket.client_id = body.client_id
+    ticket.assigned_to = body.assigned_to
     ticket.ticket_type = body.ticket_type
     ticket.status = body.status
     ticket.priority = body.priority
@@ -293,6 +315,22 @@ def update_ticket(
     _apply_hour_logs(ticket, body.hour_logs, db)
     db.commit()
     db.refresh(ticket)
+
+    assignee_email = ""
+    if body.assigned_to:
+        assignee = db.query(User).filter(User.id == body.assigned_to).first()
+        assignee_email = assignee.email if assignee else ""
+    new_status = body.status.value if hasattr(body.status, "value") else body.status
+    mailer.notify_ticket_updated(
+        ticket_id=ticket_id,
+        title=body.title,
+        status=new_status,
+        priority=body.priority.value if hasattr(body.priority, "value") else body.priority,
+        client_email=body.client_email,
+        assignee_email=assignee_email,
+        prev_status=prev_status,
+    )
+
     return ticket
 
 

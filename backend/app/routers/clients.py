@@ -62,6 +62,18 @@ def create_client(
     return client
 
 
+@router.get("/{client_id}", response_model=ClientOut)
+def get_client(
+    client_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    c = db.query(Client).filter(Client.id == client_id).first()
+    if not c:
+        raise HTTPException(status_code=404, detail="Client not found")
+    return c
+
+
 @router.put("/{client_id}", response_model=ClientOut)
 def update_client(
     client_id: int,

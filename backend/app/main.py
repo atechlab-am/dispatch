@@ -14,7 +14,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from . import database as _db
 from .models.models import RefreshToken
-from .routers import auth, tickets, users, setup, clients, invoices, dashboard
+from .routers import auth, tickets, users, setup, clients, invoices, dashboard, comments, templates
 from . import config
 
 
@@ -103,6 +103,8 @@ app.include_router(users.router, prefix="/api")
 app.include_router(clients.router, prefix="/api")
 app.include_router(invoices.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
+app.include_router(comments.router, prefix="/api")
+app.include_router(templates.router, prefix="/api")
 
 
 @app.get("/health")

@@ -73,7 +73,44 @@
 - [x] `.env.example`: documented `ALLOWED_ORIGINS` and `WEB_CONCURRENCY`
 - [x] Alembic migrations — `migrations/` directory with `env.py`, `script.py.mako`, initial migration `0001_initial_schema.py`; startup runs `alembic upgrade head`
 
-## Phase 5 — Suite Integration (Optional / Future)
+## Phase 5 — Clients, Invoices, SLA, Dashboard, Export (Complete)
+- [x] Clients page — top-level nav, full CRUD with search
+- [x] Invoices page — top-level nav, line items, tax presets, status filter
+- [x] Create invoice from ticket — pre-populated with services/labour/travel
+- [x] SLA tracking — deadlines per priority, countdown badge, progress bar panel
+- [x] Dashboard home — stat cards, charts, My Active Tickets, SLA at Risk, Recent Open
+- [x] Clickable dashboard — stat cards and section buttons navigate to filtered ticket list
+- [x] Ticket export — CSV download with status/priority/client/date filters
+- [x] Alembic migrations 0003–0005 (clients, invoices, SLA columns)
+- [x] upgrade.sh — one-command production upgrade script
+
+## Phase 6 — Ticket Improvements
+- [x] Ticket comments — timestamped notes with internal flag; client notified on non-internal comments via email
+- [x] Ticket assignment — assign to technician; assignee filter in ticket list; assignee shown on ticket row
+- [x] Email notifications — client + assignee notified on ticket create, status change, and new comment (SMTP optional via env)
+- [x] Ticket templates — save ticket as template; apply template when creating a new ticket
+- [ ] File attachments on tickets — upload screenshots or documents (store locally or S3)
+- [ ] Recurring tickets — schedule a ticket to auto-create on a repeating interval (e.g. monthly maintenance)
+
+## Phase 7 — Invoice & Billing Improvements
+- [ ] Invoice PDF export — generate a branded PDF invoice (same style as ticket PDF)
+- [ ] Invoice email — send invoice directly to client email from within the app
+- [ ] Payment tracking — record partial payments against an invoice
+- [ ] Invoice number sequence — auto-increment invoice numbers (INV-2026-00001)
+- [ ] Client statement — summary view of all invoices and outstanding balance per client
+
+## Phase 8 — Client Portal (Future)
+- [ ] Client-facing portal — read-only view where clients can see their own tickets and invoices
+- [ ] Client login — separate auth flow for client accounts (non-admin, scoped to their data)
+- [ ] Client ticket submission — clients can open new tickets via the portal
+
+## Phase 9 — Reporting
+- [ ] Revenue report — total billed per month/quarter, breakdown by client and service type
+- [ ] Technician report — tickets resolved and hours logged per technician
+- [ ] SLA compliance report — % tickets resolved within SLA per priority over a date range
+- [ ] Export reports as CSV or PDF
+
+## Phase 10 — Suite Integration
 - [ ] Pulse alert → auto-create ticket via webhook
 - [ ] Tether asset link on ticket (lookup by asset tag)
 - [ ] Shared ATech Solutions nav/header across suite apps
