@@ -292,6 +292,28 @@ class InvoicePayment(Base):
     invoice = relationship("Invoice", back_populates="payments")
 
 
+class Document(Base):
+    """Playbook entries and client-facing forms stored in the uploads volume."""
+    __tablename__ = "documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=False, default="")
+    category = Column(String(20), nullable=False, default="internal")  # internal | client_facing
+    # comma-separated ticket type values, e.g. "Incident,Service Request"
+    ticket_types = Column(Text, nullable=False, default="")
+    # comma-separated free-form tags, e.g. "networking,backup"
+    tags = Column(Text, nullable=False, default="")
+    requires_signature = Column(Boolean, nullable=False, default=False)
+    filename = Column(String(255), nullable=False)       # UUID-based name on disk
+    original_name = Column(String(255), nullable=False)
+    mime_type = Column(String(100), nullable=False, default="")
+    size = Column(Integer, nullable=False, default=0)
+    uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
 class TicketTemplate(Base):
     __tablename__ = "ticket_templates"
 

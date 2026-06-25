@@ -99,13 +99,13 @@
 - [x] Invoice number sequence — auto-increment invoice numbers (INV-2026-00001) [was already done in Phase 5]
 - [x] Client statement — summary modal per client: all invoices, total billed, total paid, outstanding
 
-## Phase 8 — Document Library & Ticket Playbooks
-- [ ] Document model — name, description, category (internal / client-facing), ticket_type tags (multi), free-form tags, requires_signature flag, stored in uploads volume
-- [ ] Alembic migration 0009 — documents table + document_ticket_types join table
-- [ ] Documents API — upload, list, get, update metadata, delete (admin only for delete)
-- [ ] Document Library page — manage documents (upload, name, tag by ticket type + free-form tags, set category, delete)
-- [ ] Ticket "Playbook & Documents" section — surfaces matched docs by ticket type + tags; split Internal / Client-Facing; download button on each; "Send to Client" email button on client-facing docs
-- [ ] Future hook: requires_signature flag + signed copy upload slot on ticket (data model in place, UI wired later for e-sign)
+## Phase 8 — Document Library & Ticket Playbooks (Complete)
+- [x] Document model — name, description, category (internal / client-facing), ticket_type tags (multi), free-form tags, requires_signature flag, stored in uploads volume
+- [x] Alembic migration 0009 — documents table
+- [x] Documents API — upload, list, get, update metadata, delete (admin only for delete/update)
+- [x] Document Library page — Settings > Document Library tab (admin); upload modal, edit modal, filter by category/ticket type/search, download, delete
+- [x] Ticket "Playbook & Documents" section — surfaces matched docs by ticket type; split Internal / Client-Facing; download button on each; requires_signature indicator
+- [x] Future hook: requires_signature flag in data model and UI; signed copy upload slot for later e-sign wiring
 
 ## Phase 9 — Client Portal (Future)
 - [ ] Client-facing portal — read-only view where clients can see their own tickets and invoices

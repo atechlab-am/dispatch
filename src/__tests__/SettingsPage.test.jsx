@@ -10,6 +10,14 @@ vi.mock("../api/users.js", () => ({
   changeOwnPassword: vi.fn(),
 }));
 
+vi.mock("../api/documents.js", () => ({
+  listDocuments: vi.fn().mockResolvedValue([]),
+  uploadDocument: vi.fn(),
+  updateDocument: vi.fn(),
+  deleteDocument: vi.fn(),
+  downloadUrl: vi.fn(id => `/api/documents/${id}/download`),
+}));
+
 import { listUsers, createUser, changeOwnPassword } from "../api/users.js";
 
 const adminUser = { id: 1, name: "Admin", email: "admin@test.com", role: "admin", active: true };

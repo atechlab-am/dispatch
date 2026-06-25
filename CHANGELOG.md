@@ -3,6 +3,17 @@
 ## [Unreleased]
 
 ### Added
+- **Document Library** — admin-only Settings tab to upload, tag, and manage internal and client-facing documents (PDF, Word, Excel, images, etc.); filter by category and ticket type; download and delete from the library
+- **Playbook & Documents section on tickets** — surfaces matched documents automatically based on ticket type; split into Internal / Client-Facing categories with per-document download links; `requires_signature` flag shown when applicable
+- `GET /api/documents` — list documents with optional `?category=` and `?ticket_type=` filters
+- `POST /api/documents` — upload document (multipart, 20 MB limit); admin only for delete/update
+- `GET /api/documents/{id}` — get document metadata
+- `PUT /api/documents/{id}` — update metadata (admin only)
+- `GET /api/documents/{id}/download` — download file
+- `DELETE /api/documents/{id}` — delete document and file (admin only)
+- Alembic migration `0009_documents` — `documents` table
+- 17 new backend tests (148 total)
+
 - **Payment tracking** — record partial or full payments against any invoice (amount, method, date, note); payments panel embedded in invoice editor; running balance displayed; invoice auto-marked Paid when fully settled
 - **Invoice PDF** — "⬇ PDF" button opens a print-ready branded HTML invoice in a new browser tab; also available directly from the invoice list
 - **Invoice email** — "✉ Send" button on invoice editor opens a modal to send the invoice by email with an optional message; invoice auto-promoted from Draft → Sent on send

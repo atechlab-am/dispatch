@@ -9,8 +9,10 @@ import { listAttachments, uploadAttachment, deleteAttachment, downloadUrl } from
 import { listRecurring, createRecurring, updateRecurring, deleteRecurring } from "./api/recurring.js";
 import { listUsers } from "./api/users.js";
 import { listClients, createClient, updateClient, deleteClient } from "./api/clients.js";
+import { listDocuments, downloadUrl as docDownloadUrl } from "./api/documents.js";
 import LoginPage from "./LoginPage.jsx";
 import SettingsPage from "./SettingsPage.jsx";
+import DocumentsPage from "./DocumentsPage.jsx";
 import ClientsPage from "./ClientsPage.jsx";
 import InvoicesPage from "./InvoicesPage.jsx";
 import DashboardPage from "./DashboardPage.jsx";
@@ -1020,6 +1022,76 @@ const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch
 };
 
 // ─── Comments section ─────────────────────────────────────────────────────────
+// ─── Playbook & Documents section ─────────────────────────────────────────────
+const PlaybookSection = ({ ticketType }) => {
+  const [docs, setDocs] = useState(null); // null = loading
+
+  useEffect(() => {
+    if (!ticketType) return;
+    listDocuments({ ticket_type: ticketType })
+      .then(setDocs)
+      .catch(() => setDocs([]));
+  }, [ticketType]);
+
+  const internal = (docs || []).filter(d => d.category === "internal");
+  const clientFacing = (docs || []).filter(d => d.category === "client_facing");
+
+  if (docs === null) return null;
+  if (internal.length === 0 && clientFacing.length === 0) return null;
+
+  const catBg = (cat) => cat === "internal" ? "#e0eaff" : "#fff3e0";
+  const catColor = (cat) => cat === "internal" ? brand.blue : "#c47a00";
+
+  const DocRow = ({ doc }) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 7, marginBottom: 6 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 600, fontSize: 13, color: brand.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{doc.name}</div>
+        {doc.description && <div style={{ fontSize: 12, color: brand.muted, marginTop: 1 }}>{doc.description}</div>}
+        {doc.tags.length > 0 && (
+          <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
+            {doc.tags.map(t => (
+              <span key={t} style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 20, padding: "1px 7px", fontSize: 11, color: brand.muted }}>{t}</span>
+            ))}
+          </div>
+        )}
+        {doc.requires_signature && (
+          <div style={{ fontSize: 11, color: "#c47a00", marginTop: 3, fontWeight: 600 }}>✎ Requires signature</div>
+        )}
+      </div>
+      <a href={docDownloadUrl(doc.id)} download={doc.original_name}
+        style={{ padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, background: "#fff", color: brand.blue, border: `1.5px solid ${brand.blue}`, textDecoration: "none", whiteSpace: "nowrap", flexShrink: 0 }}>
+        Download
+      </a>
+    </div>
+  );
+
+  const SubSection = ({ title, items, cat }) => {
+    if (items.length === 0) return null;
+    return (
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <span style={{ background: catBg(cat), color: catColor(cat), borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+            {cat === "internal" ? "Internal" : "Client-Facing"}
+          </span>
+          <span style={{ fontSize: 12, color: brand.muted }}>{items.length} document{items.length !== 1 ? "s" : ""}</span>
+        </div>
+        {items.map(d => <DocRow key={d.id} doc={d} />)}
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "16px 18px", marginTop: 20 }}>
+      <SectionHeader>Playbook & Documents</SectionHeader>
+      <div style={{ fontSize: 12, color: brand.muted, marginBottom: 14 }}>
+        Documents matched to <strong>{ticketType}</strong> tickets.
+      </div>
+      <SubSection title="Internal" items={internal} cat="internal" />
+      <SubSection title="Client-Facing" items={clientFacing} cat="client_facing" />
+    </div>
+  );
+};
+
 const CommentsSection = ({ ticketId, currentUser }) => {
   const [comments, setComments] = useState([]);
   const [body,       setBody]       = useState("");
@@ -1386,6 +1458,7 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
         </div>
       </div>
 
+      {t.id && <PlaybookSection ticketType={t.ticketType} />}
       {t.id && <CommentsSection ticketId={t.id} currentUser={currentUser} />}
       {t.id && <AttachmentsSection ticketId={t.id} currentUser={currentUser} />}
     </div>
@@ -1857,6 +1930,7 @@ export default function App() {
             { id:"clients",   label:"Clients" },
             { id:"invoices",  label:"Invoices" },
             { id:"recurring", label:"Recurring" },
+            { id:"documents", label:"Documents" },
           ].map(n => (
             <button key={n.id} onClick={() => setView(n.id)}
               style={{ background: view === n.id ? "rgba(255,255,255,0.18)" : "none", border:"none", borderBottom: view === n.id ? "2px solid #fff" : "2px solid transparent", color: view === n.id ? "#fff" : "rgba(255,255,255,0.7)", cursor:"pointer", padding:"0 14px", height:54, fontSize:13, fontWeight: view === n.id ? 700 : 500, fontFamily:"inherit", transition:"all 0.15s" }}>
@@ -1923,6 +1997,9 @@ export default function App() {
         )}
         {view === "recurring" && (
           <RecurringPage showToast={showToast} clients={clients} />
+        )}
+        {view === "documents" && (
+          <DocumentsPage showToast={showToast} />
         )}
         {view === "settings" && (
           <SettingsPage user={user} showToast={showToast} />
