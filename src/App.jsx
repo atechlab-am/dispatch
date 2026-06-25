@@ -16,6 +16,8 @@ import InvoicesPage from "./InvoicesPage.jsx";
 import DashboardPage from "./DashboardPage.jsx";
 import SetupPage from "./SetupPage.jsx";
 import { getSetupStatus } from "./api/setup.js";
+import AppNew from "./AppNew.jsx";
+import { BrandingProvider } from "./branding.jsx";
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const brand = {
@@ -706,9 +708,164 @@ const ExportModal = ({ clients, onClose, onExport }) => {
   );
 };
 
+// ─── Board view ───────────────────────────────────────────────────────────────
+const BOARD_COLUMNS = [
+  { id: "Open",            label: "Open",            color: "#3b82f6", light: "#eff6ff" },
+  { id: "In Progress",     label: "In Progress",     color: "#8b5cf6", light: "#f5f3ff" },
+  { id: "Awaiting Client", label: "Awaiting Client", color: "#f59e0b", light: "#fffbeb" },
+  { id: "Resolved",        label: "Resolved",        color: "#10b981", light: "#f0fdf4" },
+  { id: "Closed",          label: "Closed",          color: "#6b7280", light: "#f9fafb" },
+];
+
+const PRIORITY_DOT = { Low: "#6b7280", Medium: "#3b82f6", High: "#f59e0b", Urgent: "#ef4444" };
+
+const BoardView = ({ tickets, onSelect, onStatusChange, users }) => {
+  const [dragging, setDragging]   = useState(null);   // ticket id
+  const [overCol,  setOverCol]    = useState(null);   // column id being dragged over
+  const [overCard, setOverCard]   = useState(null);   // card id being hovered over
+
+  const byStatus = (status) => tickets.filter(t => t.status === status);
+
+  const handleDragStart = (e, ticketId) => {
+    setDragging(ticketId);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragEnd = () => {
+    setDragging(null);
+    setOverCol(null);
+    setOverCard(null);
+  };
+
+  const handleDrop = (e, colId) => {
+    e.preventDefault();
+    if (dragging && dragging !== colId) {
+      const ticket = tickets.find(t => t.id === dragging);
+      if (ticket && ticket.status !== colId) {
+        onStatusChange(dragging, colId);
+      }
+    }
+    setDragging(null);
+    setOverCol(null);
+    setOverCard(null);
+  };
+
+  const assigneeName = (id) => users?.find(u => u.id === id)?.name?.split(" ")[0] ?? null;
+
+  return (
+    <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 12, minHeight: 500, alignItems: "flex-start" }}>
+      {BOARD_COLUMNS.map(col => {
+        const cards = byStatus(col.id);
+        const isOver = overCol === col.id;
+        return (
+          <div
+            key={col.id}
+            onDragOver={e => { e.preventDefault(); setOverCol(col.id); }}
+            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setOverCol(null); }}
+            onDrop={e => handleDrop(e, col.id)}
+            style={{
+              flex: "0 0 240px", minWidth: 240,
+              background: isOver ? col.light : "#f8fafc",
+              border: `2px solid ${isOver ? col.color : "#e2e8f0"}`,
+              borderRadius: 12,
+              transition: "border-color 0.15s, background 0.15s",
+              display: "flex", flexDirection: "column",
+            }}>
+            {/* Column header */}
+            <div style={{ padding: "12px 14px 10px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: col.color, flexShrink: 0 }} />
+              <span style={{ fontWeight: 700, fontSize: 13, color: "#0f172a" }}>{col.label}</span>
+              <span style={{ marginLeft: "auto", background: "#e2e8f0", color: "#64748b", borderRadius: 20, padding: "1px 8px", fontSize: 11, fontWeight: 700 }}>{cards.length}</span>
+            </div>
+
+            {/* Cards */}
+            <div style={{ padding: "8px 8px", display: "flex", flexDirection: "column", gap: 7, flex: 1, minHeight: 80 }}>
+              {cards.map(t => {
+                const sla = slaStatus(t.sla_resolution_due, t.created_at, t.priority);
+                const isDraggingThis = dragging === t.id;
+                return (
+                  <div
+                    key={t.id}
+                    draggable
+                    onDragStart={e => handleDragStart(e, t.id)}
+                    onDragEnd={handleDragEnd}
+                    onClick={() => !dragging && onSelect(t.id)}
+                    style={{
+                      background: "#fff",
+                      border: `1px solid ${isDraggingThis ? col.color : "#e2e8f0"}`,
+                      borderRadius: 9,
+                      padding: "10px 12px",
+                      cursor: "grab",
+                      opacity: isDraggingThis ? 0.4 : 1,
+                      boxShadow: isDraggingThis ? "none" : "0 1px 3px rgba(0,0,0,0.06)",
+                      transition: "opacity 0.15s, box-shadow 0.15s",
+                      borderLeft: `3px solid ${col.color}`,
+                      userSelect: "none",
+                    }}
+                    onMouseEnter={e => { if (!dragging) e.currentTarget.style.boxShadow = "0 3px 10px rgba(0,0,0,0.10)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.boxShadow = isDraggingThis ? "none" : "0 1px 3px rgba(0,0,0,0.06)"; }}>
+
+                    {/* Ticket ID + type */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", fontFamily: "monospace" }}>{t.id}</span>
+                      <span style={{ fontSize: 10, background: "#f1f5f9", color: "#64748b", borderRadius: 4, padding: "1px 6px", fontWeight: 600 }}>{t.ticket_type}</span>
+                    </div>
+
+                    {/* Title */}
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", lineHeight: 1.4, marginBottom: 8, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                      {t.title || "(No title)"}
+                    </div>
+
+                    {/* Client */}
+                    {t.client_name && (
+                      <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {t.client_type === "business" ? "🏢" : "🏠"} {t.client_name}
+                      </div>
+                    )}
+
+                    {/* Footer row */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: PRIORITY_DOT[t.priority] ?? "#94a3b8", flexShrink: 0 }} />
+                        <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b" }}>{t.priority}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {sla && !["Resolved","Closed"].includes(t.status) && (
+                          <span style={{ fontSize: 10, fontWeight: 700, color: sla.breached ? "#ef4444" : sla.color, background: sla.breached ? "#fef2f2" : "#f0fdf4", borderRadius: 4, padding: "1px 5px" }}>
+                            {sla.breached ? "⚠ SLA" : sla.label}
+                          </span>
+                        )}
+                        {t.assigned_to && assigneeName(t.assigned_to) && (
+                          <div style={{ width: 22, height: 22, borderRadius: "50%", background: brand.blue, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} title={assigneeName(t.assigned_to)}>
+                            {assigneeName(t.assigned_to).slice(0,2).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {/* Drop target hint when column is empty and being dragged over */}
+              {cards.length === 0 && isOver && (
+                <div style={{ border: `2px dashed ${col.color}`, borderRadius: 9, padding: "20px 0", textAlign: "center", color: col.color, fontSize: 12, fontWeight: 600 }}>
+                  Drop here
+                </div>
+              )}
+              {cards.length === 0 && !isOver && (
+                <div style={{ padding: "20px 0", textAlign: "center", color: "#cbd5e1", fontSize: 12 }}>No tickets</div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 // ─── Ticket list ──────────────────────────────────────────────────────────────
-const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch, statusFilter, onStatusFilter, quickFilter, onClearQuickFilter, onExport, users, assigneeFilter, onAssigneeFilter }) => {
+const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch, statusFilter, onStatusFilter, quickFilter, onClearQuickFilter, onExport, users, assigneeFilter, onAssigneeFilter, onStatusChange }) => {
   const [showExport, setShowExport] = useState(false);
+  const [viewMode, setViewMode]     = useState("list"); // "list" | "board"
   const statusColor = { Open:"blue", "In Progress":"amber", "Awaiting Client":"gray", Resolved:"green", Closed:"gray" };
   const priorityColor = { Low:"gray", Medium:"blue", High:"amber", Urgent:"red" };
 
@@ -751,7 +908,7 @@ const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch
         </div>
       )}
 
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, gap:12 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, gap:12, flexWrap:"wrap" }}>
         <div style={{ display:"flex", gap:8 }}>
           <input value={search} onChange={e=>onSearch(e.target.value)} placeholder="Search tickets…" style={{ ...inp, maxWidth:220 }} />
           {users && users.length > 0 && (
@@ -761,15 +918,29 @@ const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch
             </select>
           )}
         </div>
-        <div style={{ display:"flex", gap:6 }}>
-          {["All", ...STATUS_OPTIONS].map(s => (
-            <button key={s} onClick={()=>onStatusFilter(s)}
-              style={{ padding:"6px 14px", borderRadius:20, fontSize:12, fontWeight:600, cursor:"pointer", border:`1.5px solid ${statusFilter===s?brand.blue:brand.border}`, background:statusFilter===s?brand.blue:"#fff", color:statusFilter===s?"#fff":brand.muted }}>
-              {s}
-            </button>
-          ))}
-        </div>
-        <div style={{ display:"flex", gap:8 }}>
+        {viewMode === "list" && (
+          <div style={{ display:"flex", gap:6 }}>
+            {["All", ...STATUS_OPTIONS].map(s => (
+              <button key={s} onClick={()=>onStatusFilter(s)}
+                style={{ padding:"6px 14px", borderRadius:20, fontSize:12, fontWeight:600, cursor:"pointer", border:`1.5px solid ${statusFilter===s?brand.blue:brand.border}`, background:statusFilter===s?brand.blue:"#fff", color:statusFilter===s?"#fff":brand.muted }}>
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          {/* View toggle */}
+          <div style={{ display:"flex", border:`1px solid ${brand.border}`, borderRadius:8, overflow:"hidden" }}>
+            {[
+              { id:"list",  icon:"☰", title:"List view"  },
+              { id:"board", icon:"⬜", title:"Board view" },
+            ].map(v => (
+              <button key={v.id} onClick={() => setViewMode(v.id)} title={v.title}
+                style={{ padding:"6px 12px", border:"none", fontSize:13, cursor:"pointer", fontFamily:"inherit", background: viewMode===v.id ? brand.blue : "#fff", color: viewMode===v.id ? "#fff" : brand.muted, fontWeight: viewMode===v.id ? 700 : 400, transition:"all 0.12s" }}>
+                {v.icon}
+              </button>
+            ))}
+          </div>
           <Btn onClick={() => setShowExport(true)} variant="secondary">⬇ Export</Btn>
           <Btn onClick={onNew} variant="accent">+ New Ticket</Btn>
         </div>
@@ -782,9 +953,18 @@ const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch
         />
       )}
 
-      {loading && <Spinner />}
+      {viewMode === "board" && (
+        <BoardView
+          tickets={quickFilter ? tickets.filter(quickFilter.fn) : tickets}
+          onSelect={onSelect}
+          onStatusChange={onStatusChange}
+          users={users}
+        />
+      )}
 
-      {(() => {
+      {viewMode === "list" && loading && <Spinner />}
+
+      {viewMode === "list" && (() => {
         const visible = quickFilter ? tickets.filter(quickFilter.fn) : tickets;
         if (!loading && visible.length === 0) return (
           <div style={{ textAlign:"center", padding:"60px 20px", color:brand.muted }}>
@@ -834,7 +1014,7 @@ const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch
           </div>
         </div>
       ));
-      })()}
+      })()} {/* end list viewMode */}
     </div>
   );
 };
@@ -1420,6 +1600,13 @@ export default function App() {
   const [assigneeFilter, setAssigneeFilter] = useState(null);
   const [toast, setToast]           = useState(null);
   const [invoiceDraft, setInvoiceDraft] = useState(null);
+  const [newUI, setNewUI]           = useState(() => localStorage.getItem("dispatch_newui") === "1");
+
+  const toggleUI = () => setNewUI(v => {
+    const next = !v;
+    localStorage.setItem("dispatch_newui", next ? "1" : "0");
+    return next;
+  });
 
   const INACTIVITY_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -1585,6 +1772,17 @@ export default function App() {
     }
   };
 
+  const handleBoardStatusChange = async (ticketId, newStatus) => {
+    try {
+      const data = await getTicket(ticketId);
+      await updateTicket(ticketId, { ...editorToApi(apiToEditor(data)), status: newStatus });
+      showToast(`Moved to ${newStatus}.`, "ok");
+      loadList();
+    } catch {
+      showToast("Failed to update status.", "err");
+    }
+  };
+
   const handleCreateInvoiceFromTicket = (t, grand) => {
     const today = new Date().toISOString().slice(0, 10);
     const lines = [];
@@ -1626,6 +1824,25 @@ export default function App() {
 
   if (!authed) return <LoginPage onLogin={handleLogin} />;
 
+  const sharedProps = {
+    view, setView, tickets, total, loadingList, activeTicket,
+    search, setSearch, statusFilter, setStatus, quickFilter, setQuickFilter,
+    assigneeFilter, setAssigneeFilter, users, clients, templates,
+    toast, showToast, invoiceDraft, setInvoiceDraft,
+    newModal, setNewModal, saving,
+    handleLogin, handleLogout, handleNew, handleCreate, handleSave,
+    handleSelect, handleDelete, handleCreateInvoiceFromTicket, handleDashboardNav,
+    handleBoardStatusChange,
+    loadList, loadClients, loadTemplates, user, onToggleUI: toggleUI,
+    TicketList, TicketEditor, NewTicketModal, RecurringPage,
+  };
+
+  if (newUI) return (
+    <BrandingProvider>
+      <AppNew {...sharedProps} />
+    </BrandingProvider>
+  );
+
   return (
     <div style={{ minHeight:"100vh", background:brand.bg, fontFamily:"'Segoe UI', Arial, sans-serif" }}>
       {/* Nav */}
@@ -1649,6 +1866,7 @@ export default function App() {
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:16 }}>
           {user && <span style={{ color:"rgba(255,255,255,0.7)", fontSize:12 }}>{user.name} &nbsp;·&nbsp; {user.role}</span>}
+          <button onClick={toggleUI} style={{ background:"rgba(232,160,32,0.2)", border:"1px solid rgba(232,160,32,0.6)", color:brand.accent, cursor:"pointer", borderRadius:20, padding:"4px 12px", fontSize:11, fontWeight:700, fontFamily:"inherit", letterSpacing:"0.3px" }}>✦ New UI</button>
           <button onClick={() => setView("settings")} style={{ background: view === "settings" ? "rgba(255,255,255,0.15)" : "none", border:"1px solid rgba(255,255,255,0.3)", color:"rgba(255,255,255,0.8)", cursor:"pointer", borderRadius:6, padding:"5px 12px", fontSize:12, fontFamily:"inherit" }}>Settings</button>
           <button onClick={handleLogout} style={{ background:"none", border:"1px solid rgba(255,255,255,0.3)", color:"rgba(255,255,255,0.8)", cursor:"pointer", borderRadius:6, padding:"5px 12px", fontSize:12, fontFamily:"inherit" }}>Sign out</button>
         </div>
@@ -1680,6 +1898,7 @@ export default function App() {
             users={users}
             assigneeFilter={assigneeFilter}
             onAssigneeFilter={setAssigneeFilter}
+            onStatusChange={handleBoardStatusChange}
           />
         )}
         {view === "edit" && activeTicket && (
