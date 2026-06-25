@@ -21,3 +21,6 @@ SMTP_PASSWORD: str = os.environ.get("SMTP_PASSWORD", "")
 SMTP_FROM: str = os.environ.get("SMTP_FROM", "dispatch@atechsolutions.org")
 SMTP_TLS: bool = os.environ.get("SMTP_TLS", "true").lower() == "true"
 
+# File uploads — mounted volume in production
+UPLOAD_DIR: str = os.environ.get("UPLOAD_DIR", "/app/uploads")
+

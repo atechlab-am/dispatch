@@ -89,8 +89,8 @@
 - [x] Ticket assignment — assign to technician; assignee filter in ticket list; assignee shown on ticket row
 - [x] Email notifications — client + assignee notified on ticket create, status change, and new comment (SMTP optional via env)
 - [x] Ticket templates — save ticket as template; apply template when creating a new ticket
-- [ ] File attachments on tickets — upload screenshots or documents (store locally or S3)
-- [ ] Recurring tickets — schedule a ticket to auto-create on a repeating interval (e.g. monthly maintenance)
+- [x] File attachments on tickets — upload screenshots or documents (stored in Docker volume, 10 MB limit)
+- [x] Recurring tickets — schedule a ticket to auto-create on a repeating interval (daily/weekly/monthly/quarterly)
 
 ## Phase 7 — Invoice & Billing Improvements
 - [ ] Invoice PDF export — generate a branded PDF invoice (same style as ticket PDF)

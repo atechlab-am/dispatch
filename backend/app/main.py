@@ -14,7 +14,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from . import database as _db
 from .models.models import RefreshToken
-from .routers import auth, tickets, users, setup, clients, invoices, dashboard, comments, templates
+from .routers import auth, tickets, users, setup, clients, invoices, dashboard, comments, templates, attachments, recurring
+from .tasks import recurring_ticket_loop
 from . import config
 
 
@@ -74,12 +75,15 @@ async def lifespan(app: FastAPI):
     _configure_logging()
     _validate_secret_key()
     task = asyncio.create_task(_purge_expired_tokens_loop())
+    task2 = asyncio.create_task(recurring_ticket_loop())
     yield
     task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
+    task2.cancel()
+    for t in (task, task2):
+        try:
+            await t
+        except asyncio.CancelledError:
+            pass
 
 
 limiter = Limiter(key_func=get_remote_address, default_limits=[])
@@ -105,6 +109,8 @@ app.include_router(invoices.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(comments.router, prefix="/api")
 app.include_router(templates.router, prefix="/api")
+app.include_router(attachments.router, prefix="/api")
+app.include_router(recurring.router, prefix="/api")
 
 
 @app.get("/health")

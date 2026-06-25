@@ -130,6 +130,7 @@ class Ticket(Base):
     service_lines = relationship("ServiceLine", back_populates="ticket", cascade="all, delete-orphan")
     hour_logs = relationship("HourLog", back_populates="ticket", cascade="all, delete-orphan")
     comments = relationship("TicketComment", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketComment.created_at")
+    attachments = relationship("TicketAttachment", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketAttachment.created_at")
 
 
 class InvoiceStatus(str, enum.Enum):
@@ -224,6 +225,55 @@ class TicketComment(Base):
 
     ticket = relationship("Ticket", back_populates="comments")
     author = relationship("User", back_populates="comments")
+
+
+class TicketAttachment(Base):
+    __tablename__ = "ticket_attachments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_id = Column(String(32), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False)
+    filename = Column(String(255), nullable=False)        # UUID-based stored name
+    original_name = Column(String(500), nullable=False)   # original upload filename
+    mime_type = Column(String(127), nullable=False)
+    size = Column(Integer, nullable=False)                # bytes
+    uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    ticket = relationship("Ticket", back_populates="attachments")
+    uploader = relationship("User")
+
+
+class RecurringInterval(str, enum.Enum):
+    daily = "daily"
+    weekly = "weekly"
+    monthly = "monthly"
+    quarterly = "quarterly"
+
+
+class RecurringTicket(Base):
+    __tablename__ = "recurring_tickets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+    interval = Column(SAEnum(RecurringInterval, values_callable=lambda e: [m.value for m in e]), nullable=False)
+    ticket_type = Column(SAEnum(TicketType, values_callable=lambda e: [m.value for m in e]), nullable=False, default=TicketType.incident)
+    client_type = Column(SAEnum(ClientType, values_callable=lambda e: [m.value for m in e]), nullable=False, default=ClientType.business)
+    priority = Column(SAEnum(TicketPriority, values_callable=lambda e: [m.value for m in e]), nullable=False, default=TicketPriority.medium)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=True)
+    client_name = Column(String(255), nullable=False, default="")
+    client_email = Column(String(255), nullable=False, default="")
+    client_phone = Column(String(50), nullable=False, default="")
+    client_address = Column(Text, nullable=False, default="")
+    title = Column(String(500), nullable=False, default="")
+    description = Column(Text, nullable=False, default="")
+    internal_notes = Column(Text, nullable=False, default="")
+    travel_fee = Column(SAEnum(TravelFee, values_callable=lambda e: [m.value for m in e]), nullable=False, default=TravelFee.none)
+    assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
+    next_run = Column(DateTime, nullable=False)
+    last_ticket_id = Column(String(32), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
 class TicketTemplate(Base):

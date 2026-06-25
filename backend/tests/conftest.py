@@ -7,8 +7,11 @@ _db_file.close()
 TEST_DB_PATH = _db_file.name
 TEST_DB_URL = f"sqlite:///{TEST_DB_PATH}"
 
+_upload_dir = tempfile.mkdtemp(prefix="dispatch_test_uploads_")
+
 os.environ["DATABASE_URL"] = TEST_DB_URL
 os.environ["SECRET_KEY"] = "test-secret-key-not-for-production"
+os.environ["UPLOAD_DIR"] = _upload_dir
 
 import pytest
 from sqlalchemy import create_engine

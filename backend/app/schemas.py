@@ -1,7 +1,7 @@
 from datetime import datetime, date
 from typing import Optional
 from pydantic import BaseModel, EmailStr, Field
-from .models.models import TicketType, TicketStatus, TicketPriority, ClientType, TravelFee, ServiceLineType, UserRole
+from .models.models import TicketType, TicketStatus, TicketPriority, ClientType, TravelFee, ServiceLineType, UserRole, RecurringInterval
 
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -174,6 +174,52 @@ class TemplateIn(BaseModel):
 
 class TemplateOut(TemplateIn):
     id: int
+    created_by: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ─── Attachments ──────────────────────────────────────────────────────────────
+
+class AttachmentOut(BaseModel):
+    id: int
+    ticket_id: str
+    filename: str
+    original_name: str
+    mime_type: str
+    size: int
+    uploaded_by: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ─── Recurring tickets ────────────────────────────────────────────────────────
+
+class RecurringIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    active: bool = True
+    interval: RecurringInterval
+    ticket_type: TicketType = TicketType.incident
+    client_type: ClientType = ClientType.business
+    priority: TicketPriority = TicketPriority.medium
+    client_id: Optional[int] = None
+    client_name: str = Field("", max_length=255)
+    client_email: str = Field("", max_length=255)
+    client_phone: str = Field("", max_length=50)
+    client_address: str = Field("", max_length=500)
+    title: str = Field("", max_length=500)
+    description: str = Field("", max_length=20000)
+    internal_notes: str = Field("", max_length=20000)
+    travel_fee: TravelFee = TravelFee.none
+    assigned_to: Optional[int] = None
+
+
+class RecurringOut(RecurringIn):
+    id: int
+    next_run: datetime
+    last_ticket_id: Optional[str] = None
     created_by: int
     created_at: datetime
 

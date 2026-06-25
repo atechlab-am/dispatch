@@ -5,6 +5,8 @@ import { me, logout as apiLogout } from "./api/auth.js";
 import { listTickets, getTicket, createTicket, updateTicket, deleteTicket, exportTickets } from "./api/tickets.js";
 import { listComments, addComment, deleteComment } from "./api/comments.js";
 import { listTemplates, createTemplate, deleteTemplate } from "./api/templates.js";
+import { listAttachments, uploadAttachment, deleteAttachment, downloadUrl } from "./api/attachments.js";
+import { listRecurring, createRecurring, updateRecurring, deleteRecurring } from "./api/recurring.js";
 import { listUsers } from "./api/users.js";
 import { listClients, createClient, updateClient, deleteClient } from "./api/clients.js";
 import LoginPage from "./LoginPage.jsx";
@@ -900,6 +902,78 @@ const CommentsSection = ({ ticketId, currentUser }) => {
   );
 };
 
+// ─── Attachments section ───────────────────────────────────────────────────────
+const ALLOWED_EXTS = ".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.doc,.docx,.xls,.xlsx,.zip";
+const AttachmentsSection = ({ ticketId, currentUser }) => {
+  const [attachments, setAttachments] = useState([]);
+  const [uploading,   setUploading]   = useState(false);
+
+  useEffect(() => {
+    listAttachments(ticketId).then(setAttachments).catch(() => {});
+  }, [ticketId]);
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const att = await uploadAttachment(ticketId, file);
+      setAttachments(prev => [...prev, att]);
+    } catch (err) {
+      const msg = err?.response?.data?.detail || "Upload failed";
+      alert(msg);
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Remove this attachment?")) return;
+    await deleteAttachment(id);
+    setAttachments(prev => prev.filter(a => a.id !== id));
+  };
+
+  const fmtSize = (bytes) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  };
+
+  return (
+    <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "16px 18px", marginTop: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <SectionHeader style={{ marginBottom: 0 }}>Attachments</SectionHeader>
+        <label style={{ cursor: "pointer" }}>
+          <input type="file" accept={ALLOWED_EXTS} style={{ display: "none" }} onChange={handleUpload} disabled={uploading} />
+          <span style={{ background: brand.blue, color: "#fff", borderRadius: 6, padding: "5px 12px", fontSize: 12, fontWeight: 600, opacity: uploading ? 0.6 : 1 }}>
+            {uploading ? "Uploading…" : "+ Attach File"}
+          </span>
+        </label>
+      </div>
+      {attachments.length === 0 && (
+        <div style={{ color: brand.muted, fontSize: 13 }}>No attachments yet.</div>
+      )}
+      {attachments.map(a => (
+        <div key={a.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 7, padding: "8px 12px", marginBottom: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
+            <span style={{ fontSize: 18 }}>📎</span>
+            <div style={{ overflow: "hidden" }}>
+              <a href={downloadUrl(a.id)} download={a.original_name} style={{ color: brand.blue, fontWeight: 600, fontSize: 13, textDecoration: "none", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {a.original_name}
+              </a>
+              <span style={{ color: brand.muted, fontSize: 11 }}>{fmtSize(a.size)} · {new Date(a.created_at).toLocaleDateString()}</span>
+            </div>
+          </div>
+          {(currentUser?.id === a.uploaded_by || currentUser?.role === "admin") && (
+            <button onClick={() => handleDelete(a.id)} style={{ background: "none", border: "none", color: brand.muted, cursor: "pointer", fontSize: 16, lineHeight: 1, flexShrink: 0 }}>×</button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
 // ─── Ticket editor ────────────────────────────────────────────────────────────
 const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoice, users, currentUser, onTemplateSaved, showToast }) => {
   const [t, setT] = useState(ticket);
@@ -1133,6 +1207,194 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
       </div>
 
       {t.id && <CommentsSection ticketId={t.id} currentUser={currentUser} />}
+      {t.id && <AttachmentsSection ticketId={t.id} currentUser={currentUser} />}
+    </div>
+  );
+};
+
+// ─── Recurring tickets page ───────────────────────────────────────────────────
+const INTERVALS = ["daily", "weekly", "monthly", "quarterly"];
+
+const RECURRING_DEFAULTS = {
+  name: "", active: true, interval: "monthly",
+  ticket_type: "Incident", client_type: "business", priority: "Medium",
+  title: "", description: "", internal_notes: "", travel_fee: "travel_none",
+  client_name: "", client_email: "", client_phone: "", client_address: "",
+  assigned_to: null, client_id: null,
+};
+
+const RecurringPage = ({ showToast, clients = [] }) => {
+  const [items, setItems]     = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null); // null | {} | existing row
+  const [saving, setSaving]   = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setItems(await listRecurring()); } catch {}
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (editing.id) {
+        await updateRecurring(editing.id, editing);
+      } else {
+        await createRecurring(editing);
+      }
+      showToast("Saved.", "ok");
+      setEditing(null);
+      load();
+    } catch (err) {
+      showToast(err?.response?.data?.detail || "Save failed.", "err");
+    } finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this recurring schedule? This cannot be undone.")) return;
+    try {
+      await deleteRecurring(id);
+      showToast("Deleted.", "ok");
+      load();
+    } catch { showToast("Delete failed.", "err"); }
+  };
+
+  const up = (field, val) => setEditing(prev => ({ ...prev, [field]: val }));
+
+  const handleClientSelect = (clientId) => {
+    const c = clients.find(cl => cl.id === parseInt(clientId));
+    setEditing(prev => ({
+      ...prev,
+      client_id:      c ? c.id      : null,
+      client_name:    c ? c.name    : "",
+      client_email:   c ? c.email   : "",
+      client_phone:   c ? c.phone   : "",
+      client_address: c ? c.address : "",
+      client_type:    c ? c.client_type : prev.client_type,
+    }));
+  };
+
+  const nextRunLabel = (dt) => {
+    const d = new Date(dt);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  };
+
+  if (editing !== null) {
+    return (
+      <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+          <Btn onClick={() => setEditing(null)} variant="ghost" small>← Back</Btn>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: brand.text }}>{editing.id ? "Edit Recurring Schedule" : "New Recurring Schedule"}</h2>
+        </div>
+        <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 12, padding: 24, maxWidth: 640 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+            <div style={{ gridColumn: "1/-1" }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: brand.muted, display: "block", marginBottom: 4 }}>Schedule Name *</label>
+              <input value={editing.name} onChange={e => up("name", e.target.value)} style={inp} placeholder="e.g. Monthly Backup Check" />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: brand.muted, display: "block", marginBottom: 4 }}>Interval</label>
+              <select value={editing.interval} onChange={e => up("interval", e.target.value)} style={inp}>
+                {INTERVALS.map(i => <option key={i} value={i}>{i.charAt(0).toUpperCase() + i.slice(1)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: brand.muted, display: "block", marginBottom: 4 }}>Active</label>
+              <select value={editing.active ? "true" : "false"} onChange={e => up("active", e.target.value === "true")} style={inp}>
+                <option value="true">Yes</option>
+                <option value="false">Paused</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: brand.muted, display: "block", marginBottom: 4 }}>Priority</label>
+              <select value={editing.priority} onChange={e => up("priority", e.target.value)} style={inp}>
+                {["Low","Medium","High","Urgent"].map(p => <option key={p}>{p}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: brand.muted, display: "block", marginBottom: 4 }}>Ticket Type</label>
+              <select value={editing.ticket_type} onChange={e => up("ticket_type", e.target.value)} style={inp}>
+                {["Incident","Request","Change Request"].map(v => <option key={v}>{v}</option>)}
+              </select>
+            </div>
+            <div style={{ gridColumn: "1/-1" }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: brand.muted, display: "block", marginBottom: 4 }}>Ticket Title</label>
+              <input value={editing.title} onChange={e => up("title", e.target.value)} style={inp} placeholder="e.g. Monthly backup verification" />
+            </div>
+            <div style={{ gridColumn: "1/-1" }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: brand.muted, display: "block", marginBottom: 4 }}>Description</label>
+              <textarea rows={3} value={editing.description} onChange={e => up("description", e.target.value)} style={{ ...inp, resize: "vertical" }} placeholder="Steps, instructions…" />
+            </div>
+            <div style={{ gridColumn: "1/-1" }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: brand.muted, display: "block", marginBottom: 4 }}>Client</label>
+              <select value={editing.client_id ?? ""} onChange={e => handleClientSelect(e.target.value || null)} style={inp}>
+                <option value="">— No client / enter manually —</option>
+                {clients.map(c => <option key={c.id} value={c.id}>{c.name}{c.company ? ` (${c.company})` : ""}</option>)}
+              </select>
+            </div>
+            {!editing.client_id && (
+              <>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: brand.muted, display: "block", marginBottom: 4 }}>Client Name</label>
+                  <input value={editing.client_name} onChange={e => up("client_name", e.target.value)} style={inp} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: brand.muted, display: "block", marginBottom: 4 }}>Client Email</label>
+                  <input value={editing.client_email} onChange={e => up("client_email", e.target.value)} style={inp} />
+                </div>
+              </>
+            )}
+            {editing.client_id && (
+              <div style={{ gridColumn: "1/-1", background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 7, padding: "10px 14px", fontSize: 13, color: brand.muted }}>
+                {editing.client_name}{editing.client_email ? ` · ${editing.client_email}` : ""}{editing.client_phone ? ` · ${editing.client_phone}` : ""}
+              </div>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
+            <Btn onClick={() => setEditing(null)} variant="ghost">Cancel</Btn>
+            <Btn onClick={handleSave} disabled={saving || !editing.name.trim() || !editing.title.trim()}>
+              {saving ? "Saving…" : "Save Schedule"}
+            </Btn>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: brand.text }}>Recurring Tickets</h2>
+        <Btn onClick={() => setEditing({ ...RECURRING_DEFAULTS })}>+ New Schedule</Btn>
+      </div>
+      {loading && <div style={{ color: brand.muted, fontSize: 14 }}>Loading…</div>}
+      {!loading && items.length === 0 && (
+        <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 12, padding: 40, textAlign: "center", color: brand.muted, fontSize: 14 }}>
+          No recurring schedules yet. Create one to auto-generate tickets on a fixed interval.
+        </div>
+      )}
+      {items.map(r => (
+        <div key={r.id} style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "14px 18px", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
+              <span style={{ fontWeight: 700, fontSize: 14, color: brand.text }}>{r.name}</span>
+              <span style={{ fontSize: 11, fontWeight: 600, padding: "1px 8px", borderRadius: 20, background: r.active ? "#e6f4ec" : "#f0f0f0", color: r.active ? brand.success : brand.muted }}>{r.active ? "Active" : "Paused"}</span>
+              <span style={{ fontSize: 11, color: brand.muted, background: brand.bg, padding: "1px 8px", borderRadius: 20 }}>{r.interval}</span>
+            </div>
+            <div style={{ fontSize: 12, color: brand.muted }}>
+              {r.title} · Next run: <strong style={{ color: brand.text }}>{nextRunLabel(r.next_run)}</strong>
+              {r.last_ticket_id && <> · Last: <span style={{ color: brand.blue }}>{r.last_ticket_id}</span></>}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Btn onClick={() => setEditing({ ...r })} variant="ghost" small>Edit</Btn>
+            <Btn onClick={() => handleDelete(r.id)} variant="danger" small>Delete</Btn>
+          </div>
+        </div>
+      ))}
     </div>
   );
 };
@@ -1373,10 +1635,11 @@ export default function App() {
             ATech<span style={{ color:brand.accent }}>Solutions</span>
           </span>
           {[
-            { id:"home",     label:"Home" },
-            { id:"list",     label:"Tickets" },
-            { id:"clients",  label:"Clients" },
-            { id:"invoices", label:"Invoices" },
+            { id:"home",      label:"Home" },
+            { id:"list",      label:"Tickets" },
+            { id:"clients",   label:"Clients" },
+            { id:"invoices",  label:"Invoices" },
+            { id:"recurring", label:"Recurring" },
           ].map(n => (
             <button key={n.id} onClick={() => setView(n.id)}
               style={{ background: view === n.id ? "rgba(255,255,255,0.18)" : "none", border:"none", borderBottom: view === n.id ? "2px solid #fff" : "2px solid transparent", color: view === n.id ? "#fff" : "rgba(255,255,255,0.7)", cursor:"pointer", padding:"0 14px", height:54, fontSize:13, fontWeight: view === n.id ? 700 : 500, fontFamily:"inherit", transition:"all 0.15s" }}>
@@ -1438,6 +1701,9 @@ export default function App() {
         )}
         {view === "invoices" && (
           <InvoicesPage showToast={showToast} initialDraft={invoiceDraft} onDraftConsumed={() => setInvoiceDraft(null)} />
+        )}
+        {view === "recurring" && (
+          <RecurringPage showToast={showToast} clients={clients} />
         )}
         {view === "settings" && (
           <SettingsPage user={user} showToast={showToast} />

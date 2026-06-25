@@ -24,6 +24,9 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-dispatch}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dispatch}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - uploads_data:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -47,3 +50,4 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:

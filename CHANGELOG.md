@@ -4,6 +4,14 @@
 
 ### Added
 - `upgrade.sh` — one-command production upgrade script (`sudo ./upgrade.sh`)
+- **File attachments** — upload screenshots and documents to tickets (PDF, images, Office, ZIP); 10 MB limit; stored in a Docker volume (`uploads_data`); downloadable directly from the ticket editor
+- **Recurring tickets** — Recurring page in the nav; create/edit/delete schedules with daily/weekly/monthly/quarterly intervals; background worker fires due tickets every 5 minutes; shows next run date and last created ticket ID
+- Alembic migration `0007_attachments_recurring` — `ticket_attachments` and `recurring_tickets` tables
+- `/api/tickets/{id}/attachments` — upload, list attachments
+- `/api/attachments/{id}/download` — file download endpoint
+- `/api/attachments/{id}` — delete attachment
+- `/api/recurring` — full CRUD for recurring ticket schedules
+- 19 new backend tests (118 total)
 
 ## [0.2.0] — 2026-06-24
 
