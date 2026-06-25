@@ -1,6 +1,7 @@
 from datetime import datetime, date
 from typing import Optional
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
+from .models.models import TicketType, TicketStatus, TicketPriority, ClientType, TravelFee, ServiceLineType
 
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -25,6 +26,7 @@ class UserOut(BaseModel):
     email: str
     name: str
     role: str
+    active: bool
 
     model_config = {"from_attributes": True}
 
@@ -34,7 +36,7 @@ class UserOut(BaseModel):
 class ServiceLineIn(BaseModel):
     service_id: str
     name: str
-    type: str
+    type: ServiceLineType
     rate: float = 0
     base: float = 0
     per_unit: float = 0
@@ -68,26 +70,30 @@ class HourLogOut(HourLogIn):
 # ─── Tickets ──────────────────────────────────────────────────────────────────
 
 class TicketIn(BaseModel):
-    status: str = "Open"
-    priority: str = "Medium"
-    client_type: str = "business"
-    client_name: str = ""
-    client_email: str = ""
-    client_phone: str = ""
-    client_address: str = ""
-    title: str = ""
-    description: str = ""
-    internal_notes: str = ""
-    travel_fee: str = "travel_none"
-    service_lines: list[ServiceLineIn] = []
-    hour_logs: list[HourLogIn] = []
+    client_id: Optional[int] = None
+    ticket_type: TicketType = TicketType.incident
+    status: TicketStatus = TicketStatus.open
+    priority: TicketPriority = TicketPriority.medium
+    client_type: ClientType = ClientType.business
+    client_name: str = Field("", max_length=255)
+    client_email: str = Field("", max_length=255)
+    client_phone: str = Field("", max_length=50)
+    client_address: str = Field("", max_length=500)
+    title: str = Field("", max_length=500)
+    description: str = Field("", max_length=20000)
+    internal_notes: str = Field("", max_length=20000)
+    travel_fee: TravelFee = TravelFee.none
+    service_lines: list[ServiceLineIn] = Field(default=[], max_length=100)
+    hour_logs: list[HourLogIn] = Field(default=[], max_length=500)
 
 
 class TicketOut(BaseModel):
     id: str
-    status: str
-    priority: str
-    client_type: str
+    client_id: Optional[int] = None
+    ticket_type: TicketType
+    status: TicketStatus
+    priority: TicketPriority
+    client_type: ClientType
     client_name: str
     client_email: str
     client_phone: str
@@ -95,10 +101,12 @@ class TicketOut(BaseModel):
     title: str
     description: str
     internal_notes: str
-    travel_fee: str
+    travel_fee: TravelFee
     created_at: datetime
     updated_at: datetime
     created_by: int
+    sla_response_due: Optional[datetime] = None
+    sla_resolution_due: Optional[datetime] = None
     service_lines: list[ServiceLineOut] = []
     hour_logs: list[HourLogOut] = []
 
@@ -107,13 +115,17 @@ class TicketOut(BaseModel):
 
 class TicketListItem(BaseModel):
     id: str
-    status: str
-    priority: str
-    client_type: str
+    ticket_type: TicketType
+    status: TicketStatus
+    priority: TicketPriority
+    client_type: ClientType
     client_name: str
     title: str
     created_at: datetime
     updated_at: datetime
+    created_by: int
+    sla_response_due: Optional[datetime] = None
+    sla_resolution_due: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 

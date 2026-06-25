@@ -121,4 +121,4 @@ def test_technician_can_create_ticket(client, tech_headers):
 
 def test_unauthenticated_cannot_list(client):
     r = client.get("/api/tickets")
-    assert r.status_code == 403
+    assert r.status_code in (401, 403)

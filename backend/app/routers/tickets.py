@@ -1,4 +1,4 @@
-from datetime import datetime, date, timezone
+from datetime import datetime, date, timezone, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -11,6 +11,23 @@ from ..schemas import TicketIn, TicketOut, TicketsPage, TicketListItem
 from ..security import get_current_user
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
+
+# Response hours, Resolution hours
+SLA_HOURS = {
+    "Urgent": (1,   4),
+    "High":   (4,   8),
+    "Medium": (8,  24),
+    "Low":    (24, 72),
+}
+
+
+def _sla_deadlines(priority: str, from_dt: datetime):
+    response_h, resolution_h = SLA_HOURS.get(priority, (8, 24))
+    return (
+        from_dt + timedelta(hours=response_h),
+        from_dt + timedelta(hours=resolution_h),
+    )
+
 
 TRAVEL_FEES = {
     "travel_none": 0,
@@ -107,8 +124,12 @@ def create_ticket(
     current_user: User = Depends(get_current_user),
 ):
     ticket_id = _make_ticket_id(db)
+    now = datetime.now(timezone.utc)
+    sla_response, sla_resolution = _sla_deadlines(body.priority.value, now)
     ticket = Ticket(
         id=ticket_id,
+        client_id=body.client_id,
+        ticket_type=body.ticket_type,
         status=body.status,
         priority=body.priority,
         client_type=body.client_type,
@@ -121,6 +142,8 @@ def create_ticket(
         internal_notes=body.internal_notes,
         travel_fee=body.travel_fee,
         created_by=current_user.id,
+        sla_response_due=sla_response,
+        sla_resolution_due=sla_resolution,
     )
     db.add(ticket)
     db.flush()
@@ -155,6 +178,9 @@ def update_ticket(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
+    priority_changed = ticket.priority != body.priority
+    ticket.client_id = body.client_id
+    ticket.ticket_type = body.ticket_type
     ticket.status = body.status
     ticket.priority = body.priority
     ticket.client_type = body.client_type
@@ -167,6 +193,9 @@ def update_ticket(
     ticket.internal_notes = body.internal_notes
     ticket.travel_fee = body.travel_fee
     ticket.updated_at = datetime.now(timezone.utc)
+    if priority_changed or ticket.sla_response_due is None:
+        base = ticket.created_at.replace(tzinfo=timezone.utc) if ticket.created_at.tzinfo is None else ticket.created_at
+        ticket.sla_response_due, ticket.sla_resolution_due = _sla_deadlines(body.priority.value, base)
 
     # Replace child rows
     db.query(ServiceLine).filter(ServiceLine.ticket_id == ticket_id).delete()

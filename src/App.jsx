@@ -3,7 +3,14 @@ import { fmt, esc, calcServiceTotal, calcHourTotal } from "./helpers.js";
 import { setTokens, clearTokens, registerLogoutHandler } from "./api/client.js";
 import { me, logout as apiLogout } from "./api/auth.js";
 import { listTickets, getTicket, createTicket, updateTicket, deleteTicket } from "./api/tickets.js";
+import { listClients, createClient, updateClient, deleteClient } from "./api/clients.js";
 import LoginPage from "./LoginPage.jsx";
+import SettingsPage from "./SettingsPage.jsx";
+import ClientsPage from "./ClientsPage.jsx";
+import InvoicesPage from "./InvoicesPage.jsx";
+import DashboardPage from "./DashboardPage.jsx";
+import SetupPage from "./SetupPage.jsx";
+import { getSetupStatus } from "./api/setup.js";
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const brand = {
@@ -77,13 +84,38 @@ const TRAVEL_FEES = [
   { id: "travel_30p",  label: "30+ km",              fee: 80 },
 ];
 
-const STATUS_OPTIONS   = ["Open", "In Progress", "Awaiting Client", "Resolved", "Closed"];
-const PRIORITY_OPTIONS = ["Low", "Medium", "High", "Urgent"];
+const STATUS_OPTIONS      = ["Open", "In Progress", "Awaiting Client", "Resolved", "Closed"];
+const PRIORITY_OPTIONS    = ["Low", "Medium", "High", "Urgent"];
+const TICKET_TYPE_OPTIONS = ["Incident", "Request", "Change Request"];
+
+// SLA response/resolution hours per priority
+const SLA_HOURS = { Urgent: [1, 4], High: [4, 8], Medium: [8, 24], Low: [24, 72] };
+
+function slaStatus(dueIso, createdIso, priority) {
+  if (!dueIso) return null;
+  const now  = Date.now();
+  const due  = new Date(dueIso).getTime();
+  const base = new Date(createdIso || dueIso).getTime();
+  const total = due - base;
+  const left  = due - now;
+  if (left <= 0) return { breached: true, label: "Breached", pct: 0, color: "#c0392b" };
+  const pct = left / total;
+  const color = pct > 0.5 ? "#1a8f4a" : pct > 0.2 ? "#d97706" : "#c0392b";
+  const h = Math.floor(left / 3600000);
+  const m = Math.floor((left % 3600000) / 60000);
+  const label = h >= 24 ? `${Math.floor(h/24)}d ${h%24}h` : h > 0 ? `${h}h ${m}m` : `${m}m`;
+  return { breached: false, label, pct, color };
+}
 
 // ─── API shape ↔ editor shape mappers ────────────────────────────────────────
 const apiToEditor = (t) => ({
-  id:            t.id,
-  createdAt:     t.created_at?.split("T")[0] ?? "",
+  id:                t.id,
+  createdAt:         t.created_at?.split("T")[0] ?? "",
+  createdAtIso:      t.created_at ?? null,
+  slaResponseDue:    t.sla_response_due ?? null,
+  slaResolutionDue:  t.sla_resolution_due ?? null,
+  clientId:          t.client_id ?? null,
+  ticketType:    t.ticket_type,
   clientType:    t.client_type,
   status:        t.status,
   priority:      t.priority,
@@ -118,6 +150,8 @@ const apiToEditor = (t) => ({
 });
 
 const editorToApi = (t) => ({
+  client_id:     t.clientId ?? null,
+  ticket_type:   t.ticketType,
   status:        t.status,
   priority:      t.priority,
   client_type:   t.clientType,
@@ -415,8 +449,165 @@ const HourRow = ({ log, defaultRate, onChange, onRemove }) => {
   );
 };
 
+// ─── New ticket modal ─────────────────────────────────────────────────────────
+const NewTicketModal = ({ onCreate, onCancel, clients, onClientCreated }) => {
+  const [ticketType,   setTicketType]   = useState("Incident");
+  const [clientType,   setClientType]   = useState("business");
+  const [title,        setTitle]        = useState("");
+  const [priority,     setPriority]     = useState("Medium");
+  const [clientId,     setClientId]     = useState("");
+  const [search,       setSearch]       = useState("");
+  const [showNewClient,setShowNewClient]= useState(false);
+  const [newName,      setNewName]      = useState("");
+  const [newEmail,     setNewEmail]     = useState("");
+  const [newPhone,     setNewPhone]     = useState("");
+  const [newCompany,   setNewCompany]   = useState("");
+  const [saving,       setSaving]       = useState(false);
+  const [savingClient, setSavingClient] = useState(false);
+
+  const typeIcons = { Incident:"🔥", Request:"📋", "Change Request":"🔄" };
+
+  const filtered = clients.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.company.toLowerCase().includes(search.toLowerCase()) ||
+    c.email.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleSaveNewClient = async () => {
+    if (!newName.trim()) return;
+    setSavingClient(true);
+    try {
+      const c = await createClient({ name:newName.trim(), email:newEmail, phone:newPhone, company:newCompany, address:"", client_type:clientType, notes:"" });
+      await onClientCreated();
+      setClientId(c.id);
+      setShowNewClient(false);
+      setNewName(""); setNewEmail(""); setNewPhone(""); setNewCompany("");
+    } finally { setSavingClient(false); }
+  };
+
+  const handleSubmit = async () => {
+    if (!title.trim()) return;
+    setSaving(true);
+    await onCreate({ ticketType, clientType, title:title.trim(), priority, clientId:clientId||null });
+    setSaving(false);
+  };
+
+  const selected = clients.find(c => c.id === clientId);
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(13,27,42,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ background:"#fff", borderRadius:12, padding:"28px 32px", width:540, maxHeight:"90vh", overflowY:"auto", boxShadow:"0 8px 40px rgba(0,0,0,0.18)" }}>
+        <div style={{ fontWeight:800, fontSize:18, color:brand.text, marginBottom:20 }}>New Ticket</div>
+
+        <div style={{ marginBottom:16 }}>
+          <FieldLabel>Ticket Type</FieldLabel>
+          <div style={{ display:"flex", gap:8 }}>
+            {TICKET_TYPE_OPTIONS.map(tt => (
+              <button key={tt} onClick={() => setTicketType(tt)}
+                style={{ flex:1, padding:"10px 8px", borderRadius:8, fontWeight:700, fontSize:12, cursor:"pointer", border:`2px solid ${ticketType===tt?brand.blue:brand.border}`, background:ticketType===tt?brand.blue:"#fff", color:ticketType===tt?"#fff":brand.muted, textAlign:"center" }}>
+                <div style={{ fontSize:18, marginBottom:4 }}>{typeIcons[tt]}</div>
+                {tt}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginBottom:16 }}>
+          <FieldLabel>Title</FieldLabel>
+          <input autoFocus value={title} onChange={e=>setTitle(e.target.value)}
+            onKeyDown={e=>e.key==="Enter"&&handleSubmit()}
+            placeholder="Brief description of the issue…" style={inp} />
+        </div>
+
+        <div style={{ marginBottom:16 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+            <FieldLabel>Client</FieldLabel>
+            <button onClick={()=>setShowNewClient(v=>!v)} style={{ fontSize:12, color:brand.blue, background:"none", border:"none", cursor:"pointer", fontWeight:600 }}>
+              {showNewClient ? "← Pick existing" : "+ New client"}
+            </button>
+          </div>
+
+          {showNewClient ? (
+            <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:8, padding:"14px 16px" }}>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
+                <div>
+                  <FieldLabel>Name *</FieldLabel>
+                  <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Full name" style={inp} />
+                </div>
+                <div>
+                  <FieldLabel>Company</FieldLabel>
+                  <input value={newCompany} onChange={e=>setNewCompany(e.target.value)} placeholder="Company (optional)" style={inp} />
+                </div>
+                <div>
+                  <FieldLabel>Email</FieldLabel>
+                  <input value={newEmail} onChange={e=>setNewEmail(e.target.value)} placeholder="email@example.com" style={inp} />
+                </div>
+                <div>
+                  <FieldLabel>Phone</FieldLabel>
+                  <input value={newPhone} onChange={e=>setNewPhone(e.target.value)} placeholder="(514) 000-0000" style={inp} />
+                </div>
+              </div>
+              <div style={{ marginBottom:10 }}>
+                <FieldLabel>Type</FieldLabel>
+                <Select value={clientType} onChange={setClientType} options={[{value:"business",label:"🏢 Business"},{value:"residential",label:"🏠 Residential"}]} />
+              </div>
+              <Btn onClick={handleSaveNewClient} variant="secondary" small disabled={savingClient||!newName.trim()}>
+                {savingClient ? "Saving…" : "Save client & select"}
+              </Btn>
+            </div>
+          ) : (
+            <div>
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search clients…" style={{...inp, marginBottom:8}} />
+              {selected && (
+                <div style={{ background:brand.blue+"18", border:`1.5px solid ${brand.blue}`, borderRadius:8, padding:"8px 12px", marginBottom:8, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <div>
+                    <div style={{ fontWeight:700, fontSize:13, color:brand.blue }}>{selected.name}</div>
+                    {selected.company && <div style={{ fontSize:11, color:brand.muted }}>{selected.company}</div>}
+                  </div>
+                  <button onClick={()=>setClientId("")} style={{ background:"none", border:"none", color:brand.muted, cursor:"pointer", fontSize:16 }}>×</button>
+                </div>
+              )}
+              <div style={{ maxHeight:160, overflowY:"auto", border:`1px solid ${brand.border}`, borderRadius:8 }}>
+                {filtered.length === 0 ? (
+                  <div style={{ padding:"12px 14px", color:brand.muted, fontSize:13 }}>No clients found</div>
+                ) : filtered.map(c => (
+                  <div key={c.id} onClick={()=>{setClientId(c.id);setSearch("");}}
+                    style={{ padding:"10px 14px", cursor:"pointer", borderBottom:`1px solid ${brand.border}`, background:clientId===c.id?brand.blue+"10":"#fff" }}>
+                    <div style={{ fontWeight:600, fontSize:13, color:brand.text }}>{c.name}</div>
+                    <div style={{ fontSize:11, color:brand.muted }}>{[c.company, c.email].filter(Boolean).join(" · ")}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:24 }}>
+          {!showNewClient && (
+            <div>
+              <FieldLabel>Client Type</FieldLabel>
+              <Select value={clientType} onChange={setClientType} options={[{value:"business",label:"🏢 Business"},{value:"residential",label:"🏠 Residential"}]} />
+            </div>
+          )}
+          <div>
+            <FieldLabel>Priority</FieldLabel>
+            <Select value={priority} onChange={setPriority} options={PRIORITY_OPTIONS} />
+          </div>
+        </div>
+
+        <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+          <Btn onClick={onCancel} variant="ghost">Cancel</Btn>
+          <Btn onClick={handleSubmit} variant="accent" disabled={saving||!title.trim()}>
+            {saving ? "Creating…" : "Create Ticket"}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── Ticket list ──────────────────────────────────────────────────────────────
-const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch, statusFilter, onStatusFilter }) => {
+const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch, statusFilter, onStatusFilter, quickFilter, onClearQuickFilter }) => {
   const statusColor = { Open:"blue", "In Progress":"amber", "Awaiting Client":"gray", Resolved:"green", Closed:"gray" };
   const priorityColor = { Low:"gray", Medium:"blue", High:"amber", Urgent:"red" };
 
@@ -452,6 +643,13 @@ const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch
         </div>
       )}
 
+      {quickFilter && (
+        <div style={{ display:"flex", alignItems:"center", gap:10, background:"#dbeafe", border:"1px solid #93c5fd", borderRadius:8, padding:"8px 14px", marginBottom:12 }}>
+          <span style={{ fontSize:13, fontWeight:600, color:brand.blue }}>Filtered: {quickFilter.label}</span>
+          <button onClick={onClearQuickFilter} style={{ background:"none", border:"none", color:brand.blue, cursor:"pointer", fontSize:16, lineHeight:1, padding:"0 2px", marginLeft:4 }}>×</button>
+        </div>
+      )}
+
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, gap:12 }}>
         <input value={search} onChange={e=>onSearch(e.target.value)} placeholder="Search tickets…" style={{ ...inp, maxWidth:280 }} />
         <div style={{ display:"flex", gap:6 }}>
@@ -467,15 +665,16 @@ const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch
 
       {loading && <Spinner />}
 
-      {!loading && tickets.length === 0 && (
-        <div style={{ textAlign:"center", padding:"60px 20px", color:brand.muted }}>
-          <div style={{ fontSize:44, marginBottom:14 }}>📋</div>
-          <div style={{ fontSize:16, fontWeight:700 }}>{total === 0 ? "No tickets yet" : "No matches"}</div>
-          <div style={{ fontSize:13, marginTop:6 }}>{total === 0 ? "Create your first ticket to get started." : "Try adjusting your search or filter."}</div>
-        </div>
-      )}
-
-      {tickets.map(t => (
+      {(() => {
+        const visible = quickFilter ? tickets.filter(quickFilter.fn) : tickets;
+        if (!loading && visible.length === 0) return (
+          <div style={{ textAlign:"center", padding:"60px 20px", color:brand.muted }}>
+            <div style={{ fontSize:44, marginBottom:14 }}>📋</div>
+            <div style={{ fontSize:16, fontWeight:700 }}>{total === 0 ? "No tickets yet" : "No matches"}</div>
+            <div style={{ fontSize:13, marginTop:6 }}>{total === 0 ? "Create your first ticket to get started." : "Try adjusting your search or filter."}</div>
+          </div>
+        );
+        return visible.map(t => (
         <div key={t.id} onClick={()=>onSelect(t.id)}
           style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"14px 18px", marginBottom:10, cursor:"pointer", borderLeft:`4px solid ${t.client_type==="business"?brand.blue:brand.accent}`, transition:"box-shadow 0.15s" }}
           onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 12px rgba(26,92,186,0.12)"}
@@ -485,6 +684,7 @@ const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch
             <div>
               <div style={{ display:"flex", gap:6, alignItems:"center", marginBottom:6, flexWrap:"wrap" }}>
                 <span style={{ fontSize:11, fontWeight:700, color:brand.muted, fontFamily:"monospace" }}>{t.id}</span>
+                <Badge color="gray">{t.ticket_type}</Badge>
                 <Badge color={statusColor[t.status]||"gray"}>{t.status}</Badge>
                 <Badge color={priorityColor[t.priority]||"gray"}>{t.priority}</Badge>
                 <Badge color={t.client_type==="business"?"blue":"amber"}>{t.client_type==="business"?"🏢 Business":"🏠 Residential"}</Badge>
@@ -494,18 +694,33 @@ const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch
                 {t.client_name||"No client name"} &nbsp;·&nbsp; Created {t.created_at?.split("T")[0]}
               </div>
             </div>
-            <div style={{ fontWeight:800, fontSize:18, color:brand.blue, whiteSpace:"nowrap", marginLeft:20 }}>
-              {fmt(grandTotal(t))}
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6, marginLeft:20 }}>
+              <div style={{ fontWeight:800, fontSize:18, color:brand.blue, whiteSpace:"nowrap" }}>
+                {fmt(grandTotal(t))}
+              </div>
+              {(() => {
+                const sla = slaStatus(t.sla_resolution_due, t.created_at, t.priority);
+                if (!sla || t.status === "Resolved" || t.status === "Closed") return null;
+                return (
+                  <div style={{ display:"flex", alignItems:"center", gap:5, background: sla.breached ? "#fee2e2" : "#f0fdf4", border:`1px solid ${sla.color}33`, borderRadius:20, padding:"2px 10px" }}>
+                    <div style={{ width:7, height:7, borderRadius:"50%", background:sla.color }} />
+                    <span style={{ fontSize:11, fontWeight:700, color:sla.color, whiteSpace:"nowrap" }}>
+                      {sla.breached ? "SLA Breached" : `SLA ${sla.label}`}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
-      ))}
+      ));
+      })()}
     </div>
   );
 };
 
 // ─── Ticket editor ────────────────────────────────────────────────────────────
-const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving }) => {
+const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoice }) => {
   const [t, setT] = useState(ticket);
   const up = (field, val) => setT(prev => ({ ...prev, [field]: val }));
 
@@ -543,14 +758,18 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving }) => {
         </div>
       </div>
 
-      <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"14px 18px", marginBottom:20, display:"grid", gridTemplateColumns:"auto 1fr 1fr", gap:16, alignItems:"center" }}>
+      <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"14px 18px", marginBottom:20, display:"grid", gridTemplateColumns:"auto auto 1fr 1fr 1fr", gap:16, alignItems:"center" }}>
         <div>
-          <FieldLabel>Client Type</FieldLabel>
+          <FieldLabel>Type</FieldLabel>
+          <Select value={t.ticketType} onChange={v=>up("ticketType",v)} options={TICKET_TYPE_OPTIONS} />
+        </div>
+        <div>
+          <FieldLabel>Client</FieldLabel>
           <div style={{ display:"flex", gap:8 }}>
             {["business","residential"].map(ct => (
               <button key={ct} onClick={()=>changeType(ct)}
                 style={{ padding:"7px 16px", borderRadius:6, fontWeight:700, fontSize:12, cursor:"pointer", border:`2px solid ${t.clientType===ct?brand.blue:brand.border}`, background:t.clientType===ct?brand.blue:"#fff", color:t.clientType===ct?"#fff":brand.muted }}>
-                {ct==="business"?"🏢 Business":"🏠 Residential"}
+                {ct==="business"?"🏢":"🏠"}
               </button>
             ))}
           </div>
@@ -628,6 +847,40 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving }) => {
             </div>
           </div>
 
+          {/* SLA panel */}
+          {t.slaResolutionDue && (()=>{
+            const resp = slaStatus(t.slaResponseDue, t.createdAtIso, t.priority);
+            const reso = slaStatus(t.slaResolutionDue, t.createdAtIso, t.priority);
+            const isClosed = t.status === "Resolved" || t.status === "Closed";
+            return (
+              <div style={{ background: isClosed ? "#f0fdf4" : (reso?.breached ? "#fee2e2" : "#fff"), border:`1.5px solid ${isClosed ? "#86efac" : reso?.breached ? "#fca5a5" : brand.border}`, borderRadius:10, padding:"14px 16px", marginBottom:16 }}>
+                <div style={{ fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.5px", color:brand.muted, marginBottom:10 }}>SLA</div>
+                {isClosed ? (
+                  <div style={{ fontSize:13, color:"#16a34a", fontWeight:600 }}>Ticket closed — SLA clock stopped</div>
+                ) : (
+                  <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                    {[["Response", resp], ["Resolution", reso]].map(([label, s]) => s && (
+                      <div key={label}>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3 }}>
+                          <span style={{ fontSize:12, color:brand.muted }}>{label}</span>
+                          <span style={{ fontSize:12, fontWeight:700, color: s.breached ? "#c0392b" : s.color }}>
+                            {s.breached ? "BREACHED" : s.label + " left"}
+                          </span>
+                        </div>
+                        <div style={{ height:5, background:"#e5e7eb", borderRadius:3, overflow:"hidden" }}>
+                          <div style={{ height:"100%", width:`${Math.max(0, Math.min(100, s.pct*100))}%`, background:s.color, borderRadius:3, transition:"width 0.3s" }} />
+                        </div>
+                        <div style={{ fontSize:10, color:brand.muted, marginTop:2 }}>
+                          Due {new Date(label === "Response" ? t.slaResponseDue : t.slaResolutionDue).toLocaleString()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           <div style={{ background:brand.blueDark, borderRadius:10, padding:"18px 20px", color:"#fff" }}>
             <div style={{ fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.5px", color:"rgba(255,255,255,0.5)", marginBottom:14 }}>Invoice Summary</div>
             {svcTotal > 0 && (
@@ -654,9 +907,14 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving }) => {
             </div>
           </div>
 
+          {onCreateInvoice && (
+            <div style={{ marginTop:12 }}>
+              <Btn onClick={() => onCreateInvoice(t, grand)} variant="accent" style={{ width:"100%" }}>Create Invoice from Ticket</Btn>
+            </div>
+          )}
           {onDelete && (
-            <div style={{ marginTop:12, display:"flex", justifyContent:"flex-end" }}>
-              <Btn onClick={()=>{ if(window.confirm("Delete this ticket? This cannot be undone.")) onDelete(t.id); }} variant="danger" small>🗑 Delete Ticket</Btn>
+            <div style={{ marginTop:8, display:"flex", justifyContent:"flex-end" }}>
+              <Btn onClick={()=>{ if(window.confirm("Delete this ticket? This cannot be undone.")) onDelete(t.id); }} variant="danger" small>Delete Ticket</Btn>
             </div>
           )}
         </div>
@@ -667,22 +925,34 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving }) => {
 
 // ─── App shell ────────────────────────────────────────────────────────────────
 export default function App() {
+  const [needsSetup, setNeedsSetup] = useState(null); // null = checking
   const [authed, setAuthed]         = useState(false);
   const [user, setUser]             = useState(null);
   const [tickets, setTickets]       = useState([]);
   const [total, setTotal]           = useState(0);
-  const [view, setView]             = useState("list");
+  const [view, setView]             = useState("home");
   const [activeTicket, setActive]   = useState(null);
   const [loadingList, setLoadingList] = useState(false);
   const [saving, setSaving]         = useState(false);
+  const [newModal, setNewModal]     = useState(false);
+  const [clients, setClients]       = useState([]);
   const [search, setSearch]         = useState("");
   const [statusFilter, setStatus]   = useState("All");
+  const [quickFilter, setQuickFilter] = useState(null); // { label, fn } — client-side post-filter
   const [toast, setToast]           = useState(null);
+  const [invoiceDraft, setInvoiceDraft] = useState(null);
 
   const showToast = (msg, type = "ok") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 4000);
   };
+
+  // Check on mount whether first-run setup is needed
+  useEffect(() => {
+    getSetupStatus()
+      .then(({ needs_setup }) => setNeedsSetup(needs_setup))
+      .catch(() => setNeedsSetup(false)); // if check fails, proceed to login
+  }, []);
 
   const handleLogout = useCallback(async () => {
     await apiLogout();
@@ -699,11 +969,16 @@ export default function App() {
   }, [handleLogout]);
 
   // After login, fetch the current user profile
+  const loadClients = useCallback(async () => {
+    try { setClients(await listClients()); } catch {}
+  }, []);
+
   const handleLogin = async () => {
     try {
       const profile = await me();
       setUser(profile);
       setAuthed(true);
+      listClients().then(setClients).catch(() => {});
     } catch {
       clearTokens();
       showToast("Could not load user profile. Please try again.", "err");
@@ -731,14 +1006,32 @@ export default function App() {
     if (authed) loadList();
   }, [authed, loadList]);
 
-  const handleNew = async () => {
+  // Called by dashboard stat cards — navigates to ticket list with a pre-set filter
+  const handleDashboardNav = ({ status, quick }) => {
+    setSearch("");
+    setStatus(status || "All");
+    setQuickFilter(quick || null);
+    setView("list");
+  };
+
+  const handleNew = () => setNewModal(true);
+
+  const handleCreate = async ({ ticketType, clientType, title, priority, clientId }) => {
     try {
+      const selected = clients.find(c => c.id === clientId);
       const created = await createTicket({
-        status: "Open", priority: "Medium", client_type: "business",
-        client_name: "", client_email: "", client_phone: "", client_address: "",
-        title: "", description: "", internal_notes: "",
+        client_id:     clientId ?? null,
+        ticket_type:   ticketType, status: "Open", priority,
+        client_type:   selected?.client_type ?? clientType,
+        client_name:   selected?.name ?? "",
+        client_email:  selected?.email ?? "",
+        client_phone:  selected?.phone ?? "",
+        client_address:selected?.address ?? "",
+        title,
+        description: "", internal_notes: "",
         travel_fee: "travel_none", service_lines: [], hour_logs: [],
       });
+      setNewModal(false);
       setActive(apiToEditor(created));
       setView("edit");
     } catch {
@@ -781,26 +1074,83 @@ export default function App() {
     }
   };
 
+  const handleCreateInvoiceFromTicket = (t, grand) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const lines = [];
+    t.services.forEach(sv => {
+      const total = calcServiceTotal(sv);
+      if (total > 0) lines.push({ description: sv.name || "Service", qty: sv.qty || 1, unit_price: total / (sv.qty || 1), amount: total });
+    });
+    t.hourLogs.forEach(hl => {
+      const hrs = parseFloat(hl.hours) || 0;
+      const rate = parseFloat(hl.rate) || 0;
+      if (hrs > 0) lines.push({ description: hl.description || `Labour ${hl.date}`, qty: hrs, unit_price: rate, amount: hrs * rate });
+    });
+    const travel = TRAVEL_FEES.find(f => f.id === t.travelFee);
+    if (travel?.fee > 0) lines.push({ description: `Travel (${travel.label})`, qty: 1, unit_price: travel.fee, amount: travel.fee });
+    if (lines.length === 0) lines.push({ description: "", qty: 1, unit_price: 0, amount: 0 });
+    setInvoiceDraft({
+      ticket_id: t.id,
+      client_id: t.clientId ?? null,
+      client_name: t.clientName || "",
+      client_email: t.clientEmail || "",
+      client_address: t.clientAddress || "",
+      status: "Draft",
+      issue_date: today,
+      due_date: "",
+      notes: `Invoice for ticket ${t.id}${t.title ? ": " + t.title : ""}`,
+      tax_rate: 0,
+      lines,
+    });
+    setView("invoices");
+  };
+
+  if (needsSetup === null) return (
+    <div style={{ minHeight: "100vh", background: brand.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI', Arial, sans-serif", color: brand.muted, fontSize: 14 }}>
+      Loading…
+    </div>
+  );
+
+  if (needsSetup) return <SetupPage onComplete={() => setNeedsSetup(false)} />;
+
   if (!authed) return <LoginPage onLogin={handleLogin} />;
 
   return (
     <div style={{ minHeight:"100vh", background:brand.bg, fontFamily:"'Segoe UI', Arial, sans-serif" }}>
       {/* Nav */}
       <div style={{ background:brand.blue, padding:"0 28px", height:54, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:100 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <span style={{ color:"#fff", fontWeight:800, fontSize:18, letterSpacing:"-0.3px" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+          <span onClick={() => setView("home")} style={{ color:"#fff", fontWeight:800, fontSize:18, letterSpacing:"-0.3px", cursor:"pointer", marginRight:12 }}>
             ATech<span style={{ color:brand.accent }}>Solutions</span>
           </span>
-          <span style={{ color:"rgba(255,255,255,0.35)", fontSize:16 }}>|</span>
-          <span style={{ color:"rgba(255,255,255,0.7)", fontSize:13, fontWeight:500 }}>Ticket Manager</span>
+          {[
+            { id:"home",     label:"Home" },
+            { id:"list",     label:"Tickets" },
+            { id:"clients",  label:"Clients" },
+            { id:"invoices", label:"Invoices" },
+          ].map(n => (
+            <button key={n.id} onClick={() => setView(n.id)}
+              style={{ background: view === n.id ? "rgba(255,255,255,0.18)" : "none", border:"none", borderBottom: view === n.id ? "2px solid #fff" : "2px solid transparent", color: view === n.id ? "#fff" : "rgba(255,255,255,0.7)", cursor:"pointer", padding:"0 14px", height:54, fontSize:13, fontWeight: view === n.id ? 700 : 500, fontFamily:"inherit", transition:"all 0.15s" }}>
+              {n.label}
+            </button>
+          ))}
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:16 }}>
           {user && <span style={{ color:"rgba(255,255,255,0.7)", fontSize:12 }}>{user.name} &nbsp;·&nbsp; {user.role}</span>}
+          <button onClick={() => setView("settings")} style={{ background: view === "settings" ? "rgba(255,255,255,0.15)" : "none", border:"1px solid rgba(255,255,255,0.3)", color:"rgba(255,255,255,0.8)", cursor:"pointer", borderRadius:6, padding:"5px 12px", fontSize:12, fontFamily:"inherit" }}>Settings</button>
           <button onClick={handleLogout} style={{ background:"none", border:"1px solid rgba(255,255,255,0.3)", color:"rgba(255,255,255,0.8)", cursor:"pointer", borderRadius:6, padding:"5px 12px", fontSize:12, fontFamily:"inherit" }}>Sign out</button>
         </div>
       </div>
 
       <div style={{ maxWidth:1140, margin:"0 auto", padding:"28px 20px" }}>
+        {view === "home" && (
+          <DashboardPage
+            user={user}
+            showToast={showToast}
+            onSelectTicket={handleSelect}
+            onNavigate={handleDashboardNav}
+          />
+        )}
         {view === "list" && (
           <TicketList
             tickets={tickets}
@@ -811,7 +1161,9 @@ export default function App() {
             search={search}
             onSearch={setSearch}
             statusFilter={statusFilter}
-            onStatusFilter={setStatus}
+            onStatusFilter={(s) => { setStatus(s); setQuickFilter(null); }}
+            quickFilter={quickFilter}
+            onClearQuickFilter={() => setQuickFilter(null)}
           />
         )}
         {view === "edit" && activeTicket && (
@@ -821,10 +1173,28 @@ export default function App() {
             onBack={() => { setView("list"); loadList(); }}
             onDelete={handleDelete}
             saving={saving}
+            onCreateInvoice={handleCreateInvoiceFromTicket}
           />
+        )}
+        {view === "clients" && (
+          <ClientsPage showToast={showToast} />
+        )}
+        {view === "invoices" && (
+          <InvoicesPage showToast={showToast} initialDraft={invoiceDraft} onDraftConsumed={() => setInvoiceDraft(null)} />
+        )}
+        {view === "settings" && (
+          <SettingsPage user={user} showToast={showToast} />
         )}
       </div>
 
+      {newModal && (
+        <NewTicketModal
+          onCreate={handleCreate}
+          onCancel={() => setNewModal(false)}
+          clients={clients}
+          onClientCreated={loadClients}
+        />
+      )}
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );

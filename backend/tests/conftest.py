@@ -9,9 +9,6 @@ TEST_DB_URL = f"sqlite:///{TEST_DB_PATH}"
 
 os.environ["DATABASE_URL"] = TEST_DB_URL
 os.environ["SECRET_KEY"] = "test-secret-key-not-for-production"
-os.environ["FIRST_ADMIN_EMAIL"] = "seeded_admin@test.com"
-os.environ["FIRST_ADMIN_PASSWORD"] = ""   # disable auto-seed; we seed manually
-os.environ["FIRST_ADMIN_NAME"] = "Seeded"
 
 import pytest
 from sqlalchemy import create_engine
@@ -82,3 +79,31 @@ def tech_headers(client):
     r = client.post("/api/auth/login", json={"email": "tech@test.com", "password": "techpass"})
     assert r.status_code == 200, r.text
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+
+@pytest.fixture()
+def client_no_seed():
+    """Fresh DB with no users — used for setup wizard tests."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    tmp.close()
+    path = tmp.name
+    url = f"sqlite:///{path}"
+
+    engine = create_engine(url, connect_args={"check_same_thread": False})
+    Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    Base.metadata.create_all(bind=engine)
+
+    def override():
+        db = Session()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override
+    with TestClient(app, raise_server_exceptions=True) as c:
+        yield c
+    app.dependency_overrides.pop(get_db, None)
+    Base.metadata.drop_all(bind=engine)
+    engine.dispose()
+    os.unlink(path)

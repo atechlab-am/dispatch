@@ -30,7 +30,7 @@ def test_me(client, admin_headers):
 
 def test_me_no_token(client):
     r = client.get("/api/auth/me")
-    assert r.status_code == 403  # HTTPBearer returns 403 when header is missing
+    assert r.status_code in (401, 403)  # varies by Starlette version
 
 
 def test_me_bad_token(client):

@@ -2,7 +2,6 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    container_name: dispatch-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-dispatch}
@@ -20,19 +19,16 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: dispatch-backend
+      target: production
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-dispatch}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dispatch}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
-      FIRST_ADMIN_EMAIL: ${FIRST_ADMIN_EMAIL:-admin@atechsolutions.org}
-      FIRST_ADMIN_PASSWORD: ${FIRST_ADMIN_PASSWORD:-}
-      FIRST_ADMIN_NAME: ${FIRST_ADMIN_NAME:-Admin}
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -41,10 +37,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: dispatch-frontend
+      target: production
     restart: unless-stopped
     ports:
-      - "${PORT:-3000}:80"
+      - "80:80"
     depends_on:
       backend:
         condition: service_healthy

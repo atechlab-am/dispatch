@@ -64,6 +64,19 @@ def create_user(
     return user
 
 
+@router.put("/me/password", status_code=status.HTTP_204_NO_CONTENT)
+def change_own_password(
+    body: PasswordChangeIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from ..security import verify_password
+    if not verify_password(body.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    current_user.password_hash = hash_password(body.new_password)
+    db.commit()
+
+
 @router.put("/{user_id}", response_model=UserOut)
 def update_user(
     user_id: int,
@@ -104,17 +117,4 @@ def deactivate_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     user.active = False
-    db.commit()
-
-
-@router.put("/me/password", status_code=status.HTTP_204_NO_CONTENT)
-def change_own_password(
-    body: PasswordChangeIn,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    from ..security import verify_password
-    if not verify_password(body.current_password, current_user.password_hash):
-        raise HTTPException(status_code=400, detail="Current password is incorrect")
-    current_user.password_hash = hash_password(body.new_password)
     db.commit()
