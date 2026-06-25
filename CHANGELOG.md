@@ -3,6 +3,20 @@
 ## [Unreleased]
 
 ### Added
+- **Payment tracking** — record partial or full payments against any invoice (amount, method, date, note); payments panel embedded in invoice editor; running balance displayed; invoice auto-marked Paid when fully settled
+- **Invoice PDF** — "⬇ PDF" button opens a print-ready branded HTML invoice in a new browser tab; also available directly from the invoice list
+- **Invoice email** — "✉ Send" button on invoice editor opens a modal to send the invoice by email with an optional message; invoice auto-promoted from Draft → Sent on send
+- **Client statement** — "Statement" button per client row; modal shows all non-void invoices with total billed, total paid, and outstanding balance
+- `DELETE /api/invoices/payments/{id}` — remove a payment record
+- `GET /api/invoices/{id}/payments` — list payments for an invoice
+- `POST /api/invoices/{id}/payments` — record a payment
+- `GET /api/invoices/{id}/pdf` — branded invoice HTML (browser print)
+- `POST /api/invoices/{id}/send` — send invoice by email (SMTP optional)
+- `GET /api/clients/{id}/statement` — client billing statement
+- `InvoiceOut` now includes `amount_paid` and `balance` computed fields
+- Alembic migration `0008_invoice_payments` — `invoice_payments` table
+- 13 new backend tests (131 total)
+
 - `upgrade.sh` — one-command production upgrade script (`sudo ./upgrade.sh`)
 - **File attachments** — upload screenshots and documents to tickets (PDF, images, Office, ZIP); 10 MB limit; stored in a Docker volume (`uploads_data`); downloadable directly from the ticket editor
 - **Recurring tickets** — Recurring page in the nav; create/edit/delete schedules with daily/weekly/monthly/quarterly intervals; background worker fires due tickets every 5 minutes; shows next run date and last created ticket ID

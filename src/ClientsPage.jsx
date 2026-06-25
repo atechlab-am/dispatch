@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { listClients, createClient, updateClient, deleteClient } from "./api/clients.js";
+import { clientStatement } from "./api/invoices.js";
 
 const brand = {
   blue: "#1A5CBA", accent: "#E8A020", bg: "#F4F7FC", surface: "#FFFFFF",
@@ -37,6 +38,99 @@ const Btn = ({ onClick, children, variant = "primary", small, disabled, type = "
 
 const EMPTY_FORM = { name: "", email: "", phone: "", address: "", client_type: "business", company: "", notes: "" };
 
+function fmt(n) { return Number(n || 0).toFixed(2); }
+function fmtDate(d) { return d ? new Date(d + "T00:00:00").toLocaleDateString() : "—"; }
+
+const STATUS_COLORS = {
+  Draft: { bg: "#f0f0f0", color: brand.muted },
+  Sent:  { bg: "#dbeafe", color: "#1d4ed8" },
+  Paid:  { bg: "#d1fae5", color: "#065f46" },
+  Void:  { bg: "#fee2e2", color: "#991b1b" },
+};
+
+function StatementModal({ client, showToast, onClose }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setData(await clientStatement(client.id)); }
+    catch { showToast("Failed to load statement.", "err"); }
+    finally { setLoading(false); }
+  }, [client.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", padding: "40px 16px" }}>
+      <div style={{ background: "#fff", borderRadius: 12, padding: 28, width: "100%", maxWidth: 720, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", marginBottom: 40 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 20, color: brand.text }}>Client Statement</div>
+            <div style={{ fontSize: 13, color: brand.muted, marginTop: 2 }}>{client.name}{client.company ? ` — ${client.company}` : ""}</div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: brand.muted }}>×</button>
+        </div>
+
+        {loading ? (
+          <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>Loading…</div>
+        ) : !data ? null : (
+          <>
+            {/* Summary */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
+              {[
+                { label: "Total Billed", value: `$${fmt(data.total_billed)}`, color: brand.text },
+                { label: "Total Paid",   value: `$${fmt(data.total_paid)}`,   color: brand.success },
+                { label: "Outstanding",  value: `$${fmt(data.outstanding)}`,  color: data.outstanding > 0 ? brand.danger : brand.success },
+              ].map(({ label, value, color }) => (
+                <div key={label} style={{ background: brand.bg, borderRadius: 8, padding: "14px 18px", border: `1px solid ${brand.border}` }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>{label}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color }}>{value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Invoice table */}
+            {data.invoices.length === 0 ? (
+              <div style={{ color: brand.muted, textAlign: "center", padding: "20px 0" }}>No invoices for this client.</div>
+            ) : (
+              <div style={{ border: `1px solid ${brand.border}`, borderRadius: 8, overflow: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: brand.bg }}>
+                      {["Invoice #", "Status", "Issued", "Due", "Total", "Paid", "Balance"].map((h, i) => (
+                        <th key={i} style={{ padding: "8px 12px", textAlign: i >= 4 ? "right" : "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.4px", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.invoices.map(inv => {
+                      const sc = STATUS_COLORS[inv.status] || STATUS_COLORS.Draft;
+                      return (
+                        <tr key={inv.id}>
+                          <td style={{ padding: "8px 12px", borderBottom: `1px solid ${brand.border}`, fontWeight: 700, color: brand.blue }}>{inv.id}</td>
+                          <td style={{ padding: "8px 12px", borderBottom: `1px solid ${brand.border}` }}>
+                            <span style={{ background: sc.bg, color: sc.color, borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{inv.status}</span>
+                          </td>
+                          <td style={{ padding: "8px 12px", borderBottom: `1px solid ${brand.border}`, color: brand.muted }}>{fmtDate(inv.issue_date)}</td>
+                          <td style={{ padding: "8px 12px", borderBottom: `1px solid ${brand.border}`, color: brand.muted }}>{fmtDate(inv.due_date)}</td>
+                          <td style={{ padding: "8px 12px", borderBottom: `1px solid ${brand.border}`, textAlign: "right", fontWeight: 600 }}>${fmt(inv.total)}</td>
+                          <td style={{ padding: "8px 12px", borderBottom: `1px solid ${brand.border}`, textAlign: "right", color: brand.success }}>${fmt(inv.amount_paid)}</td>
+                          <td style={{ padding: "8px 12px", borderBottom: `1px solid ${brand.border}`, textAlign: "right", fontWeight: 700, color: inv.balance > 0 ? brand.danger : brand.success }}>${fmt(inv.balance)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ClientsPage({ showToast }) {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,9 +139,10 @@ export default function ClientsPage({ showToast }) {
   const [editForm, setEditForm] = useState({});
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState(EMPTY_FORM);
-  const [saving,  setSaving]  = useState(false);
-  const [adding,  setAdding]  = useState(false);
-  const [expanded, setExpanded] = useState(null);
+  const [saving,    setSaving]    = useState(false);
+  const [adding,    setAdding]    = useState(false);
+  const [expanded,  setExpanded]  = useState(null);
+  const [statement, setStatement] = useState(null);
 
   useEffect(() => {
     listClients()
@@ -111,6 +206,13 @@ export default function ClientsPage({ showToast }) {
 
   return (
     <div>
+      {statement && (
+        <StatementModal
+          client={statement}
+          showToast={showToast}
+          onClose={() => setStatement(null)}
+        />
+      )}
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
         <div>
@@ -180,14 +282,14 @@ export default function ClientsPage({ showToast }) {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: brand.bg }}>
-                {["Name / Company", "Type", "Email", "Phone", ""].map((h, i) => (
+                {["Name / Company", "Type", "Email", "Phone", "", ""].map((h, i) => (
                   <th key={i} style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={5} style={{ ...cell, textAlign: "center", color: brand.muted, padding: 40 }}>
+                <tr><td colSpan={6} style={{ ...cell, textAlign: "center", color: brand.muted, padding: 40 }}>
                   {search ? "No clients match your search." : "No clients yet — add one above."}
                 </td></tr>
               )}
@@ -208,6 +310,7 @@ export default function ClientsPage({ showToast }) {
                     <td style={{ ...cell, color: brand.muted, fontSize: 13 }}>{c.phone || "—"}</td>
                     <td style={{ ...cell, textAlign: "right", whiteSpace: "nowrap" }} onClick={e => e.stopPropagation()}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                        <Btn small variant="ghost" onClick={() => setStatement(c)}>Statement</Btn>
                         <Btn small variant="secondary" onClick={() => startEdit(c)}>Edit</Btn>
                         <Btn small variant="danger" onClick={() => handleDelete(c.id, c.name)}>Delete</Btn>
                       </div>
@@ -217,7 +320,7 @@ export default function ClientsPage({ showToast }) {
                   {/* Expanded detail / edit row */}
                   {expanded === c.id && (
                     <tr key={`${c.id}-detail`} style={{ background: "#f8faff" }}>
-                      <td colSpan={5} style={{ padding: "16px 20px", borderBottom: `1px solid ${brand.border}` }}>
+                      <td colSpan={6} style={{ padding: "16px 20px", borderBottom: `1px solid ${brand.border}` }}>
                         {editId === c.id ? (
                           <div>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
@@ -244,10 +347,9 @@ export default function ClientsPage({ showToast }) {
                             </div>
                           </div>
                         ) : (
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                             <div><FieldLabel>Address</FieldLabel><div style={{ fontSize: 13 }}>{c.address || "—"}</div></div>
                             <div><FieldLabel>Notes</FieldLabel><div style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>{c.notes || "—"}</div></div>
-                            <div><FieldLabel>Added</FieldLabel><div style={{ fontSize: 13 }}>{new Date(c.created_at).toLocaleDateString()}</div></div>
                           </div>
                         )}
                       </td>

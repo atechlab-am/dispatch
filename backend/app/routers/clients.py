@@ -1,9 +1,12 @@
+from datetime import date
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models.models import Client, ClientType
+from ..models.models import Client, ClientType, Invoice, InvoicePayment
 from ..security import get_current_user
 
 router = APIRouter(prefix="/clients", tags=["clients"])
@@ -113,3 +116,69 @@ def delete_client(
         raise HTTPException(status_code=404, detail="Client not found")
     db.delete(client)
     db.commit()
+
+
+# ─── Client statement ─────────────────────────────────────────────────────────
+
+class StatementInvoice(BaseModel):
+    id: str
+    issue_date: date
+    due_date: Optional[date]
+    status: str
+    total: float
+    amount_paid: float
+    balance: float
+    model_config = {"from_attributes": True}
+
+
+class StatementOut(BaseModel):
+    client: ClientOut
+    invoices: list[StatementInvoice]
+    total_billed: float
+    total_paid: float
+    outstanding: float
+
+
+@router.get("/{client_id}/statement", response_model=StatementOut)
+def client_statement(
+    client_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    client = db.query(Client).filter(Client.id == client_id).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    invoices = (
+        db.query(Invoice)
+        .filter(Invoice.client_id == client_id)
+        .order_by(Invoice.issue_date.desc())
+        .all()
+    )
+
+    items = []
+    total_billed = 0.0
+    total_paid = 0.0
+    for inv in invoices:
+        if str(inv.status) == "Void":
+            continue
+        paid = float(sum(p.amount for p in inv.payments))
+        total_billed += float(inv.total)
+        total_paid += paid
+        items.append(StatementInvoice(
+            id=inv.id,
+            issue_date=inv.issue_date,
+            due_date=inv.due_date,
+            status=str(inv.status),
+            total=float(inv.total),
+            amount_paid=round(paid, 2),
+            balance=round(float(inv.total) - paid, 2),
+        ))
+
+    return StatementOut(
+        client=ClientOut.model_validate(client),
+        invoices=items,
+        total_billed=round(total_billed, 2),
+        total_paid=round(total_paid, 2),
+        outstanding=round(total_billed - total_paid, 2),
+    )

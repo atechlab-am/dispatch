@@ -92,25 +92,33 @@
 - [x] File attachments on tickets — upload screenshots or documents (stored in Docker volume, 10 MB limit)
 - [x] Recurring tickets — schedule a ticket to auto-create on a repeating interval (daily/weekly/monthly/quarterly)
 
-## Phase 7 — Invoice & Billing Improvements
-- [ ] Invoice PDF export — generate a branded PDF invoice (same style as ticket PDF)
-- [ ] Invoice email — send invoice directly to client email from within the app
-- [ ] Payment tracking — record partial payments against an invoice
-- [ ] Invoice number sequence — auto-increment invoice numbers (INV-2026-00001)
-- [ ] Client statement — summary view of all invoices and outstanding balance per client
+## Phase 7 — Invoice & Billing Improvements (Complete)
+- [x] Invoice PDF export — branded print-ready HTML invoice, opens in new tab
+- [x] Invoice email — send invoice to client email with optional message; auto-promotes Draft → Sent
+- [x] Payment tracking — record partial/full payments (method, date, note); auto-marks Paid; balance shown
+- [x] Invoice number sequence — auto-increment invoice numbers (INV-2026-00001) [was already done in Phase 5]
+- [x] Client statement — summary modal per client: all invoices, total billed, total paid, outstanding
 
-## Phase 8 — Client Portal (Future)
+## Phase 8 — Document Library & Ticket Playbooks
+- [ ] Document model — name, description, category (internal / client-facing), ticket_type tags (multi), free-form tags, requires_signature flag, stored in uploads volume
+- [ ] Alembic migration 0009 — documents table + document_ticket_types join table
+- [ ] Documents API — upload, list, get, update metadata, delete (admin only for delete)
+- [ ] Document Library page — manage documents (upload, name, tag by ticket type + free-form tags, set category, delete)
+- [ ] Ticket "Playbook & Documents" section — surfaces matched docs by ticket type + tags; split Internal / Client-Facing; download button on each; "Send to Client" email button on client-facing docs
+- [ ] Future hook: requires_signature flag + signed copy upload slot on ticket (data model in place, UI wired later for e-sign)
+
+## Phase 9 — Client Portal (Future)
 - [ ] Client-facing portal — read-only view where clients can see their own tickets and invoices
 - [ ] Client login — separate auth flow for client accounts (non-admin, scoped to their data)
 - [ ] Client ticket submission — clients can open new tickets via the portal
 
-## Phase 9 — Reporting
+## Phase 10 — Reporting
 - [ ] Revenue report — total billed per month/quarter, breakdown by client and service type
 - [ ] Technician report — tickets resolved and hours logged per technician
 - [ ] SLA compliance report — % tickets resolved within SLA per priority over a date range
 - [ ] Export reports as CSV or PDF
 
-## Phase 10 — Suite Integration
+## Phase 11 — Suite Integration
 - [ ] Pulse alert → auto-create ticket via webhook
 - [ ] Tether asset link on ticket (lookup by asset tag)
 - [ ] Shared ATech Solutions nav/header across suite apps

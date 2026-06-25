@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { listInvoices, getInvoice, createInvoice, updateInvoice, deleteInvoice } from "./api/invoices.js";
+import {
+  listInvoices, getInvoice, createInvoice, updateInvoice, deleteInvoice,
+  listPayments, recordPayment, deletePayment, sendInvoiceEmail, invoicePdfUrl,
+} from "./api/invoices.js";
 import { listClients } from "./api/clients.js";
-import { listTickets } from "./api/tickets.js";
 
 const brand = {
   blue: "#1A5CBA", accent: "#E8A020", bg: "#F4F7FC", surface: "#FFFFFF",
@@ -53,6 +55,7 @@ const TAX_PRESETS = [
   { label: "BC (12%)", value: 0.12 },
   { label: "AB (5% GST)", value: 0.05 },
 ];
+const PAYMENT_METHODS = ["Cash", "Cheque", "E-Transfer", "Credit Card", "Debit", "Other"];
 
 const EMPTY_LINE = { description: "", qty: 1, unit_price: 0, amount: 0 };
 const EMPTY_INVOICE = {
@@ -64,8 +67,184 @@ const EMPTY_INVOICE = {
 function fmt(n) { return Number(n || 0).toFixed(2); }
 function fmtDate(d) { return d ? new Date(d + "T00:00:00").toLocaleDateString() : "—"; }
 
+// ─── Payment tracking panel ───────────────────────────────────────────────────
+function PaymentsPanel({ invoice, showToast, onRefresh }) {
+  const [payments, setPayments]   = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [showForm, setShowForm]   = useState(false);
+  const [form, setForm]           = useState({ amount: "", method: "Cash", note: "", payment_date: new Date().toISOString().slice(0, 10) });
+  const [saving, setSaving]       = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setPayments(await listPayments(invoice.id)); }
+    catch { showToast("Failed to load payments.", "err"); }
+    finally { setLoading(false); }
+  }, [invoice.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleRecord = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await recordPayment(invoice.id, { ...form, amount: Number(form.amount) });
+      showToast("Payment recorded.", "ok");
+      setShowForm(false);
+      setForm({ amount: "", method: "Cash", note: "", payment_date: new Date().toISOString().slice(0, 10) });
+      await load();
+      onRefresh();
+    } catch (err) {
+      const msg = err?.response?.data?.detail || "Failed to record payment.";
+      showToast(msg, "err");
+    } finally { setSaving(false); }
+  };
+
+  const handleDelete = async (paymentId) => {
+    if (!window.confirm("Remove this payment record?")) return;
+    try {
+      await deletePayment(paymentId);
+      showToast("Payment removed.", "ok");
+      await load();
+      onRefresh();
+    } catch { showToast("Failed to remove payment.", "err"); }
+  };
+
+  const paid = payments.reduce((s, p) => s + Number(p.amount), 0);
+  const balance = Number(invoice.total) - paid;
+
+  return (
+    <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px", marginTop: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px" }}>Payments</div>
+        {!showForm && invoice.status !== "Void" && (
+          <Btn small variant="success" onClick={() => setShowForm(true)}>+ Record Payment</Btn>
+        )}
+      </div>
+
+      {/* Summary row */}
+      <div style={{ display: "flex", gap: 24, marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 11, color: brand.muted, fontWeight: 600 }}>TOTAL</div>
+          <div style={{ fontSize: 16, fontWeight: 700 }}>${fmt(invoice.total)}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: brand.muted, fontWeight: 600 }}>PAID</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: brand.success }}>${fmt(paid)}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: brand.muted, fontWeight: 600 }}>BALANCE</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: balance > 0 ? brand.danger : brand.success }}>${fmt(balance)}</div>
+        </div>
+      </div>
+
+      {/* Payment form */}
+      {showForm && (
+        <form onSubmit={handleRecord} style={{ background: brand.bg, borderRadius: 8, padding: "14px 16px", marginBottom: 14, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 2fr auto auto", gap: 10, alignItems: "flex-end" }}>
+          <div>
+            <FieldLabel>Amount ($)</FieldLabel>
+            <input style={inp} type="number" min="0.01" step="0.01" required value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} placeholder="0.00" />
+          </div>
+          <div>
+            <FieldLabel>Method</FieldLabel>
+            <select style={inp} value={form.method} onChange={e => setForm(p => ({ ...p, method: e.target.value }))}>
+              {PAYMENT_METHODS.map(m => <option key={m}>{m}</option>)}
+            </select>
+          </div>
+          <div>
+            <FieldLabel>Date</FieldLabel>
+            <input style={inp} type="date" value={form.payment_date} onChange={e => setForm(p => ({ ...p, payment_date: e.target.value }))} required />
+          </div>
+          <div>
+            <FieldLabel>Note</FieldLabel>
+            <input style={inp} value={form.note} onChange={e => setForm(p => ({ ...p, note: e.target.value }))} placeholder="Reference, cheque #, etc." />
+          </div>
+          <div style={{ paddingBottom: 1 }}>
+            <Btn type="submit" variant="success" small disabled={saving}>{saving ? "…" : "Save"}</Btn>
+          </div>
+          <div style={{ paddingBottom: 1 }}>
+            <Btn variant="ghost" small onClick={() => setShowForm(false)}>Cancel</Btn>
+          </div>
+        </form>
+      )}
+
+      {/* Payment list */}
+      {loading ? (
+        <div style={{ color: brand.muted, fontSize: 13, padding: "8px 0" }}>Loading…</div>
+      ) : payments.length === 0 ? (
+        <div style={{ color: brand.muted, fontSize: 13 }}>No payments recorded yet.</div>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: brand.bg }}>
+              {["Date", "Method", "Amount", "Note", ""].map((h, i) => (
+                <th key={i} style={{ padding: "6px 10px", textAlign: i === 2 ? "right" : "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {payments.map(p => (
+              <tr key={p.id}>
+                <td style={{ padding: "7px 10px", borderBottom: `1px solid ${brand.border}` }}>{fmtDate(p.payment_date)}</td>
+                <td style={{ padding: "7px 10px", borderBottom: `1px solid ${brand.border}`, color: brand.muted }}>{p.method || "—"}</td>
+                <td style={{ padding: "7px 10px", borderBottom: `1px solid ${brand.border}`, textAlign: "right", fontWeight: 700, color: brand.success }}>${fmt(p.amount)}</td>
+                <td style={{ padding: "7px 10px", borderBottom: `1px solid ${brand.border}`, color: brand.muted }}>{p.note || ""}</td>
+                <td style={{ padding: "7px 10px", borderBottom: `1px solid ${brand.border}`, textAlign: "right" }}>
+                  <button onClick={() => handleDelete(p.id)} style={{ background: "none", border: "none", color: brand.danger, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Remove</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+// ─── Send email modal ─────────────────────────────────────────────────────────
+function SendEmailModal({ invoice, showToast, onClose }) {
+  const [to, setTo]         = useState(invoice.client_email || "");
+  const [message, setMsg]   = useState("");
+  const [sending, setSending] = useState(false);
+
+  const handleSend = async (e) => {
+    e.preventDefault();
+    setSending(true);
+    try {
+      await sendInvoiceEmail(invoice.id, { to, message });
+      showToast("Invoice sent.", "ok");
+      onClose();
+    } catch {
+      showToast("Failed to send invoice.", "err");
+    } finally { setSending(false); }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <form onSubmit={handleSend} style={{ background: "#fff", borderRadius: 12, padding: 28, width: 480, boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div style={{ fontWeight: 700, fontSize: 16 }}>Send Invoice {invoice.id}</div>
+          <button type="button" onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: brand.muted }}>×</button>
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <FieldLabel>Recipient Email</FieldLabel>
+          <input style={inp} type="email" required value={to} onChange={e => setTo(e.target.value)} placeholder="client@example.com" />
+        </div>
+        <div style={{ marginBottom: 20 }}>
+          <FieldLabel>Message (optional)</FieldLabel>
+          <textarea style={{ ...inp, minHeight: 80, resize: "vertical" }} value={message} onChange={e => setMsg(e.target.value)} placeholder="Payment instructions, notes…" />
+        </div>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+          <Btn type="submit" variant="primary" disabled={sending}>{sending ? "Sending…" : "Send Invoice"}</Btn>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 // ─── Invoice editor (create / edit) ──────────────────────────────────────────
-function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, showToast }) {
+function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, showToast, onRefresh }) {
   const isNew = !invoice;
   const [form, setForm] = useState(() => {
     if (prefill) return { ...EMPTY_INVOICE, ...prefill, _draft: undefined };
@@ -84,7 +263,9 @@ function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, showToast 
       lines: invoice.lines.length ? invoice.lines.map(l => ({ description: l.description, qty: l.qty, unit_price: l.unit_price, amount: l.amount })) : [{ ...EMPTY_LINE }],
     };
   });
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving]       = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
+  const [liveInvoice, setLive]    = useState(invoice);
 
   const up = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -126,141 +307,177 @@ function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, showToast 
         lines: form.lines.map(l => ({ ...l, qty: Number(l.qty), unit_price: Number(l.unit_price), amount: Number(l.amount) })),
       };
       const saved = isNew ? await createInvoice(payload) : await updateInvoice(invoice.id, payload);
+      setLive(saved);
       onSave(saved);
     } catch { showToast("Failed to save invoice.", "err"); }
     finally { setSaving(false); }
   };
 
+  const refreshLive = async () => {
+    if (!invoice?.id) return;
+    try { setLive(await getInvoice(invoice.id)); } catch {}
+  };
+
   return (
-    <form onSubmit={handleSubmit}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 22, color: brand.text, marginBottom: 4 }}>
-            {prefill ? `New Invoice — ${prefill.ticket_id}` : isNew ? "New Invoice" : `Invoice ${invoice.id}`}
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Btn variant="ghost" onClick={onCancel}>Cancel</Btn>
-          <Btn type="submit" variant="accent" disabled={saving}>{saving ? "Saving…" : isNew ? "Create Invoice" : "Save Changes"}</Btn>
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
-        {/* Client */}
-        <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px" }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>Bill To</div>
-          <div style={{ marginBottom: 10 }}>
-            <FieldLabel>Select Client</FieldLabel>
-            <select style={inp} value={form.client_id ?? ""} onChange={e => pickClient(e.target.value)}>
-              <option value="">— Manual entry —</option>
-              {clients.map(c => <option key={c.id} value={c.id}>{c.name}{c.company ? ` (${c.company})` : ""}</option>)}
-            </select>
-          </div>
-          <div style={{ marginBottom: 10 }}>
-            <FieldLabel>Name</FieldLabel>
-            <input style={inp} value={form.client_name} onChange={e => up("client_name", e.target.value)} placeholder="Client name" />
-          </div>
-          <div style={{ marginBottom: 10 }}>
-            <FieldLabel>Email</FieldLabel>
-            <input style={inp} type="email" value={form.client_email} onChange={e => up("client_email", e.target.value)} placeholder="client@example.com" />
-          </div>
+    <>
+      {showEmail && liveInvoice && (
+        <SendEmailModal
+          invoice={liveInvoice}
+          showToast={showToast}
+          onClose={() => setShowEmail(false)}
+        />
+      )}
+      <form onSubmit={handleSubmit}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
           <div>
-            <FieldLabel>Address</FieldLabel>
-            <textarea style={{ ...inp, minHeight: 56, resize: "vertical" }} value={form.client_address} onChange={e => up("client_address", e.target.value)} placeholder="Billing address" />
+            <div style={{ fontWeight: 800, fontSize: 22, color: brand.text, marginBottom: 4 }}>
+              {prefill ? `New Invoice — ${prefill.ticket_id}` : isNew ? "New Invoice" : `Invoice ${invoice.id}`}
+            </div>
+            {!isNew && liveInvoice && (
+              <div style={{ fontSize: 13, color: brand.muted }}>
+                Paid: <strong style={{ color: brand.success }}>${fmt(liveInvoice.amount_paid)}</strong>
+                &nbsp;·&nbsp;Balance: <strong style={{ color: liveInvoice.balance > 0 ? brand.danger : brand.success }}>${fmt(liveInvoice.balance)}</strong>
+              </div>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            {!isNew && (
+              <>
+                <Btn variant="ghost" small onClick={() => window.open(invoicePdfUrl(invoice.id), "_blank")}>⬇ PDF</Btn>
+                <Btn variant="secondary" small onClick={() => setShowEmail(true)}>✉ Send</Btn>
+              </>
+            )}
+            <Btn variant="ghost" onClick={onCancel}>Cancel</Btn>
+            <Btn type="submit" variant="accent" disabled={saving}>{saving ? "Saving…" : isNew ? "Create Invoice" : "Save Changes"}</Btn>
           </div>
         </div>
 
-        {/* Invoice details */}
-        <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px" }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>Invoice Details</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-            <div>
-              <FieldLabel>Status</FieldLabel>
-              <select style={inp} value={form.status} onChange={e => up("status", e.target.value)}>
-                {["Draft", "Sent", "Paid", "Void"].map(s => <option key={s}>{s}</option>)}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+          {/* Client */}
+          <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>Bill To</div>
+            <div style={{ marginBottom: 10 }}>
+              <FieldLabel>Select Client</FieldLabel>
+              <select style={inp} value={form.client_id ?? ""} onChange={e => pickClient(e.target.value)}>
+                <option value="">— Manual entry —</option>
+                {clients.map(c => <option key={c.id} value={c.id}>{c.name}{c.company ? ` (${c.company})` : ""}</option>)}
               </select>
             </div>
-            <div>
-              <FieldLabel>Tax</FieldLabel>
-              <select style={inp} value={form.tax_rate} onChange={e => up("tax_rate", e.target.value)}>
-                {TAX_PRESETS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
+            <div style={{ marginBottom: 10 }}>
+              <FieldLabel>Name</FieldLabel>
+              <input style={inp} value={form.client_name} onChange={e => up("client_name", e.target.value)} placeholder="Client name" />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <FieldLabel>Email</FieldLabel>
+              <input style={inp} type="email" value={form.client_email} onChange={e => up("client_email", e.target.value)} placeholder="client@example.com" />
             </div>
             <div>
-              <FieldLabel>Issue Date</FieldLabel>
-              <input style={inp} type="date" value={form.issue_date} onChange={e => up("issue_date", e.target.value)} required />
-            </div>
-            <div>
-              <FieldLabel>Due Date</FieldLabel>
-              <input style={inp} type="date" value={form.due_date} onChange={e => up("due_date", e.target.value)} />
+              <FieldLabel>Address</FieldLabel>
+              <textarea style={{ ...inp, minHeight: 56, resize: "vertical" }} value={form.client_address} onChange={e => up("client_address", e.target.value)} placeholder="Billing address" />
             </div>
           </div>
-          <div>
-            <FieldLabel>Notes</FieldLabel>
-            <textarea style={{ ...inp, minHeight: 72, resize: "vertical" }} value={form.notes} onChange={e => up("notes", e.target.value)} placeholder="Payment instructions, terms, etc." />
+
+          {/* Invoice details */}
+          <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>Invoice Details</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+              <div>
+                <FieldLabel>Status</FieldLabel>
+                <select style={inp} value={form.status} onChange={e => up("status", e.target.value)}>
+                  {["Draft", "Sent", "Paid", "Void"].map(s => <option key={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <FieldLabel>Tax</FieldLabel>
+                <select style={inp} value={form.tax_rate} onChange={e => up("tax_rate", e.target.value)}>
+                  {TAX_PRESETS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <FieldLabel>Issue Date</FieldLabel>
+                <input style={inp} type="date" value={form.issue_date} onChange={e => up("issue_date", e.target.value)} required />
+              </div>
+              <div>
+                <FieldLabel>Due Date</FieldLabel>
+                <input style={inp} type="date" value={form.due_date} onChange={e => up("due_date", e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <FieldLabel>Notes</FieldLabel>
+              <textarea style={{ ...inp, minHeight: 72, resize: "vertical" }} value={form.notes} onChange={e => up("notes", e.target.value)} placeholder="Payment instructions, terms, etc." />
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Line items */}
-      <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px", marginBottom: 20 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>Line Items</div>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ background: brand.bg }}>
-              {["Description", "Qty", "Unit Price", "Amount", ""].map((h, i) => (
-                <th key={i} style={{ padding: "8px 10px", textAlign: i > 0 ? "right" : "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {form.lines.map((l, i) => (
-              <tr key={i}>
-                <td style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}` }}>
-                  <input style={inp} value={l.description} onChange={e => upLine(i, "description", e.target.value)} placeholder="Description of service or product" />
-                </td>
-                <td style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}`, width: 90 }}>
-                  <input style={{ ...inp, textAlign: "right" }} type="number" min="0" step="0.01" value={l.qty} onChange={e => upLine(i, "qty", e.target.value)} />
-                </td>
-                <td style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}`, width: 130 }}>
-                  <input style={{ ...inp, textAlign: "right" }} type="number" min="0" step="0.01" value={l.unit_price} onChange={e => upLine(i, "unit_price", e.target.value)} />
-                </td>
-                <td style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}`, width: 120, textAlign: "right", fontWeight: 600, color: brand.text }}>
-                  ${fmt(l.amount)}
-                </td>
-                <td style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}`, width: 40, textAlign: "right" }}>
-                  {form.lines.length > 1 && (
-                    <button type="button" onClick={() => removeLine(i)}
-                      style={{ background: "none", border: "none", color: brand.danger, cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 2 }}>×</button>
-                  )}
-                </td>
+        {/* Line items */}
+        <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px", marginBottom: 20 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>Line Items</div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: brand.bg }}>
+                {["Description", "Qty", "Unit Price", "Amount", ""].map((h, i) => (
+                  <th key={i} style={{ padding: "8px 10px", textAlign: i > 0 ? "right" : "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-        <div style={{ marginTop: 10 }}>
-          <Btn variant="ghost" small onClick={addLine}>+ Add Line</Btn>
+            </thead>
+            <tbody>
+              {form.lines.map((l, i) => (
+                <tr key={i}>
+                  <td style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}` }}>
+                    <input style={inp} value={l.description} onChange={e => upLine(i, "description", e.target.value)} placeholder="Description of service or product" />
+                  </td>
+                  <td style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}`, width: 90 }}>
+                    <input style={{ ...inp, textAlign: "right" }} type="number" min="0" step="0.01" value={l.qty} onChange={e => upLine(i, "qty", e.target.value)} />
+                  </td>
+                  <td style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}`, width: 130 }}>
+                    <input style={{ ...inp, textAlign: "right" }} type="number" min="0" step="0.01" value={l.unit_price} onChange={e => upLine(i, "unit_price", e.target.value)} />
+                  </td>
+                  <td style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}`, width: 120, textAlign: "right", fontWeight: 600, color: brand.text }}>
+                    ${fmt(l.amount)}
+                  </td>
+                  <td style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}`, width: 40, textAlign: "right" }}>
+                    {form.lines.length > 1 && (
+                      <button type="button" onClick={() => removeLine(i)}
+                        style={{ background: "none", border: "none", color: brand.danger, cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 2 }}>×</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div style={{ marginTop: 10 }}>
+            <Btn variant="ghost" small onClick={addLine}>+ Add Line</Btn>
+          </div>
         </div>
-      </div>
 
-      {/* Totals */}
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "16px 24px", minWidth: 280 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 13 }}>
-            <span style={{ color: brand.muted }}>Subtotal</span>
-            <span>${fmt(subtotal)}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, fontSize: 13 }}>
-            <span style={{ color: brand.muted }}>Tax ({(Number(form.tax_rate) * 100).toFixed(3)}%)</span>
-            <span>${fmt(taxAmount)}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, borderTop: `2px solid ${brand.border}`, paddingTop: 10 }}>
-            <span>Total</span>
-            <span style={{ color: brand.blue }}>${fmt(total)}</span>
+        {/* Totals */}
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "16px 24px", minWidth: 280 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 13 }}>
+              <span style={{ color: brand.muted }}>Subtotal</span>
+              <span>${fmt(subtotal)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, fontSize: 13 }}>
+              <span style={{ color: brand.muted }}>Tax ({(Number(form.tax_rate) * 100).toFixed(3)}%)</span>
+              <span>${fmt(taxAmount)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, borderTop: `2px solid ${brand.border}`, paddingTop: 10 }}>
+              <span>Total</span>
+              <span style={{ color: brand.blue }}>${fmt(total)}</span>
+            </div>
           </div>
         </div>
-      </div>
-    </form>
+      </form>
+
+      {/* Payments panel — only visible when editing an existing invoice */}
+      {!isNew && liveInvoice && (
+        <PaymentsPanel
+          invoice={liveInvoice}
+          showToast={showToast}
+          onRefresh={refreshLive}
+        />
+      )}
+    </>
   );
 }
 
@@ -386,6 +603,7 @@ export default function InvoicesPage({ showToast, initialDraft = null, onDraftCo
                     <td style={{ ...cell, textAlign: "right", fontWeight: 700 }}>${fmt(inv.total)}</td>
                     <td style={{ ...cell, whiteSpace: "nowrap" }} onClick={e => e.stopPropagation()}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                        <Btn small variant="ghost" onClick={() => window.open(invoicePdfUrl(inv.id), "_blank")}>PDF</Btn>
                         <Btn small variant="secondary" onClick={() => handleEdit(inv)}>Edit</Btn>
                         <Btn small variant="danger" onClick={() => handleDelete(inv.id)}>Delete</Btn>
                       </div>

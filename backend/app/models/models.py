@@ -166,6 +166,7 @@ class Invoice(Base):
     ticket = relationship("Ticket")
     client = relationship("Client")
     lines = relationship("InvoiceLine", back_populates="invoice", cascade="all, delete-orphan")
+    payments = relationship("InvoicePayment", back_populates="invoice", cascade="all, delete-orphan")
 
 
 class InvoiceLine(Base):
@@ -274,6 +275,21 @@ class RecurringTicket(Base):
     last_ticket_id = Column(String(32), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class InvoicePayment(Base):
+    __tablename__ = "invoice_payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_id = Column(String(32), ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False)
+    method = Column(String(50), nullable=False, default="")   # cash, cheque, e-transfer, card, other
+    note = Column(String(500), nullable=False, default="")
+    payment_date = Column(Date, nullable=False, default=date.today)
+    recorded_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    invoice = relationship("Invoice", back_populates="payments")
 
 
 class TicketTemplate(Base):
