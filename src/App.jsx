@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { fmt, esc, calcServiceTotal, calcHourTotal } from "./helpers.js";
-import { setTokens, clearTokens, registerLogoutHandler } from "./api/client.js";
+import { setTokens, clearTokens, registerLogoutHandler, hasStoredSession } from "./api/client.js";
 import { me, logout as apiLogout } from "./api/auth.js";
 import { listTickets, getTicket, createTicket, updateTicket, deleteTicket, exportTickets } from "./api/tickets.js";
 import { listComments, addComment, deleteComment } from "./api/comments.js";
@@ -1159,16 +1159,18 @@ export default function App() {
   const [toast, setToast]           = useState(null);
   const [invoiceDraft, setInvoiceDraft] = useState(null);
 
+  const INACTIVITY_MS = 30 * 60 * 1000; // 30 minutes
+
   const showToast = (msg, type = "ok") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 4000);
   };
 
-  // Check on mount whether first-run setup is needed
+  // Check on mount whether first-run setup is needed, then try silent session restore
   useEffect(() => {
     getSetupStatus()
       .then(({ needs_setup }) => setNeedsSetup(needs_setup))
-      .catch(() => setNeedsSetup(false)); // if check fails, proceed to login
+      .catch(() => setNeedsSetup(false));
   }, []);
 
   const handleLogout = useCallback(async () => {
@@ -1184,6 +1186,29 @@ export default function App() {
   useEffect(() => {
     registerLogoutHandler(handleLogout);
   }, [handleLogout]);
+
+  // Silent session restore on page load — if a refresh token is stored, fetch /me
+  // which will trigger the axios 401 interceptor to exchange it for new tokens
+  useEffect(() => {
+    if (!hasStoredSession()) return;
+    me().then(() => handleLogin()).catch(() => clearTokens());
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Inactivity logout — reset timer on any user interaction
+  useEffect(() => {
+    if (!authed) return;
+    let timer = setTimeout(handleLogout, INACTIVITY_MS);
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(handleLogout, INACTIVITY_MS);
+    };
+    const events = ["mousemove", "keydown", "pointerdown", "scroll"];
+    events.forEach(e => window.addEventListener(e, reset, { passive: true }));
+    return () => {
+      clearTimeout(timer);
+      events.forEach(e => window.removeEventListener(e, reset));
+    };
+  }, [authed, handleLogout]);
 
   // After login, fetch the current user profile
   const loadClients = useCallback(async () => {

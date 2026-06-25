@@ -1,18 +1,26 @@
 import axios from "axios";
 
-// Tokens live in memory only — never localStorage
+const STORAGE_KEY = "dispatch_rt";
+
+// Access token: memory only. Refresh token: localStorage so page reloads survive.
 let _accessToken = null;
-let _refreshToken = null;
+let _refreshToken = localStorage.getItem(STORAGE_KEY) || null;
 let _onLogout = null;
 
 export function setTokens(access, refresh) {
   _accessToken = access;
   _refreshToken = refresh;
+  if (refresh) localStorage.setItem(STORAGE_KEY, refresh);
 }
 
 export function clearTokens() {
   _accessToken = null;
   _refreshToken = null;
+  localStorage.removeItem(STORAGE_KEY);
+}
+
+export function hasStoredSession() {
+  return !!localStorage.getItem(STORAGE_KEY);
 }
 
 export function registerLogoutHandler(fn) {
