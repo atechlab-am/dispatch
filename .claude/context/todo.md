@@ -112,11 +112,14 @@
 - [ ] Client login — separate auth flow for client accounts (non-admin, scoped to their data)
 - [ ] Client ticket submission — clients can open new tickets via the portal
 
-## Phase 10 — Reporting
-- [ ] Revenue report — total billed per month/quarter, breakdown by client and service type
-- [ ] Technician report — tickets resolved and hours logged per technician
-- [ ] SLA compliance report — % tickets resolved within SLA per priority over a date range
-- [ ] Export reports as CSV or PDF
+## Phase 10 — Reporting (Complete)
+- [x] Revenue report — total billed per month, breakdown by client, outstanding balance; stat cards
+- [x] Technician report — tickets resolved and hours logged per technician over date range
+- [x] SLA compliance report — % tickets resolved within SLA per priority over a date range
+- [x] Export all three reports as CSV
+- [x] Reports page — top-level nav in classic and new UI (admin only)
+- [x] `GET/api/reports/revenue`, `/technician`, `/sla` — all with `/csv` variants
+- [x] 16 new backend tests (164 total)
 
 ## Phase 11 — Suite Integration
 - [ ] Pulse alert → auto-create ticket via webhook

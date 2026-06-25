@@ -3,6 +3,21 @@
 ## [Unreleased]
 
 ### Added
+- **Reports page** — admin-only top-level nav item in both classic and new UI with three report tabs:
+  - **Revenue** — total billed and paid per month, breakdown by client, outstanding balance; summary stat cards
+  - **Technician** — tickets resolved, total hours logged, and total labour revenue per technician over a date range
+  - **SLA Compliance** — % tickets resolved within SLA per priority (Urgent / High / Medium / Low); visual bar for each row; overall compliance score
+- All three reports accept optional `date_from` / `date_to` filter and expose a CSV download
+- `GET /api/reports/revenue` — revenue report JSON
+- `GET /api/reports/revenue/csv` — revenue report CSV download
+- `GET /api/reports/technician` — technician performance JSON
+- `GET /api/reports/technician/csv` — technician CSV download
+- `GET /api/reports/sla` — SLA compliance JSON
+- `GET /api/reports/sla/csv` — SLA CSV download
+- All report endpoints are admin-only
+- `src/api/reports.js` — API wrappers and CSV URL helpers
+- 16 new backend tests (164 total)
+
 - **Document Library** — admin-only Settings tab to upload, tag, and manage internal and client-facing documents (PDF, Word, Excel, images, etc.); filter by category and ticket type; download and delete from the library
 - **Playbook & Documents section on tickets** — surfaces matched documents automatically based on ticket type; split into Internal / Client-Facing categories with per-document download links; `requires_signature` flag shown when applicable
 - `GET /api/documents` — list documents with optional `?category=` and `?ticket_type=` filters

@@ -9,6 +9,7 @@ import ClientsPage from "./ClientsPage.jsx";
 import InvoicesPage from "./InvoicesPage.jsx";
 import SettingsPage from "./SettingsPage.jsx";
 import DocumentsPage from "./DocumentsPage.jsx";
+import ReportsPage from "./ReportsPage.jsx";
 import BrandingSettingsPanel from "./BrandingSettingsPanel.jsx";
 
 // ─── Icon set (inline SVG helpers) ───────────────────────────────────────────
@@ -27,6 +28,7 @@ const ICONS = {
   invoices:  "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8",
   recurring: "M1 4v6h6 M23 20v-6h-6 M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15",
   documents: "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M12 18v-6 M9 15h6",
+  reports:   "M18 20V10 M12 20V4 M6 20v-6",
   settings:  "M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z",
   branding:  "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
   logout:    "M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4 M16 17l5-5-5-5 M21 12H9",
@@ -130,6 +132,7 @@ export default function AppNew({
     { id: "invoices",  label: "Invoices",   icon: ICONS.invoices },
     { id: "recurring", label: "Recurring",  icon: ICONS.recurring },
     { id: "documents", label: "Documents",  icon: ICONS.documents },
+    { id: "reports",   label: "Reports",    icon: ICONS.reports },
   ];
 
   const BOTTOM_NAV = [
@@ -219,7 +222,7 @@ export default function AppNew({
         <div style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "0 28px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 40, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
           <div>
             <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
-              {{ home: "Dashboard", list: "Tickets", clients: "Clients", invoices: "Invoices", recurring: "Recurring Tickets", documents: "Documents", settings: "Settings", edit: "Ticket" }[view] ?? ""}
+              {{ home: "Dashboard", list: "Tickets", clients: "Clients", invoices: "Invoices", recurring: "Recurring Tickets", documents: "Documents", reports: "Reports", settings: "Settings", edit: "Ticket" }[view] ?? ""}
             </h1>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -276,6 +279,9 @@ export default function AppNew({
           )}
           {view === "documents" && (
             <DocumentsPage showToast={showToast} />
+          )}
+          {view === "reports" && (
+            <ReportsPage />
           )}
           {view === "settings" && (
             <div>

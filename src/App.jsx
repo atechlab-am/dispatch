@@ -13,6 +13,7 @@ import { listDocuments, downloadUrl as docDownloadUrl } from "./api/documents.js
 import LoginPage from "./LoginPage.jsx";
 import SettingsPage from "./SettingsPage.jsx";
 import DocumentsPage from "./DocumentsPage.jsx";
+import ReportsPage from "./ReportsPage.jsx";
 import ClientsPage from "./ClientsPage.jsx";
 import InvoicesPage from "./InvoicesPage.jsx";
 import DashboardPage from "./DashboardPage.jsx";
@@ -1931,6 +1932,7 @@ export default function App() {
             { id:"invoices",  label:"Invoices" },
             { id:"recurring", label:"Recurring" },
             { id:"documents", label:"Documents" },
+            { id:"reports",   label:"Reports" },
           ].map(n => (
             <button key={n.id} onClick={() => setView(n.id)}
               style={{ background: view === n.id ? "rgba(255,255,255,0.18)" : "none", border:"none", borderBottom: view === n.id ? "2px solid #fff" : "2px solid transparent", color: view === n.id ? "#fff" : "rgba(255,255,255,0.7)", cursor:"pointer", padding:"0 14px", height:54, fontSize:13, fontWeight: view === n.id ? 700 : 500, fontFamily:"inherit", transition:"all 0.15s" }}>
@@ -2000,6 +2002,9 @@ export default function App() {
         )}
         {view === "documents" && (
           <DocumentsPage showToast={showToast} />
+        )}
+        {view === "reports" && (
+          <ReportsPage />
         )}
         {view === "settings" && (
           <SettingsPage user={user} showToast={showToast} />
