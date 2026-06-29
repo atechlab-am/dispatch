@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { listDocuments, uploadDocument, updateDocument, deleteDocument, downloadUrl } from "./api/documents.js";
 
 const brand = {
@@ -73,6 +73,204 @@ function TagInput({ value, onChange, placeholder }) {
         placeholder={value.length === 0 ? placeholder : ""}
         style={{ border: "none", outline: "none", fontSize: 13, flex: 1, minWidth: 80, background: "transparent", color: brand.text }}
       />
+    </div>
+  );
+}
+
+const ALLOWED_EXTS = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png";
+
+function mkRow(file) {
+  return {
+    id: `${file.name}-${Date.now()}-${Math.random()}`,
+    file,
+    name: file.name.replace(/\.[^.]+$/, ""),
+    category: "internal",
+    ticket_types: [],
+    tags: [],
+    requires_signature: false,
+    status: "pending", // pending | uploading | done | error
+    error: null,
+  };
+}
+
+function BulkUploadZone({ onUploaded, showToast }) {
+  const [rows, setRows] = useState([]);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef();
+
+  const addFiles = useCallback((files) => {
+    const next = Array.from(files).map(mkRow);
+    setRows(p => [...p, ...next]);
+  }, []);
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    addFiles(e.dataTransfer.files);
+  };
+
+  const upRow = (id, patch) => setRows(p => p.map(r => r.id === id ? { ...r, ...patch } : r));
+  const removeRow = (id) => setRows(p => p.filter(r => r.id !== id));
+
+  const handleUploadAll = async () => {
+    const pending = rows.filter(r => r.status === "pending");
+    if (pending.length === 0) return;
+    setUploading(true);
+    let successCount = 0;
+    for (const row of pending) {
+      upRow(row.id, { status: "uploading" });
+      try {
+        const doc = await uploadDocument(row.file, {
+          name: row.name.trim() || row.file.name,
+          description: "",
+          category: row.category,
+          ticket_types: row.ticket_types.join(","),
+          tags: row.tags.join(","),
+          requires_signature: row.requires_signature,
+        });
+        upRow(row.id, { status: "done" });
+        onUploaded(doc);
+        successCount++;
+      } catch (err) {
+        const msg = err.response?.data?.detail ?? "Upload failed";
+        upRow(row.id, { status: "error", error: typeof msg === "string" ? msg : JSON.stringify(msg) });
+      }
+    }
+    setUploading(false);
+    if (successCount > 0) showToast(`${successCount} document${successCount > 1 ? "s" : ""} uploaded.`, "ok");
+  };
+
+  const clearDone = () => setRows(p => p.filter(r => r.status !== "done"));
+  const pendingCount = rows.filter(r => r.status === "pending").length;
+
+  return (
+    <div style={{ marginBottom: 28 }}>
+      {/* Drop zone */}
+      <div
+        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={onDrop}
+        onClick={() => inputRef.current.click()}
+        style={{
+          border: `2px dashed ${dragOver ? brand.blue : brand.border}`,
+          borderRadius: 10,
+          background: dragOver ? "#eef4ff" : brand.bg,
+          padding: "32px 20px",
+          textAlign: "center",
+          cursor: "pointer",
+          transition: "all 0.15s",
+          marginBottom: rows.length > 0 ? 16 : 0,
+        }}
+      >
+        <input ref={inputRef} type="file" multiple accept={ALLOWED_EXTS}
+          style={{ display: "none" }}
+          onChange={e => { addFiles(e.target.files); e.target.value = ""; }} />
+        <div style={{ fontSize: 32, marginBottom: 8 }}>📂</div>
+        <div style={{ fontWeight: 700, fontSize: 14, color: brand.text, marginBottom: 4 }}>
+          Drag & drop files here, or click to browse
+        </div>
+        <div style={{ fontSize: 12, color: brand.muted }}>
+          PDF, Word, Excel, PowerPoint, text, images · 20 MB max per file
+        </div>
+      </div>
+
+      {/* Queued rows */}
+      {rows.length > 0 && (
+        <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: brand.bg }}>
+                {["File", "Name", "Category", "Ticket Types", "Requires Sig.", "Status", ""].map(h => (
+                  <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(row => (
+                <tr key={row.id} style={{ background: row.status === "done" ? "#f0fdf4" : row.status === "error" ? "#fff5f5" : "#fff" }}>
+                  <td style={{ padding: "10px 12px", borderBottom: `1px solid ${brand.border}`, fontSize: 12, color: brand.muted, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {row.file.name}
+                  </td>
+                  <td style={{ padding: "6px 12px", borderBottom: `1px solid ${brand.border}` }}>
+                    <input
+                      value={row.name}
+                      onChange={e => upRow(row.id, { name: e.target.value })}
+                      disabled={row.status !== "pending"}
+                      style={{ ...inp, padding: "5px 8px", fontSize: 12, width: 160 }}
+                    />
+                  </td>
+                  <td style={{ padding: "6px 12px", borderBottom: `1px solid ${brand.border}` }}>
+                    <select
+                      value={row.category}
+                      onChange={e => upRow(row.id, { category: e.target.value })}
+                      disabled={row.status !== "pending"}
+                      style={{ ...inp, padding: "5px 8px", fontSize: 12, width: 130 }}
+                    >
+                      <option value="internal">Internal</option>
+                      <option value="client_facing">Client-Facing</option>
+                    </select>
+                  </td>
+                  <td style={{ padding: "6px 12px", borderBottom: `1px solid ${brand.border}` }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, minWidth: 180 }}>
+                      {TICKET_TYPES.map(t => (
+                        <label key={t} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, cursor: row.status === "pending" ? "pointer" : "default", color: brand.text }}>
+                          <input
+                            type="checkbox"
+                            checked={row.ticket_types.includes(t)}
+                            disabled={row.status !== "pending"}
+                            onChange={e => upRow(row.id, {
+                              ticket_types: e.target.checked
+                                ? [...row.ticket_types, t]
+                                : row.ticket_types.filter(x => x !== t),
+                            })}
+                          />
+                          {t}
+                        </label>
+                      ))}
+                    </div>
+                  </td>
+                  <td style={{ padding: "6px 12px", borderBottom: `1px solid ${brand.border}`, textAlign: "center" }}>
+                    <input
+                      type="checkbox"
+                      checked={row.requires_signature}
+                      disabled={row.status !== "pending"}
+                      onChange={e => upRow(row.id, { requires_signature: e.target.checked })}
+                    />
+                  </td>
+                  <td style={{ padding: "6px 12px", borderBottom: `1px solid ${brand.border}`, fontSize: 12, whiteSpace: "nowrap" }}>
+                    {row.status === "pending"   && <span style={{ color: brand.muted }}>Ready</span>}
+                    {row.status === "uploading" && <span style={{ color: brand.blue }}>Uploading…</span>}
+                    {row.status === "done"      && <span style={{ color: "#16a34a", fontWeight: 700 }}>✓ Done</span>}
+                    {row.status === "error"     && <span style={{ color: brand.danger }} title={row.error}>✗ Error</span>}
+                  </td>
+                  <td style={{ padding: "6px 12px", borderBottom: `1px solid ${brand.border}` }}>
+                    <button
+                      type="button"
+                      onClick={() => removeRow(row.id)}
+                      disabled={row.status === "uploading"}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: brand.muted, fontSize: 16, lineHeight: 1, padding: "2px 4px" }}
+                      title="Remove"
+                    >×</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div style={{ padding: "10px 14px", background: brand.bg, display: "flex", gap: 10, alignItems: "center" }}>
+            <Btn onClick={handleUploadAll} variant="accent" small disabled={uploading || pendingCount === 0}>
+              {uploading ? "Uploading…" : `Upload ${pendingCount} file${pendingCount !== 1 ? "s" : ""}`}
+            </Btn>
+            {rows.some(r => r.status === "done") && (
+              <Btn onClick={clearDone} variant="ghost" small>Clear done</Btn>
+            )}
+            <span style={{ fontSize: 12, color: brand.muted, marginLeft: "auto" }}>
+              {rows.filter(r => r.status === "done").length} done · {rows.filter(r => r.status === "error").length} errors · {pendingCount} pending
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -259,6 +457,7 @@ export default function DocumentsPage({ showToast }) {
   const [filter, setFilter] = useState({ category: "", ticket_type: "", search: "" });
   const [showUpload, setShowUpload] = useState(false);
   const [editDoc, setEditDoc] = useState(null);
+  const [showBulk, setShowBulk] = useState(false);
 
   const load = () => {
     const params = {};
@@ -322,10 +521,25 @@ export default function DocumentsPage({ showToast }) {
         />
       )}
 
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontWeight: 800, fontSize: 22, color: brand.text, marginBottom: 4 }}>Documents</div>
-        <div style={{ fontSize: 13, color: brand.muted }}>Upload and manage internal playbooks and client-facing documents.</div>
+      <div style={{ marginBottom: 20, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 22, color: brand.text, marginBottom: 4 }}>Documents</div>
+          <div style={{ fontSize: 13, color: brand.muted }}>Upload and manage internal playbooks and client-facing documents.</div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Btn onClick={() => { setShowBulk(v => !v); }} variant={showBulk ? "primary" : "accent"} small>
+            {showBulk ? "▲ Hide Upload" : "↑ Upload Files"}
+          </Btn>
+          <Btn onClick={() => setShowUpload(true)} variant="secondary" small>+ Single Upload</Btn>
+        </div>
       </div>
+
+      {showBulk && (
+        <BulkUploadZone
+          onUploaded={doc => setDocs(p => [...p, doc])}
+          showToast={showToast}
+        />
+      )}
 
       <div style={{ display: "flex", gap: 10, marginBottom: 18, alignItems: "flex-end", flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 180 }}>
@@ -347,7 +561,6 @@ export default function DocumentsPage({ showToast }) {
             {TICKET_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
-        <Btn onClick={() => setShowUpload(true)} variant="accent">+ Upload Document</Btn>
       </div>
 
       {loading ? (

@@ -32,9 +32,12 @@ const client = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Inject access token on every request
+// Inject access token on every request; let browser set Content-Type for multipart
 client.interceptors.request.use((config) => {
   if (_accessToken) config.headers.Authorization = `Bearer ${_accessToken}`;
+  if (config.data instanceof FormData) {
+    delete config.headers["Content-Type"];
+  }
   return config;
 });
 
