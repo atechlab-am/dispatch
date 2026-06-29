@@ -314,6 +314,39 @@ class Document(Base):
     updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
+class FormTemplate(Base):
+    """Reusable form definitions with typed fields (stored as JSON)."""
+    __tablename__ = "form_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=False, default="")
+    ticket_types = Column(Text, nullable=False, default="")   # comma-separated
+    # JSON array: [{id, label, type, required, options}]
+    fields = Column(Text, nullable=False, default="[]")
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    instances = relationship("FormInstance", back_populates="template", cascade="all, delete-orphan")
+
+
+class FormInstance(Base):
+    """A filled copy of a FormTemplate, scoped to a ticket."""
+    __tablename__ = "form_instances"
+
+    id = Column(Integer, primary_key=True, index=True)
+    template_id = Column(Integer, ForeignKey("form_templates.id", ondelete="CASCADE"), nullable=False)
+    ticket_id = Column(String(32), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False)
+    # JSON object: {field_id: value, ...}
+    values = Column(Text, nullable=False, default="{}")
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    template = relationship("FormTemplate", back_populates="instances")
+
+
 class TicketTemplate(Base):
     __tablename__ = "ticket_templates"
 

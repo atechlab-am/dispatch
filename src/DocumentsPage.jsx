@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { listDocuments, uploadDocument, updateDocument, deleteDocument, downloadUrl } from "./api/documents.js";
+import FormTemplatesTab from "./FormTemplatesTab.jsx";
 
 const brand = {
   blue: "#1A5CBA",
@@ -451,7 +452,9 @@ function EditDocModal({ doc, onClose, onUpdated, showToast }) {
   );
 }
 
-export default function DocumentsPage({ showToast }) {
+export default function DocumentsPage({ showToast, user }) {
+  const isAdmin = user?.role === "admin";
+  const [tab, setTab] = useState("files");
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({ category: "", ticket_type: "", search: "" });
@@ -521,17 +524,32 @@ export default function DocumentsPage({ showToast }) {
         />
       )}
 
-      <div style={{ marginBottom: 20, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 22, color: brand.text, marginBottom: 4 }}>Documents</div>
-          <div style={{ fontSize: 13, color: brand.muted }}>Upload and manage internal playbooks and client-facing documents.</div>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Btn onClick={() => { setShowBulk(v => !v); }} variant={showBulk ? "primary" : "accent"} small>
-            {showBulk ? "▲ Hide Upload" : "↑ Upload Files"}
-          </Btn>
-          <Btn onClick={() => setShowUpload(true)} variant="secondary" small>+ Single Upload</Btn>
-        </div>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontWeight: 800, fontSize: 22, color: brand.text, marginBottom: 4 }}>Documents</div>
+        <div style={{ fontSize: 13, color: brand.muted }}>Upload files and manage form templates for tickets.</div>
+      </div>
+
+      {/* Tab bar */}
+      <div style={{ display: "flex", gap: 4, borderBottom: `2px solid ${brand.border}`, marginBottom: 24 }}>
+        {[{ id: "files", label: "Document Library" }, { id: "templates", label: "Form Templates" }].map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            style={{ padding: "8px 20px", background: "none", border: "none", borderBottom: `3px solid ${tab === t.id ? brand.blue : "transparent"}`, marginBottom: -2, fontWeight: 700, fontSize: 13, color: tab === t.id ? brand.blue : brand.muted, cursor: "pointer", fontFamily: "inherit", transition: "color 0.15s" }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "templates" && (
+        <FormTemplatesTab showToast={showToast} isAdmin={isAdmin} />
+      )}
+
+      {tab === "files" && (<>
+
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "flex-end", gap: 8, marginBottom: 16 }}>
+        <Btn onClick={() => { setShowBulk(v => !v); }} variant={showBulk ? "primary" : "accent"} small>
+          {showBulk ? "▲ Hide Upload" : "↑ Upload Files"}
+        </Btn>
+        <Btn onClick={() => setShowUpload(true)} variant="secondary" small>+ Single Upload</Btn>
       </div>
 
       {showBulk && (
@@ -613,6 +631,7 @@ export default function DocumentsPage({ showToast }) {
           </table>
         </div>
       )}
+      </>)}
     </div>
   );
 }

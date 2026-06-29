@@ -14,7 +14,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from . import database as _db
 from .models.models import RefreshToken
-from .routers import auth, tickets, users, setup, clients, invoices, dashboard, comments, templates, attachments, recurring, documents, reports
+from .routers import auth, tickets, users, setup, clients, invoices, dashboard, comments, templates, attachments, recurring, documents, reports, form_templates, version
 from .tasks import recurring_ticket_loop
 from . import config
 
@@ -113,6 +113,8 @@ app.include_router(attachments.router, prefix="/api")
 app.include_router(recurring.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
+app.include_router(form_templates.router, prefix="/api")
+app.include_router(version.router, prefix="/api")
 
 
 @app.get("/health")

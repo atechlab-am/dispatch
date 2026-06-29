@@ -121,6 +121,22 @@
 - [x] `GET/api/reports/revenue`, `/technician`, `/sla` — all with `/csv` variants
 - [x] 16 new backend tests (164 total)
 
+## Form Templates & Ticket Forms (Complete)
+- [x] FormTemplate + FormInstance models + Alembic migration 0010
+- [x] CRUD API: /api/form-templates, /api/tickets/{id}/form-instances, /api/form-instances/{id}
+- [x] Form Templates tab on Documents page (admin: build/edit/delete templates with field builder)
+- [x] Forms section on ticket editor: matching templates shown, fill/save/edit/print per ticket
+- [x] 17 new backend tests (181 total)
+- [x] Fixed Axios Content-Type bug blocking document uploads
+- [x] Bulk drag-and-drop upload on Documents page
+
+## Update Notifications (Complete)
+- [x] VERSION file at repo root (1.0.0)
+- [x] GITHUB_REPO + GITHUB_TOKEN in config.py + .env.example
+- [x] GET /api/version/check — GitHub releases API, server-side PAT, 10-min cache
+- [x] UpdateBanner component — polls every 10 min, dismissible, shows upgrade instructions
+- [x] 5 new backend tests (186 total)
+
 ## Phase 11 — Suite Integration
 - [ ] Pulse alert → auto-create ticket via webhook
 - [ ] Tether asset link on ticket (lookup by asset tag)

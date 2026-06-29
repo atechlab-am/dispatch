@@ -11,6 +11,7 @@ import SettingsPage from "./SettingsPage.jsx";
 import DocumentsPage from "./DocumentsPage.jsx";
 import ReportsPage from "./ReportsPage.jsx";
 import BrandingSettingsPanel from "./BrandingSettingsPanel.jsx";
+import UpdateBanner from "./UpdateBanner.jsx";
 
 // ─── Icon set (inline SVG helpers) ───────────────────────────────────────────
 const Icon = ({ d, size = 18, style = {} }) => (
@@ -143,6 +144,7 @@ export default function AppNew({
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f1f5f9", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+      <UpdateBanner user={user} />
 
       {/* ── Sidebar ── */}
       <div style={{
@@ -278,7 +280,7 @@ export default function AppNew({
             <RecurringPage showToast={showToast} clients={clients} />
           )}
           {view === "documents" && (
-            <DocumentsPage showToast={showToast} />
+            <DocumentsPage showToast={showToast} user={user} />
           )}
           {view === "reports" && (
             <ReportsPage />

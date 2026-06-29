@@ -18,6 +18,23 @@
 - `src/api/reports.js` — API wrappers and CSV URL helpers
 - 16 new backend tests (164 total)
 
+- **Update available notification** — a dismissible banner appears at the top of the page when a newer version is released; polls every 10 minutes; shows current vs latest version and a "View release →" link; instructions to run `./upgrade.sh`
+- `GET /api/version/check` — returns `{ current, latest, update_available, release_url, configured }`; fetches latest GitHub release server-side using `GITHUB_TOKEN` (PAT); result cached 10 minutes; auth required
+- `VERSION` file at repo root — single source of truth for the running version (`1.0.0`)
+- `.env.example` — added `GITHUB_REPO` and `GITHUB_TOKEN` optional vars
+- 5 new backend tests (186 total)
+
+- **Form Templates** — admin-built reusable forms with typed fields (short text, long text/textarea, date, checkbox); templates scoped to ticket types; built via a "Form Templates" tab on the Documents page
+- **Ticket Forms section** — inside each ticket, matching form templates appear under a "Forms" section; fill fields per-ticket, save to DB, reopen/edit at any time, print as a branded PDF
+- `GET/POST /api/form-templates` — list and create form templates (admin create/update/delete; all users read)
+- `GET/PUT/DELETE /api/form-templates/{id}` — manage individual templates
+- `GET/POST /api/tickets/{id}/form-instances` — list and create filled form instances per ticket
+- `GET/PUT/DELETE /api/form-instances/{id}` — manage individual instances
+- Alembic migration `0010_form_templates` — `form_templates` and `form_instances` tables
+- 17 new backend tests (181 total)
+- Fixed document upload bug: Axios default `Content-Type: application/json` header overrode the multipart boundary; interceptor now strips it when body is `FormData`
+- Bulk drag-and-drop upload zone on the Documents page — drop multiple files at once, edit name/category/ticket types per file before uploading
+
 - **Document Library** — admin-only Settings tab to upload, tag, and manage internal and client-facing documents (PDF, Word, Excel, images, etc.); filter by category and ticket type; download and delete from the library
 - **Playbook & Documents section on tickets** — surfaces matched documents automatically based on ticket type; split into Internal / Client-Facing categories with per-document download links; `requires_signature` flag shown when applicable
 - `GET /api/documents` — list documents with optional `?category=` and `?ticket_type=` filters

@@ -10,6 +10,7 @@ import { listRecurring, createRecurring, updateRecurring, deleteRecurring } from
 import { listUsers } from "./api/users.js";
 import { listClients, createClient, updateClient, deleteClient } from "./api/clients.js";
 import { listDocuments, downloadUrl as docDownloadUrl } from "./api/documents.js";
+import FormsSection from "./FormsSection.jsx";
 import LoginPage from "./LoginPage.jsx";
 import SettingsPage from "./SettingsPage.jsx";
 import DocumentsPage from "./DocumentsPage.jsx";
@@ -20,6 +21,7 @@ import DashboardPage from "./DashboardPage.jsx";
 import SetupPage from "./SetupPage.jsx";
 import { getSetupStatus } from "./api/setup.js";
 import AppNew from "./AppNew.jsx";
+import UpdateBanner from "./UpdateBanner.jsx";
 import { BrandingProvider } from "./branding.jsx";
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
@@ -1460,6 +1462,12 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
       </div>
 
       {t.id && <PlaybookSection ticketType={t.ticketType} />}
+      {t.id && (
+        <div>
+          <SectionHeader>Forms</SectionHeader>
+          <FormsSection ticket={t} showToast={showToast} />
+        </div>
+      )}
       {t.id && <CommentsSection ticketId={t.id} currentUser={currentUser} />}
       {t.id && <AttachmentsSection ticketId={t.id} currentUser={currentUser} />}
     </div>
@@ -1919,6 +1927,7 @@ export default function App() {
 
   return (
     <div style={{ minHeight:"100vh", background:brand.bg, fontFamily:"'Segoe UI', Arial, sans-serif" }}>
+      <UpdateBanner user={user} />
       {/* Nav */}
       <div style={{ background:brand.blue, padding:"0 28px", height:54, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:100 }}>
         <div style={{ display:"flex", alignItems:"center", gap:4 }}>
@@ -2001,7 +2010,7 @@ export default function App() {
           <RecurringPage showToast={showToast} clients={clients} />
         )}
         {view === "documents" && (
-          <DocumentsPage showToast={showToast} />
+          <DocumentsPage showToast={showToast} user={user} />
         )}
         {view === "reports" && (
           <ReportsPage />

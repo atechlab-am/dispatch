@@ -24,3 +24,8 @@ SMTP_TLS: bool = os.environ.get("SMTP_TLS", "true").lower() == "true"
 # File uploads — mounted volume in production
 UPLOAD_DIR: str = os.environ.get("UPLOAD_DIR", "/app/uploads")
 
+# GitHub update notifications — optional
+# Set GITHUB_REPO to "owner/repo" and GITHUB_TOKEN to a PAT with repo read scope
+GITHUB_REPO: str = os.environ.get("GITHUB_REPO", "")
+GITHUB_TOKEN: str = os.environ.get("GITHUB_TOKEN", "")
+
