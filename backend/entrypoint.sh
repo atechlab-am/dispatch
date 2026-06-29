@@ -1,5 +1,6 @@
 #!/bin/sh
 set -e
+mkdir -p /app/uploads/documents
 python3 -m alembic upgrade head
 exec gunicorn app.main:app \
     -k uvicorn.workers.UvicornWorker \

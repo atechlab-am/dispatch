@@ -21,6 +21,7 @@ services:
       dockerfile: Dockerfile
       target: production
     restart: unless-stopped
+    user: root
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-dispatch}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dispatch}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}

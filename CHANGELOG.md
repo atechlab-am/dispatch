@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.1] — 2026-06-29
+
+### Fixed
+- File uploads failing: Docker named volumes mount as root, blocking writes by the non-root container user; backend container now runs as root to ensure `/app/uploads` is always writable
+- `entrypoint.sh` now pre-creates `/app/uploads/documents` on startup so the directory exists before the first upload
+
 ## [Unreleased]
 
 ### Added
