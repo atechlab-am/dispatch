@@ -3,6 +3,7 @@
  * Receives the same props/state as the classic shell via AppShared.
  */
 import { useState } from "react";
+import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { useBranding } from "./branding.jsx";
 import DashboardPage from "./DashboardPage.jsx";
 import ClientsPage from "./ClientsPage.jsx";
@@ -49,7 +50,7 @@ function card(extra = {}) {
 }
 
 // ─── Sidebar nav item ─────────────────────────────────────────────────────────
-function NavItem({ id, label, icon, active, onClick, primary, collapsed, dark }) {
+function NavItem({ path, label, icon, active, onClick, primary, collapsed, dark }) {
   const [hov, setHov] = useState(false);
   const fgBase  = dark ? "rgba(255,255,255,0.72)" : "rgba(15,23,42,0.65)";
   const hovBg   = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)";
@@ -57,7 +58,7 @@ function NavItem({ id, label, icon, active, onClick, primary, collapsed, dark })
   const fg = active ? primary : fgBase;
   return (
     <button
-      onClick={() => onClick(id)}
+      onClick={() => onClick(path)}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       title={collapsed ? label : undefined}
@@ -90,10 +91,7 @@ function Toast({ msg, type, onClose }) {
 
 // ─── New UI shell ─────────────────────────────────────────────────────────────
 export default function AppNew({
-  // data & callbacks forwarded from App
-  view, setView,
   tickets, total, loadingList,
-  activeTicket,
   search, setSearch,
   statusFilter, setStatus,
   quickFilter, setQuickFilter,
@@ -109,10 +107,12 @@ export default function AppNew({
   loadList, loadClients, loadTemplates,
   user,
   onToggleUI,
+  navigate,
   // child components forwarded as render props
-  TicketList, TicketEditor, NewTicketModal, RecurringPage,
+  TicketList, TicketEditor, TicketEditorRoute, NewTicketModal, RecurringPage,
 }) {
   const branding = useBranding();
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [showBranding, setShowBranding] = useState(false);
 
@@ -127,20 +127,36 @@ export default function AppNew({
                              : { bg: "rgba(0,0,0,0.06)",       fg: "rgba(15,23,42,0.5)" };
 
   const NAV = [
-    { id: "home",      label: "Dashboard",  icon: ICONS.home },
-    { id: "list",      label: "Tickets",    icon: ICONS.tickets },
-    { id: "clients",   label: "Clients",    icon: ICONS.clients },
-    { id: "invoices",  label: "Invoices",   icon: ICONS.invoices },
-    { id: "recurring", label: "Recurring",  icon: ICONS.recurring },
-    { id: "documents", label: "Documents",  icon: ICONS.documents },
-    { id: "reports",   label: "Reports",    icon: ICONS.reports },
+    { path: "/",          label: "Dashboard",  icon: ICONS.home },
+    { path: "/tickets",   label: "Tickets",    icon: ICONS.tickets },
+    { path: "/clients",   label: "Clients",    icon: ICONS.clients },
+    { path: "/invoices",  label: "Invoices",   icon: ICONS.invoices },
+    { path: "/recurring", label: "Recurring",  icon: ICONS.recurring },
+    { path: "/documents", label: "Documents",  icon: ICONS.documents },
+    { path: "/reports",   label: "Reports",    icon: ICONS.reports },
   ];
 
   const BOTTOM_NAV = [
-    { id: "settings",  label: "Settings",   icon: ICONS.settings },
+    { path: "/settings",  label: "Settings",   icon: ICONS.settings },
   ];
 
   const sidebarW = collapsed ? 56 : 220;
+
+  const pageTitle = (() => {
+    if (location.pathname === "/") return "Dashboard";
+    if (location.pathname.startsWith("/tickets/")) return "Ticket";
+    if (location.pathname === "/tickets") return "Tickets";
+    if (location.pathname === "/clients") return "Clients";
+    if (location.pathname === "/invoices") return "Invoices";
+    if (location.pathname === "/recurring") return "Recurring Tickets";
+    if (location.pathname === "/documents") return "Documents";
+    if (location.pathname === "/reports") return "Reports";
+    if (location.pathname === "/settings") return "Settings";
+    return "";
+  })();
+
+  const isActive = (path) =>
+    path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f1f5f9", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
@@ -183,14 +199,14 @@ export default function AppNew({
         {/* Main nav */}
         <nav style={{ flex: 1, padding: "10px 8px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
           {NAV.map(n => (
-            <NavItem key={n.id} {...n} active={view === n.id} onClick={(id) => { setView(id); setShowBranding(false); }} primary={accent} collapsed={collapsed} dark={dark} />
+            <NavItem key={n.path} {...n} active={isActive(n.path)} onClick={(p) => { navigate(p); setShowBranding(false); }} primary={accent} collapsed={collapsed} dark={dark} />
           ))}
         </nav>
 
         {/* Bottom nav */}
         <div style={{ padding: "8px 8px 6px", borderTop: `1px solid ${sidebarBorder}`, display: "flex", flexDirection: "column", gap: 2 }}>
           {BOTTOM_NAV.map(n => (
-            <NavItem key={n.id} {...n} active={view === n.id} onClick={(id) => { setView(id); setShowBranding(false); }} primary={accent} collapsed={collapsed} dark={dark} />
+            <NavItem key={n.path} {...n} active={isActive(n.path)} onClick={(p) => { navigate(p); setShowBranding(false); }} primary={accent} collapsed={collapsed} dark={dark} />
           ))}
           {/* Toggle classic UI */}
           <button
@@ -223,19 +239,16 @@ export default function AppNew({
         {/* Top bar */}
         <div style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "0 28px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 40, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
-              {{ home: "Dashboard", list: "Tickets", clients: "Clients", invoices: "Invoices", recurring: "Recurring Tickets", documents: "Documents", reports: "Reports", settings: "Settings", edit: "Ticket" }[view] ?? ""}
-            </h1>
+            <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{pageTitle}</h1>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            {view === "list" && (
+            {location.pathname === "/tickets" && (
               <button
                 onClick={handleNew}
                 style={{ background: primary, color: "#fff", border: "none", borderRadius: radius.sm, padding: "8px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: `0 2px 8px ${primary}44` }}>
                 + New Ticket
               </button>
             )}
-            {/* UI toggle badge */}
             <button onClick={onToggleUI} style={{ background: `${accent}18`, border: `1px solid ${accent}55`, color: accent, borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", letterSpacing: "0.3px" }}>
               ✦ NEW UI
             </button>
@@ -244,67 +257,61 @@ export default function AppNew({
 
         {/* Page content */}
         <div style={{ flex: 1, padding: 28, overflowY: "auto" }}>
-
-          {view === "home" && (
-            <DashboardPage user={user} showToast={showToast} onSelectTicket={handleSelect} onNavigate={handleDashboardNav} />
-          )}
-          {view === "list" && (
-            <TicketList
-              tickets={tickets} total={total} loading={loadingList}
-              onSelect={handleSelect} onNew={handleNew}
-              search={search} onSearch={setSearch}
-              statusFilter={statusFilter} onStatusFilter={(s) => { setStatus(s); setQuickFilter(null); }}
-              quickFilter={quickFilter} onClearQuickFilter={() => setQuickFilter(null)}
-              onExport={() => {}}
-              users={users} assigneeFilter={assigneeFilter} onAssigneeFilter={setAssigneeFilter}
-              onStatusChange={handleBoardStatusChange}
-            />
-          )}
-          {view === "edit" && activeTicket && (
-            <TicketEditor
-              ticket={activeTicket} onSave={handleSave}
-              onBack={() => { setView("list"); loadList(); }}
-              onDelete={handleDelete} saving={saving}
-              onCreateInvoice={handleCreateInvoiceFromTicket}
-              users={users} currentUser={user}
-              onTemplateSaved={loadTemplates} showToast={showToast}
-            />
-          )}
-          {view === "clients" && (
-            <ClientsPage showToast={showToast} />
-          )}
-          {view === "invoices" && (
-            <InvoicesPage showToast={showToast} initialDraft={invoiceDraft} onDraftConsumed={() => setInvoiceDraft(null)} />
-          )}
-          {view === "recurring" && (
-            <RecurringPage showToast={showToast} clients={clients} />
-          )}
-          {view === "documents" && (
-            <DocumentsPage showToast={showToast} user={user} />
-          )}
-          {view === "reports" && (
-            <ReportsPage />
-          )}
-          {view === "settings" && (
-            <div>
-              {/* Settings sub-tabs */}
-              <div style={{ display: "flex", gap: 6, marginBottom: 24, borderBottom: "2px solid #e2e8f0", paddingBottom: 0 }}>
-                {[
-                  { id: false, label: "Users & Account" },
-                  { id: true,  label: "✦ Appearance" },
-                ].map(tab => (
-                  <button key={String(tab.id)} onClick={() => setShowBranding(tab.id)}
-                    style={{ padding: "8px 18px", border: "none", borderBottom: `3px solid ${showBranding === tab.id ? primary : "transparent"}`, background: "none", fontWeight: showBranding === tab.id ? 700 : 500, fontSize: 13, color: showBranding === tab.id ? primary : "#64748b", cursor: "pointer", fontFamily: "inherit", marginBottom: -2, transition: "all 0.12s" }}>
-                    {tab.label}
-                  </button>
-                ))}
+          <Routes>
+            <Route path="/" element={
+              <DashboardPage user={user} showToast={showToast} onSelectTicket={handleSelect} onNavigate={handleDashboardNav} />
+            } />
+            <Route path="/tickets" element={
+              <TicketList
+                tickets={tickets} total={total} loading={loadingList}
+                onSelect={handleSelect} onNew={handleNew}
+                search={search} onSearch={setSearch}
+                statusFilter={statusFilter} onStatusFilter={(s) => { setStatus(s); setQuickFilter(null); }}
+                quickFilter={quickFilter} onClearQuickFilter={() => setQuickFilter(null)}
+                onExport={() => {}}
+                users={users} assigneeFilter={assigneeFilter} onAssigneeFilter={setAssigneeFilter}
+                onStatusChange={handleBoardStatusChange}
+              />
+            } />
+            <Route path="/tickets/:ticketId" element={
+              <TicketEditorRoute
+                saving={saving}
+                onSave={handleSave}
+                onBack={() => { navigate("/tickets"); loadList(); }}
+                onDelete={handleDelete}
+                onCreateInvoice={handleCreateInvoiceFromTicket}
+                users={users}
+                currentUser={user}
+                onTemplateSaved={loadTemplates}
+                showToast={showToast}
+              />
+            } />
+            <Route path="/clients"   element={<ClientsPage showToast={showToast} />} />
+            <Route path="/invoices"  element={<InvoicesPage showToast={showToast} initialDraft={invoiceDraft} onDraftConsumed={() => setInvoiceDraft(null)} />} />
+            <Route path="/recurring" element={<RecurringPage showToast={showToast} clients={clients} />} />
+            <Route path="/documents" element={<DocumentsPage showToast={showToast} user={user} />} />
+            <Route path="/reports"   element={<ReportsPage />} />
+            <Route path="/settings"  element={
+              <div>
+                <div style={{ display: "flex", gap: 6, marginBottom: 24, borderBottom: "2px solid #e2e8f0", paddingBottom: 0 }}>
+                  {[
+                    { id: false, label: "Users & Account" },
+                    { id: true,  label: "✦ Appearance" },
+                  ].map(tab => (
+                    <button key={String(tab.id)} onClick={() => setShowBranding(tab.id)}
+                      style={{ padding: "8px 18px", border: "none", borderBottom: `3px solid ${showBranding === tab.id ? primary : "transparent"}`, background: "none", fontWeight: showBranding === tab.id ? 700 : 500, fontSize: 13, color: showBranding === tab.id ? primary : "#64748b", cursor: "pointer", fontFamily: "inherit", marginBottom: -2, transition: "all 0.12s" }}>
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                {showBranding
+                  ? <BrandingSettingsPanel onClose={() => setShowBranding(false)} />
+                  : <SettingsPage user={user} showToast={showToast} />
+                }
               </div>
-              {showBranding
-                ? <BrandingSettingsPanel onClose={() => setShowBranding(false)} />
-                : <SettingsPage user={user} showToast={showToast} />
-              }
-            </div>
-          )}
+            } />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { Routes, Route, useNavigate, useParams, Navigate } from "react-router-dom";
 import { fmt, esc, calcServiceTotal, calcHourTotal } from "./helpers.js";
 import { setTokens, clearTokens, registerLogoutHandler, hasStoredSession, downloadWithAuth } from "./api/client.js";
 import { me, logout as apiLogout } from "./api/auth.js";
@@ -1825,6 +1826,40 @@ const RecurringPage = ({ showToast, clients = [] }) => {
   );
 };
 
+// ─── Ticket editor route wrapper ──────────────────────────────────────────────
+const TicketEditorRoute = ({ saving, onSave, onDelete, onCreateInvoice, users, currentUser, onTemplateSaved, showToast, onBack }) => {
+  const { ticketId } = useParams();
+  const navigate = useNavigate();
+  const [ticket, setTicket] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    getTicket(ticketId)
+      .then(data => setTicket(apiToEditor(data)))
+      .catch(() => navigate("/tickets", { replace: true }))
+      .finally(() => setLoading(false));
+  }, [ticketId, navigate]);
+
+  if (loading) return <div style={{ padding: 40, color: brand.muted, fontSize: 14 }}>Loading…</div>;
+  if (!ticket) return null;
+
+  return (
+    <TicketEditor
+      ticket={ticket}
+      onSave={onSave}
+      onBack={onBack}
+      onDelete={onDelete}
+      saving={saving}
+      onCreateInvoice={onCreateInvoice}
+      users={users}
+      currentUser={currentUser}
+      onTemplateSaved={onTemplateSaved}
+      showToast={showToast}
+    />
+  );
+};
+
 // ─── App shell ────────────────────────────────────────────────────────────────
 export default function App() {
   const [needsSetup, setNeedsSetup] = useState(null); // null = checking
@@ -1832,8 +1867,6 @@ export default function App() {
   const [user, setUser]             = useState(null);
   const [tickets, setTickets]       = useState([]);
   const [total, setTotal]           = useState(0);
-  const [view, setView]             = useState("home");
-  const [activeTicket, setActive]   = useState(null);
   const [loadingList, setLoadingList] = useState(false);
   const [saving, setSaving]         = useState(false);
   const [newModal, setNewModal]     = useState(false);
@@ -1842,11 +1875,13 @@ export default function App() {
   const [templates, setTemplates]   = useState([]);
   const [search, setSearch]         = useState("");
   const [statusFilter, setStatus]   = useState("All");
-  const [quickFilter, setQuickFilter] = useState(null); // { label, fn } — client-side post-filter
+  const [quickFilter, setQuickFilter] = useState(null);
   const [assigneeFilter, setAssigneeFilter] = useState(null);
   const [toast, setToast]           = useState(null);
   const [invoiceDraft, setInvoiceDraft] = useState(null);
   const [newUI, setNewUI]           = useState(() => localStorage.getItem("dispatch_newui") === "1");
+
+  const navigate = useNavigate();
 
   const toggleUI = () => setNewUI(v => {
     const next = !v;
@@ -1854,14 +1889,13 @@ export default function App() {
     return next;
   });
 
-  const INACTIVITY_MS = 30 * 60 * 1000; // 30 minutes
+  const INACTIVITY_MS = 30 * 60 * 1000;
 
   const showToast = (msg, type = "ok") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 4000);
   };
 
-  // Check on mount whether first-run setup is needed, then try silent session restore
   useEffect(() => {
     getSetupStatus()
       .then(({ needs_setup }) => setNeedsSetup(needs_setup))
@@ -1874,22 +1908,18 @@ export default function App() {
     setAuthed(false);
     setUser(null);
     setTickets([]);
-    setView("list");
-  }, []);
+    navigate("/");
+  }, [navigate]);
 
-  // Register the logout handler so the Axios interceptor can call it on 401
   useEffect(() => {
     registerLogoutHandler(handleLogout);
   }, [handleLogout]);
 
-  // Silent session restore on page load — if a refresh token is stored, fetch /me
-  // which will trigger the axios 401 interceptor to exchange it for new tokens
   useEffect(() => {
     if (!hasStoredSession()) return;
     me().then(() => handleLogin()).catch(() => clearTokens());
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Inactivity logout — reset timer on any user interaction
   useEffect(() => {
     if (!authed) return;
     let timer = setTimeout(handleLogout, INACTIVITY_MS);
@@ -1905,7 +1935,6 @@ export default function App() {
     };
   }, [authed, handleLogout]);
 
-  // After login, fetch the current user profile
   const loadClients = useCallback(async () => {
     try { setClients(await listClients()); } catch {}
   }, []);
@@ -1928,7 +1957,6 @@ export default function App() {
     }
   };
 
-  // Load ticket list whenever search or filter changes
   const loadList = useCallback(async () => {
     setLoadingList(true);
     try {
@@ -1950,12 +1978,11 @@ export default function App() {
     if (authed) loadList();
   }, [authed, loadList]);
 
-  // Called by dashboard stat cards — navigates to ticket list with a pre-set filter
   const handleDashboardNav = ({ status, quick }) => {
     setSearch("");
     setStatus(status || "All");
     setQuickFilter(quick || null);
-    setView("list");
+    navigate("/tickets");
   };
 
   const handleNew = () => setNewModal(true);
@@ -1976,22 +2003,13 @@ export default function App() {
         travel_fee: "travel_none", service_lines: [], hour_logs: [],
       });
       setNewModal(false);
-      setActive(apiToEditor(created));
-      setView("edit");
+      navigate(`/tickets/${created.id}`);
     } catch {
       showToast("Failed to create ticket.", "err");
     }
   };
 
-  const handleSelect = async (id) => {
-    try {
-      const data = await getTicket(id);
-      setActive(apiToEditor(data));
-      setView("edit");
-    } catch {
-      showToast("Failed to load ticket.", "err");
-    }
-  };
+  const handleSelect = (id) => navigate(`/tickets/${id}`);
 
   const handleSave = async (editorTicket, silent = false) => {
     if (!silent) setSaving(true);
@@ -1999,7 +2017,7 @@ export default function App() {
       await updateTicket(editorTicket.id, editorToApi(editorTicket));
       if (!silent) {
         showToast("Ticket saved.", "ok");
-        setView("list");
+        navigate("/tickets");
         loadList();
       }
     } catch {
@@ -2014,7 +2032,7 @@ export default function App() {
     try {
       await deleteTicket(id);
       showToast("Ticket deleted.", "ok");
-      setView("list");
+      navigate("/tickets");
       loadList();
     } catch {
       showToast("Failed to delete ticket.", "err");
@@ -2060,7 +2078,7 @@ export default function App() {
       tax_rate: 0,
       lines,
     });
-    setView("invoices");
+    navigate("/invoices");
   };
 
   if (needsSetup === null) return (
@@ -2073,8 +2091,9 @@ export default function App() {
 
   if (!authed) return <LoginPage onLogin={handleLogin} />;
 
+  // Derive active nav item from current path for highlighting
   const sharedProps = {
-    view, setView, tickets, total, loadingList, activeTicket,
+    tickets, total, loadingList,
     search, setSearch, statusFilter, setStatus, quickFilter, setQuickFilter,
     assigneeFilter, setAssigneeFilter, users, clients, templates,
     toast, showToast, invoiceDraft, setInvoiceDraft,
@@ -2083,7 +2102,8 @@ export default function App() {
     handleSelect, handleDelete, handleCreateInvoiceFromTicket, handleDashboardNav,
     handleBoardStatusChange,
     loadList, loadClients, loadTemplates, user, onToggleUI: toggleUI,
-    TicketList, TicketEditor, NewTicketModal, RecurringPage,
+    TicketList, TicketEditor, TicketEditorRoute, NewTicketModal, RecurringPage,
+    navigate,
   };
 
   if (newUI) return (
@@ -2092,99 +2112,80 @@ export default function App() {
     </BrandingProvider>
   );
 
+  const NAV_ITEMS = [
+    { path: "/",          label: "Home" },
+    { path: "/tickets",   label: "Tickets" },
+    { path: "/clients",   label: "Clients" },
+    { path: "/invoices",  label: "Invoices" },
+    { path: "/recurring", label: "Recurring" },
+    { path: "/documents", label: "Documents" },
+    { path: "/reports",   label: "Reports" },
+  ];
+
   return (
     <div style={{ minHeight:"100vh", background:brand.bg, fontFamily:"'Segoe UI', Arial, sans-serif" }}>
       <UpdateBanner user={user} />
-      {/* Nav */}
       <div style={{ background:brand.blue, padding:"0 28px", height:54, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:100 }}>
         <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-          <span onClick={() => setView("home")} style={{ color:"#fff", fontWeight:800, fontSize:18, letterSpacing:"-0.3px", cursor:"pointer", marginRight:12 }}>
+          <span onClick={() => navigate("/")} style={{ color:"#fff", fontWeight:800, fontSize:18, letterSpacing:"-0.3px", cursor:"pointer", marginRight:12 }}>
             ATech<span style={{ color:brand.accent }}>Solutions</span>
           </span>
-          {[
-            { id:"home",      label:"Home" },
-            { id:"list",      label:"Tickets" },
-            { id:"clients",   label:"Clients" },
-            { id:"invoices",  label:"Invoices" },
-            { id:"recurring", label:"Recurring" },
-            { id:"documents", label:"Documents" },
-            { id:"reports",   label:"Reports" },
-          ].map(n => (
-            <button key={n.id} onClick={() => setView(n.id)}
-              style={{ background: view === n.id ? "rgba(255,255,255,0.18)" : "none", border:"none", borderBottom: view === n.id ? "2px solid #fff" : "2px solid transparent", color: view === n.id ? "#fff" : "rgba(255,255,255,0.7)", cursor:"pointer", padding:"0 14px", height:54, fontSize:13, fontWeight: view === n.id ? 700 : 500, fontFamily:"inherit", transition:"all 0.15s" }}>
-              {n.label}
-            </button>
-          ))}
+          {NAV_ITEMS.map(n => {
+            const active = n.path === "/" ? location.pathname === "/" : location.pathname.startsWith(n.path);
+            return (
+              <button key={n.path} onClick={() => navigate(n.path)}
+                style={{ background: active ? "rgba(255,255,255,0.18)" : "none", border:"none", borderBottom: active ? "2px solid #fff" : "2px solid transparent", color: active ? "#fff" : "rgba(255,255,255,0.7)", cursor:"pointer", padding:"0 14px", height:54, fontSize:13, fontWeight: active ? 700 : 500, fontFamily:"inherit", transition:"all 0.15s" }}>
+                {n.label}
+              </button>
+            );
+          })}
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:16 }}>
           {user && <span style={{ color:"rgba(255,255,255,0.7)", fontSize:12 }}>{user.name} &nbsp;·&nbsp; {user.role}</span>}
           <button onClick={toggleUI} style={{ background:"rgba(232,160,32,0.2)", border:"1px solid rgba(232,160,32,0.6)", color:brand.accent, cursor:"pointer", borderRadius:20, padding:"4px 12px", fontSize:11, fontWeight:700, fontFamily:"inherit", letterSpacing:"0.3px" }}>✦ New UI</button>
-          <button onClick={() => setView("settings")} style={{ background: view === "settings" ? "rgba(255,255,255,0.15)" : "none", border:"1px solid rgba(255,255,255,0.3)", color:"rgba(255,255,255,0.8)", cursor:"pointer", borderRadius:6, padding:"5px 12px", fontSize:12, fontFamily:"inherit" }}>Settings</button>
+          <button onClick={() => navigate("/settings")} style={{ background: location.pathname === "/settings" ? "rgba(255,255,255,0.15)" : "none", border:"1px solid rgba(255,255,255,0.3)", color:"rgba(255,255,255,0.8)", cursor:"pointer", borderRadius:6, padding:"5px 12px", fontSize:12, fontFamily:"inherit" }}>Settings</button>
           <button onClick={handleLogout} style={{ background:"none", border:"1px solid rgba(255,255,255,0.3)", color:"rgba(255,255,255,0.8)", cursor:"pointer", borderRadius:6, padding:"5px 12px", fontSize:12, fontFamily:"inherit" }}>Sign out</button>
         </div>
       </div>
 
       <div style={{ maxWidth:1140, margin:"0 auto", padding:"28px 20px" }}>
-        {view === "home" && (
-          <DashboardPage
-            user={user}
-            showToast={showToast}
-            onSelectTicket={handleSelect}
-            onNavigate={handleDashboardNav}
-          />
-        )}
-        {view === "list" && (
-          <TicketList
-            tickets={tickets}
-            total={total}
-            loading={loadingList}
-            onSelect={handleSelect}
-            onNew={handleNew}
-            search={search}
-            onSearch={setSearch}
-            statusFilter={statusFilter}
-            onStatusFilter={(s) => { setStatus(s); setQuickFilter(null); }}
-            quickFilter={quickFilter}
-            onClearQuickFilter={() => setQuickFilter(null)}
-            onExport={exportTickets}
-            users={users}
-            assigneeFilter={assigneeFilter}
-            onAssigneeFilter={setAssigneeFilter}
-            onStatusChange={handleBoardStatusChange}
-          />
-        )}
-        {view === "edit" && activeTicket && (
-          <TicketEditor
-            ticket={activeTicket}
-            onSave={handleSave}
-            onBack={() => { setView("list"); loadList(); }}
-            onDelete={handleDelete}
-            saving={saving}
-            onCreateInvoice={handleCreateInvoiceFromTicket}
-            users={users}
-            currentUser={user}
-            onTemplateSaved={loadTemplates}
-            showToast={showToast}
-          />
-        )}
-        {view === "clients" && (
-          <ClientsPage showToast={showToast} />
-        )}
-        {view === "invoices" && (
-          <InvoicesPage showToast={showToast} initialDraft={invoiceDraft} onDraftConsumed={() => setInvoiceDraft(null)} />
-        )}
-        {view === "recurring" && (
-          <RecurringPage showToast={showToast} clients={clients} />
-        )}
-        {view === "documents" && (
-          <DocumentsPage showToast={showToast} user={user} />
-        )}
-        {view === "reports" && (
-          <ReportsPage />
-        )}
-        {view === "settings" && (
-          <SettingsPage user={user} showToast={showToast} />
-        )}
+        <Routes>
+          <Route path="/" element={
+            <DashboardPage user={user} showToast={showToast} onSelectTicket={handleSelect} onNavigate={handleDashboardNav} />
+          } />
+          <Route path="/tickets" element={
+            <TicketList
+              tickets={tickets} total={total} loading={loadingList}
+              onSelect={handleSelect} onNew={handleNew}
+              search={search} onSearch={setSearch}
+              statusFilter={statusFilter} onStatusFilter={(s) => { setStatus(s); setQuickFilter(null); }}
+              quickFilter={quickFilter} onClearQuickFilter={() => setQuickFilter(null)}
+              onExport={exportTickets} users={users}
+              assigneeFilter={assigneeFilter} onAssigneeFilter={setAssigneeFilter}
+              onStatusChange={handleBoardStatusChange}
+            />
+          } />
+          <Route path="/tickets/:ticketId" element={
+            <TicketEditorRoute
+              saving={saving}
+              onSave={handleSave}
+              onBack={() => { navigate("/tickets"); loadList(); }}
+              onDelete={handleDelete}
+              onCreateInvoice={handleCreateInvoiceFromTicket}
+              users={users}
+              currentUser={user}
+              onTemplateSaved={loadTemplates}
+              showToast={showToast}
+            />
+          } />
+          <Route path="/clients"   element={<ClientsPage showToast={showToast} />} />
+          <Route path="/invoices"  element={<InvoicesPage showToast={showToast} initialDraft={invoiceDraft} onDraftConsumed={() => setInvoiceDraft(null)} />} />
+          <Route path="/recurring" element={<RecurringPage showToast={showToast} clients={clients} />} />
+          <Route path="/documents" element={<DocumentsPage showToast={showToast} user={user} />} />
+          <Route path="/reports"   element={<ReportsPage />} />
+          <Route path="/settings"  element={<SettingsPage user={user} showToast={showToast} />} />
+          <Route path="*"          element={<Navigate to="/" replace />} />
+        </Routes>
       </div>
 
       {newModal && (
