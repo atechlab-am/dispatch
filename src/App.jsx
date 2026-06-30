@@ -1031,6 +1031,7 @@ const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch
 const PlaybookSection = ({ ticketType, ticketId }) => {
   const [docs, setDocs] = useState(null);
   const [ticketDocs, setTicketDocs] = useState([]); // attached docs with ack/sig state
+  const [allDocsOpen, setAllDocsOpen] = useState(false);
 
   useEffect(() => {
     if (!ticketType) return;
@@ -1084,8 +1085,6 @@ const PlaybookSection = ({ ticketType, ticketId }) => {
 
   const suggested = allDocs.filter(d => d.tags.length > 0);
   const rest = allDocs.filter(d => d.tags.length === 0);
-  const attached = ticketDocs.filter(td => td.acknowledged || td.signature_obtained || true); // all attached
-  const [allDocsOpen, setAllDocsOpen] = useState(false);
 
   const DocRow = ({ doc }) => {
     const td = tdMap[doc.id];

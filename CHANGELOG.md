@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.4] — 2026-06-30
+
+### Fixed
+- React error #310 (invalid hook call) crashing the ticket playbook section: `useState(false)` for `allDocsOpen` was declared after two early `return null` guards inside `PlaybookSection`, violating the rules of hooks; moved it to the top of the component with the other state declarations
+
 ## [1.3.3] — 2026-06-30
 
 ### Added
