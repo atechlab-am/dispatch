@@ -33,4 +33,5 @@ coverage.json
 *.swp
 *.swo
 
-.claude/*
+# Ignore the claude folder, which is used for Claude AI integration
+.claude/
