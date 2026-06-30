@@ -8,5 +8,5 @@ export const uploadAttachment = (ticketId, file)    => {
     headers: { "Content-Type": "multipart/form-data" },
   }).then(r => r.data);
 };
-export const downloadUrl      = (attachmentId)     => `/api/attachments/${attachmentId}/download`;
+export const downloadUrl      = (attachmentId)     => `/attachments/${attachmentId}/download`;
 export const deleteAttachment = (attachmentId)     => client.delete(`/attachments/${attachmentId}`);

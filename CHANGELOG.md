@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.3] — 2026-06-30
+
+### Fixed
+- Downloads silently doing nothing: `downloadWithAuth` uses the Axios client (baseURL `/api`) but URLs still had the `/api` prefix, resulting in double `/api/api/...` paths; removed `/api` prefix from `downloadUrl` in `documents.js`, `attachments.js`, and all three CSV URL builders in `reports.js`
+
 ## [1.0.2] — 2026-06-30
 
 ### Fixed

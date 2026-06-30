@@ -18,4 +18,4 @@ export const updateDocument = (id, data) =>
 export const deleteDocument = (id) =>
   client.delete(`/documents/${id}`);
 
-export const downloadUrl = (id) => `/api/documents/${id}/download`;
+export const downloadUrl = (id) => `/documents/${id}/download`;
