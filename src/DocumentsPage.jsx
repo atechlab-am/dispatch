@@ -134,6 +134,8 @@ function BulkUploadZone({ onUploaded, showToast }) {
       if (!rowsRef.current.find(r => r.id === row.id)) continue;
       upRow(row.id, { status: "uploading" });
       try {
+        // verify the file is readable before sending to server
+        await row.file.slice(0, 4).arrayBuffer();
         const doc = await uploadDocument(row.file, {
           name: row.name.trim() || row.file.name,
           description: "",
@@ -146,7 +148,7 @@ function BulkUploadZone({ onUploaded, showToast }) {
         onUploaded(doc);
         successCount++;
       } catch (err) {
-        console.error("Upload failed for", row.file.name, err.response?.status, err.response?.data);
+        console.error("Upload failed for", row.file.name, "status:", err.response?.status, "data:", err.response?.data, "message:", err.message, "name:", err.name, "err:", err);
         const msg = err.response?.data?.detail ?? err.message ?? "Upload failed";
         upRow(row.id, { status: "error", error: typeof msg === "string" ? msg : JSON.stringify(msg) });
       }
