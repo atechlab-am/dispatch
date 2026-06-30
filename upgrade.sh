@@ -13,6 +13,10 @@ docker compose down
 echo "==> Rebuilding images (no cache)..."
 docker compose build --no-cache
 
+echo "==> Removing old images and build cache (volumes preserved)..."
+docker image prune -f
+docker builder prune -f
+
 echo "==> Starting containers..."
 docker compose up -d
 
