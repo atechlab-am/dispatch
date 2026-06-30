@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.4.2] — 2026-06-30
+
+### Fixed
+- Invoice PDF button did nothing: `invoicePdfUrl` had `/api/` prefix which doubled to `/api/api/` when passed through Axios (baseURL `/api`); removed prefix so URL is `/invoices/{id}/pdf`
+
 ## [1.4.1] — 2026-06-30
 
 ### Fixed
