@@ -1036,8 +1036,17 @@ const PlaybookSection = ({ ticketType }) => {
       .catch(() => setDocs([]));
   }, [ticketType]);
 
-  const internal = (docs || []).filter(d => d.category === "internal");
-  const clientFacing = (docs || []).filter(d => d.category === "client_facing");
+  const sortDocs = (list) => [...list].sort((a, b) => {
+    // tagged docs first, then ticket-type-specific, then catch-all
+    const aTagged = a.tags.length > 0 ? 0 : 1;
+    const bTagged = b.tags.length > 0 ? 0 : 1;
+    if (aTagged !== bTagged) return aTagged - bTagged;
+    const aSpecific = a.ticket_types.length > 0 ? 0 : 1;
+    const bSpecific = b.ticket_types.length > 0 ? 0 : 1;
+    return aSpecific - bSpecific;
+  });
+  const internal = sortDocs((docs || []).filter(d => d.category === "internal"));
+  const clientFacing = sortDocs((docs || []).filter(d => d.category === "client_facing"));
 
   if (docs === null) return null;
   if (internal.length === 0 && clientFacing.length === 0) return null;

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.0] — 2026-06-30
+
+### Added
+- **Bulk document edit** — checkbox per row in the Document Library; "Select All / Deselect All" and "Edit X Selected" buttons appear when any are checked; modal lets you set category, ticket types, tags, and requires-signature across all selected documents at once; fields left blank keep each document's existing value
+- **Tag-first document ordering in ticket playbook** — documents with tags now appear above untagged ones; within each group, ticket-type-specific documents appear before catch-all (no ticket type) documents
+
 ## [1.0.4] — 2026-06-30
 
 ### Fixed

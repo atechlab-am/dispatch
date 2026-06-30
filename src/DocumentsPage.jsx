@@ -467,6 +467,93 @@ function EditDocModal({ doc, onClose, onUpdated, showToast }) {
   );
 }
 
+function BulkEditModal({ docs, onClose, onUpdated, showToast }) {
+  const [form, setForm] = useState({
+    category: "",
+    ticket_types: [],
+    tags: [],
+    requires_signature: "",  // "" = no change, true/false = set
+  });
+  const [saving, setSaving] = useState(false);
+  const up = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    let count = 0;
+    for (const doc of docs) {
+      try {
+        const payload = {
+          name: doc.name,
+          description: doc.description,
+          category: form.category || doc.category,
+          ticket_types: form.ticket_types.length > 0 ? form.ticket_types : doc.ticket_types,
+          tags: form.tags.length > 0 ? form.tags : doc.tags,
+          requires_signature: form.requires_signature !== "" ? form.requires_signature : doc.requires_signature,
+        };
+        const updated = await updateDocument(doc.id, payload);
+        onUpdated(updated);
+        count++;
+      } catch {
+        showToast(`Failed to update "${doc.name}".`, "err");
+      }
+    }
+    setSaving(false);
+    if (count > 0) showToast(`${count} document${count !== 1 ? "s" : ""} updated.`, "ok");
+    onClose();
+  };
+
+  const overlay = { position: "fixed", inset: 0, background: "rgba(13,27,42,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" };
+  const modal = { background: "#fff", borderRadius: 12, padding: "28px 32px", width: 540, maxWidth: "95vw", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" };
+
+  return (
+    <div style={overlay} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={modal}>
+        <div style={{ fontWeight: 800, fontSize: 17, color: brand.text, marginBottom: 6 }}>Edit {docs.length} Document{docs.length !== 1 ? "s" : ""}</div>
+        <div style={{ fontSize: 12, color: brand.muted, marginBottom: 20 }}>Leave a field blank to keep each document's existing value.</div>
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: 14 }}>
+            <FieldLabel>Category</FieldLabel>
+            <select style={inp} value={form.category} onChange={e => up("category", e.target.value)}>
+              <option value="">— Keep existing —</option>
+              <option value="internal">Internal</option>
+              <option value="client_facing">Client-Facing</option>
+            </select>
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <FieldLabel>Ticket Types (replaces existing if any selected)</FieldLabel>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {TICKET_TYPES.map(t => (
+                <label key={t} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, cursor: "pointer" }}>
+                  <input type="checkbox" checked={form.ticket_types.includes(t)}
+                    onChange={e => up("ticket_types", e.target.checked ? [...form.ticket_types, t] : form.ticket_types.filter(x => x !== t))} />
+                  {t}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <FieldLabel>Tags (replaces existing if any entered)</FieldLabel>
+            <TagInput value={form.tags} onChange={v => up("tags", v)} placeholder="e.g. networking — leave empty to keep existing" />
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <FieldLabel>Requires Signature</FieldLabel>
+            <select style={{ ...inp, width: "auto" }} value={String(form.requires_signature)} onChange={e => up("requires_signature", e.target.value === "" ? "" : e.target.value === "true")}>
+              <option value="">— Keep existing —</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <Btn onClick={onClose} variant="ghost">Cancel</Btn>
+            <Btn type="submit" variant="accent" disabled={saving}>{saving ? "Saving…" : `Save ${docs.length} Document${docs.length !== 1 ? "s" : ""}`}</Btn>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function DocumentsPage({ showToast, user }) {
   const isAdmin = user?.role === "admin";
   const [tab, setTab] = useState("files");
@@ -476,6 +563,8 @@ export default function DocumentsPage({ showToast, user }) {
   const [showUpload, setShowUpload] = useState(false);
   const [editDoc, setEditDoc] = useState(null);
   const [showBulk, setShowBulk] = useState(false);
+  const [selected, setSelected] = useState(new Set());
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
 
   const load = () => {
     const params = {};
@@ -488,7 +577,7 @@ export default function DocumentsPage({ showToast, user }) {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [filter.category, filter.ticket_type]);
+  useEffect(() => { load(); setSelected(new Set()); }, [filter.category, filter.ticket_type]);
 
   const visible = docs.filter(d =>
     !filter.search ||
@@ -538,6 +627,14 @@ export default function DocumentsPage({ showToast, user }) {
           showToast={showToast}
         />
       )}
+      {showBulkEdit && (
+        <BulkEditModal
+          docs={visible.filter(d => selected.has(d.id))}
+          onClose={() => { setShowBulkEdit(false); setSelected(new Set()); }}
+          onUpdated={updated => setDocs(p => p.map(d => d.id === updated.id ? updated : d))}
+          showToast={showToast}
+        />
+      )}
 
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontWeight: 800, fontSize: 22, color: brand.text, marginBottom: 4 }}>Documents</div>
@@ -561,6 +658,17 @@ export default function DocumentsPage({ showToast, user }) {
       {tab === "files" && (<>
 
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "flex-end", gap: 8, marginBottom: 16 }}>
+        {isAdmin && selected.size > 0 && (
+          <Btn onClick={() => setShowBulkEdit(true)} variant="primary" small>✎ Edit {selected.size} Selected</Btn>
+        )}
+        {isAdmin && visible.length > 0 && (
+          <Btn onClick={() => {
+            if (selected.size === visible.length) setSelected(new Set());
+            else setSelected(new Set(visible.map(d => d.id)));
+          }} variant="ghost" small>
+            {selected.size === visible.length ? "Deselect All" : "Select All"}
+          </Btn>
+        )}
         <Btn onClick={() => { setShowBulk(v => !v); }} variant={showBulk ? "primary" : "accent"} small>
           {showBulk ? "▲ Hide Upload" : "↑ Upload Files"}
         </Btn>
@@ -605,6 +713,7 @@ export default function DocumentsPage({ showToast, user }) {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: brand.bg }}>
+                {isAdmin && <th style={{ padding: "10px 10px", borderBottom: `1px solid ${brand.border}`, width: 36 }} />}
                 {["Name", "Category", "Ticket Types", "Tags", "Size", "Actions"].map(h => (
                   <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
                 ))}
@@ -612,7 +721,13 @@ export default function DocumentsPage({ showToast, user }) {
             </thead>
             <tbody>
               {visible.map(doc => (
-                <tr key={doc.id} style={{ background: "#fff" }}>
+                <tr key={doc.id} style={{ background: selected.has(doc.id) ? "#f0f4ff" : "#fff" }}>
+                  {isAdmin && (
+                    <td style={{ padding: "0 10px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle", textAlign: "center" }}>
+                      <input type="checkbox" checked={selected.has(doc.id)}
+                        onChange={e => setSelected(p => { const s = new Set(p); e.target.checked ? s.add(doc.id) : s.delete(doc.id); return s; })} />
+                    </td>
+                  )}
                   <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle" }}>
                     <div style={{ fontWeight: 600, color: brand.text }}>{doc.name}</div>
                     {doc.description && <div style={{ fontSize: 12, color: brand.muted, marginTop: 2 }}>{doc.description}</div>}
