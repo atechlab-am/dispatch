@@ -135,7 +135,8 @@ function BulkUploadZone({ onUploaded, showToast }) {
         onUploaded(doc);
         successCount++;
       } catch (err) {
-        const msg = err.response?.data?.detail ?? "Upload failed";
+        console.error("Upload failed for", row.file.name, err.response?.status, err.response?.data);
+        const msg = err.response?.data?.detail ?? err.message ?? "Upload failed";
         upRow(row.id, { status: "error", error: typeof msg === "string" ? msg : JSON.stringify(msg) });
       }
     }
@@ -244,7 +245,7 @@ function BulkUploadZone({ onUploaded, showToast }) {
                     {row.status === "pending"   && <span style={{ color: brand.muted }}>Ready</span>}
                     {row.status === "uploading" && <span style={{ color: brand.blue }}>Uploading…</span>}
                     {row.status === "done"      && <span style={{ color: "#16a34a", fontWeight: 700 }}>✓ Done</span>}
-                    {row.status === "error"     && <span style={{ color: brand.danger }} title={row.error}>✗ Error</span>}
+                    {row.status === "error"     && <span style={{ color: brand.danger }}>✗ {row.error || "Error"}</span>}
                   </td>
                   <td style={{ padding: "6px 12px", borderBottom: `1px solid ${brand.border}` }}>
                     <button
