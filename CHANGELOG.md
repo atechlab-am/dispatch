@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.4] — 2026-06-30
+
+### Fixed
+- Bulk upload: removing a file with × while upload was in progress did not cancel it — the upload loop captured row state at start and couldn't see removals; fixed with a `rowsRef` that stays in sync with state so the loop checks live whether each row still exists before uploading it
+- nginx `client_max_body_size` raised from 10 MB to 25 MB to match the backend 20 MB limit; `proxy_read_timeout` raised from 30s to 120s
+
 ## [1.0.3] — 2026-06-30
 
 ### Fixed

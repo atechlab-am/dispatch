@@ -37,6 +37,7 @@ client.interceptors.request.use((config) => {
   if (_accessToken) config.headers.Authorization = `Bearer ${_accessToken}`;
   if (config.data instanceof FormData) {
     delete config.headers["Content-Type"];
+    delete config.headers["content-type"];
   }
   return config;
 });

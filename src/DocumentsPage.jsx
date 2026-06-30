@@ -100,10 +100,19 @@ function BulkUploadZone({ onUploaded, showToast }) {
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef();
+  const rowsRef = useRef([]);
+
+  const setRowsSync = (updater) => {
+    setRows(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      rowsRef.current = next;
+      return next;
+    });
+  };
 
   const addFiles = useCallback((files) => {
     const next = Array.from(files).map(mkRow);
-    setRows(p => [...p, ...next]);
+    setRowsSync(p => [...p, ...next]);
   }, []);
 
   const onDrop = (e) => {
@@ -112,15 +121,17 @@ function BulkUploadZone({ onUploaded, showToast }) {
     addFiles(e.dataTransfer.files);
   };
 
-  const upRow = (id, patch) => setRows(p => p.map(r => r.id === id ? { ...r, ...patch } : r));
-  const removeRow = (id) => setRows(p => p.filter(r => r.id !== id));
+  const upRow = (id, patch) => setRowsSync(p => p.map(r => r.id === id ? { ...r, ...patch } : r));
+  const removeRow = (id) => setRowsSync(p => p.filter(r => r.id !== id));
 
   const handleUploadAll = async () => {
-    const pending = rows.filter(r => r.status === "pending");
+    const pending = rowsRef.current.filter(r => r.status === "pending");
     if (pending.length === 0) return;
     setUploading(true);
     let successCount = 0;
     for (const row of pending) {
+      // skip if removed by user while upload was in progress
+      if (!rowsRef.current.find(r => r.id === row.id)) continue;
       upRow(row.id, { status: "uploading" });
       try {
         const doc = await uploadDocument(row.file, {

@@ -26,6 +26,15 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-dispatch}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dispatch}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
       UPLOAD_DIR: /app/uploads
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_TLS: ${SMTP_TLS:-true}
+      GITHUB_REPO: ${GITHUB_REPO:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
     volumes:
       - uploads_data:/app/uploads
     depends_on:
