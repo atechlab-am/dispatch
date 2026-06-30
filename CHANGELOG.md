@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.0] — 2026-06-30
+
+### Added
+- **Ticket autosave** — existing tickets save automatically 3 seconds after any change; a subtle "Saving…" / "✓ Saved" indicator appears next to the Save button; new (unsaved) tickets are unaffected
+- **SLA Response completes on In Progress** — when a ticket status is changed to In Progress, the Response SLA row shows "Responded" in green with a full green bar instead of a countdown; Resolution SLA continues ticking
+
 ## [1.1.0] — 2026-06-30
 
 ### Added

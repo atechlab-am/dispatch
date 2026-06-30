@@ -1242,7 +1242,29 @@ const AttachmentsSection = ({ ticketId, currentUser }) => {
 const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoice, users, currentUser, onTemplateSaved, showToast }) => {
   const [t, setT] = useState(ticket);
   const [savingTpl, setSavingTpl] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState(null); // null | "saving" | "saved"
+  const autoSaveTimer = useRef(null);
+  const isNew = !ticket.id;
+
   const up = (field, val) => setT(prev => ({ ...prev, [field]: val }));
+
+  // Autosave: 3s after any change on existing tickets
+  useEffect(() => {
+    if (isNew) return;
+    clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(async () => {
+      if (!t.name?.trim() || !t.title?.trim()) return;
+      setAutoSaveStatus("saving");
+      try {
+        await onSave(t, true);
+        setAutoSaveStatus("saved");
+        setTimeout(() => setAutoSaveStatus(null), 2000);
+      } catch {
+        setAutoSaveStatus(null);
+      }
+    }, 3000);
+    return () => clearTimeout(autoSaveTimer.current);
+  }, [t]);
 
   const handleSaveAsTemplate = async () => {
     const name = window.prompt("Template name:", t.title || "New Template");
@@ -1294,7 +1316,9 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
             <div style={{ fontSize:12, color:brand.muted }}>Created {t.createdAt}</div>
           </div>
         </div>
-        <div style={{ display:"flex", gap:8 }}>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          {autoSaveStatus === "saving" && <span style={{ fontSize:12, color:brand.muted }}>Saving…</span>}
+          {autoSaveStatus === "saved" && <span style={{ fontSize:12, color:"#16a34a", fontWeight:600 }}>✓ Saved</span>}
           <Btn onClick={handleSaveAsTemplate} variant="ghost" disabled={savingTpl}>{savingTpl ? "Saving…" : "Save as Template"}</Btn>
           <Btn onClick={()=>printTicket(t)} variant="secondary">🖨 Export PDF</Btn>
           <Btn onClick={()=>onSave(t)} variant="accent" disabled={saving}>{saving ? "Saving…" : "✓ Save Ticket"}</Btn>
@@ -1402,6 +1426,7 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
             const resp = slaStatus(t.slaResponseDue, t.createdAtIso, t.priority);
             const reso = slaStatus(t.slaResolutionDue, t.createdAtIso, t.priority);
             const isClosed = t.status === "Resolved" || t.status === "Closed";
+            const isInProgress = t.status === "In Progress";
             return (
               <div style={{ background: isClosed ? "#f0fdf4" : (reso?.breached ? "#fee2e2" : "#fff"), border:`1.5px solid ${isClosed ? "#86efac" : reso?.breached ? "#fca5a5" : brand.border}`, borderRadius:10, padding:"14px 16px", marginBottom:16 }}>
                 <div style={{ fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.5px", color:brand.muted, marginBottom:10 }}>SLA</div>
@@ -1409,22 +1434,26 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
                   <div style={{ fontSize:13, color:"#16a34a", fontWeight:600 }}>Ticket closed — SLA clock stopped</div>
                 ) : (
                   <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                    {[["Response", resp], ["Resolution", reso]].map(([label, s]) => s && (
-                      <div key={label}>
-                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3 }}>
-                          <span style={{ fontSize:12, color:brand.muted }}>{label}</span>
-                          <span style={{ fontSize:12, fontWeight:700, color: s.breached ? "#c0392b" : s.color }}>
-                            {s.breached ? "BREACHED" : s.label + " left"}
-                          </span>
+                    {[["Response", resp], ["Resolution", reso]].map(([label, s]) => {
+                      if (!s) return null;
+                      const responseCompleted = label === "Response" && isInProgress;
+                      return (
+                        <div key={label}>
+                          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3 }}>
+                            <span style={{ fontSize:12, color:brand.muted }}>{label}</span>
+                            <span style={{ fontSize:12, fontWeight:700, color: responseCompleted ? "#16a34a" : s.breached ? "#c0392b" : s.color }}>
+                              {responseCompleted ? "Responded" : s.breached ? "BREACHED" : s.label + " left"}
+                            </span>
+                          </div>
+                          <div style={{ height:5, background:"#e5e7eb", borderRadius:3, overflow:"hidden" }}>
+                            <div style={{ height:"100%", width: responseCompleted ? "100%" : `${Math.max(0, Math.min(100, s.pct*100))}%`, background: responseCompleted ? "#16a34a" : s.color, borderRadius:3, transition:"width 0.3s" }} />
+                          </div>
+                          <div style={{ fontSize:10, color:brand.muted, marginTop:2 }}>
+                            {responseCompleted ? "Status changed to In Progress" : `Due ${new Date(label === "Response" ? t.slaResponseDue : t.slaResolutionDue).toLocaleString()}`}
+                          </div>
                         </div>
-                        <div style={{ height:5, background:"#e5e7eb", borderRadius:3, overflow:"hidden" }}>
-                          <div style={{ height:"100%", width:`${Math.max(0, Math.min(100, s.pct*100))}%`, background:s.color, borderRadius:3, transition:"width 0.3s" }} />
-                        </div>
-                        <div style={{ fontSize:10, color:brand.muted, marginTop:2 }}>
-                          Due {new Date(label === "Response" ? t.slaResponseDue : t.slaResolutionDue).toLocaleString()}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1838,17 +1867,20 @@ export default function App() {
     }
   };
 
-  const handleSave = async (editorTicket) => {
-    setSaving(true);
+  const handleSave = async (editorTicket, silent = false) => {
+    if (!silent) setSaving(true);
     try {
       await updateTicket(editorTicket.id, editorToApi(editorTicket));
-      showToast("Ticket saved.", "ok");
-      setView("list");
-      loadList();
+      if (!silent) {
+        showToast("Ticket saved.", "ok");
+        setView("list");
+        loadList();
+      }
     } catch {
-      showToast("Failed to save ticket.", "err");
+      if (!silent) showToast("Failed to save ticket.", "err");
+      throw new Error("save failed");
     } finally {
-      setSaving(false);
+      if (!silent) setSaving(false);
     }
   };
 
