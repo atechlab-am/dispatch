@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.1] — 2026-06-30
+
+### Fixed
+- Invoice PDF buttons returned 401: `window.open` opens a new tab without the JWT; replaced with `openPdfWithAuth` which fetches the HTML via Axios (with auth header) and writes it into a new window for printing
+- Added `openPdfWithAuth(url)` helper to `src/api/client.js`
+
 ## [1.4.0] — 2026-06-30
 
 ### Added

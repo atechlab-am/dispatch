@@ -97,4 +97,14 @@ export async function downloadWithAuth(url, filename) {
   URL.revokeObjectURL(href);
 }
 
+// Fetch an HTML page with auth and open it in a new window for printing
+export async function openPdfWithAuth(url) {
+  const res = await client.get(url, { responseType: "text" });
+  const win = window.open("", "_blank");
+  if (!win) return;
+  win.document.open();
+  win.document.write(res.data);
+  win.document.close();
+}
+
 export default client;

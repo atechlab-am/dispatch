@@ -4,6 +4,7 @@ import {
   listPayments, recordPayment, deletePayment, sendInvoiceEmail, invoicePdfUrl,
 } from "./api/invoices.js";
 import { listClients } from "./api/clients.js";
+import { openPdfWithAuth } from "./api/client.js";
 
 const brand = {
   blue: "#1A5CBA", accent: "#E8A020", bg: "#F4F7FC", surface: "#FFFFFF",
@@ -343,7 +344,7 @@ function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, showToast,
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
             {!isNew && (
               <>
-                <Btn variant="ghost" small onClick={() => window.open(invoicePdfUrl(invoice.id), "_blank")}>⬇ PDF</Btn>
+                <Btn variant="ghost" small onClick={() => openPdfWithAuth(invoicePdfUrl(invoice.id))}>⬇ PDF</Btn>
                 <Btn variant="secondary" small onClick={() => setShowEmail(true)}>✉ Send</Btn>
               </>
             )}
@@ -603,7 +604,7 @@ export default function InvoicesPage({ showToast, initialDraft = null, onDraftCo
                     <td style={{ ...cell, textAlign: "right", fontWeight: 700 }}>${fmt(inv.total)}</td>
                     <td style={{ ...cell, whiteSpace: "nowrap" }} onClick={e => e.stopPropagation()}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                        <Btn small variant="ghost" onClick={() => window.open(invoicePdfUrl(inv.id), "_blank")}>PDF</Btn>
+                        <Btn small variant="ghost" onClick={() => openPdfWithAuth(invoicePdfUrl(inv.id))}>PDF</Btn>
                         <Btn small variant="secondary" onClick={() => handleEdit(inv)}>Edit</Btn>
                         <Btn small variant="danger" onClick={() => handleDelete(inv.id)}>Delete</Btn>
                       </div>
