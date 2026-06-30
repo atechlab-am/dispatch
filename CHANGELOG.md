@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.1] — 2026-06-30
+
+### Changed
+- Playbook & Documents section now splits documents into **Suggested** (documents with tags — expanded by default) and **All Documents** (untagged — collapsed by default); "All Documents" can be toggled open with a ▼ button
+
 ## [1.3.0] — 2026-06-30
 
 ### Added

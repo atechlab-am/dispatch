@@ -1079,12 +1079,12 @@ const PlaybookSection = ({ ticketType, ticketId }) => {
   };
 
   if (docs === null) return null;
-  if (internal.length === 0 && clientFacing.length === 0) return null;
+  if (allDocs.length === 0) return null;
 
-  const catBg = (cat) => cat === "internal" ? "#e0eaff" : "#fff3e0";
-  const catColor = (cat) => cat === "internal" ? brand.blue : "#c47a00";
-
-  const attached = ticketDocs.filter(td => td.acknowledged || td.signature_obtained);
+  const suggested = allDocs.filter(d => d.tags.length > 0);
+  const rest = allDocs.filter(d => d.tags.length === 0);
+  const attached = ticketDocs.filter(td => td.acknowledged || td.signature_obtained || true); // all attached
+  const [allDocsOpen, setAllDocsOpen] = useState(false);
 
   const DocRow = ({ doc }) => {
     const td = tdMap[doc.id];
@@ -1092,12 +1092,10 @@ const PlaybookSection = ({ ticketType, ticketId }) => {
     return (
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "9px 12px", background: isAttached ? "#f0f4ff" : brand.bg, border: `1px solid ${isAttached ? brand.blue : brand.border}`, borderRadius: 7, marginBottom: 6 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontWeight: 600, fontSize: 13, color: brand.text }}>
-              <input type="checkbox" checked={isAttached} onChange={e => handleAttachToggle(doc, e.target.checked)} />
-              {doc.name}
-            </label>
-          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontWeight: 600, fontSize: 13, color: brand.text, marginBottom: 4 }}>
+            <input type="checkbox" checked={isAttached} onChange={e => handleAttachToggle(doc, e.target.checked)} />
+            {doc.name}
+          </label>
           {doc.description && <div style={{ fontSize: 12, color: brand.muted, marginBottom: 4 }}>{doc.description}</div>}
           {doc.tags.length > 0 && (
             <div style={{ display: "flex", gap: 4, marginBottom: 4, flexWrap: "wrap" }}>
@@ -1132,25 +1130,12 @@ const PlaybookSection = ({ ticketType, ticketId }) => {
     );
   };
 
-  const SubSection = ({ items, cat }) => {
-    if (items.length === 0) return null;
-    return (
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-          <span style={{ background: catBg(cat), color: catColor(cat), borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
-            {cat === "internal" ? "Internal" : "Client-Facing"}
-          </span>
-          <span style={{ fontSize: 12, color: brand.muted }}>{items.length} document{items.length !== 1 ? "s" : ""}</span>
-        </div>
-        {items.map(d => <DocRow key={d.id} doc={d} />)}
-      </div>
-    );
-  };
-
   return (
     <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "16px 18px", marginTop: 20 }}>
       <SectionHeader>Playbook & Documents</SectionHeader>
-      {attached.length > 0 && (
+
+      {/* Case documents summary */}
+      {ticketDocs.length > 0 && (
         <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#15803d", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>Case Documents</div>
           {ticketDocs.map(td => (
@@ -1163,11 +1148,34 @@ const PlaybookSection = ({ ticketType, ticketId }) => {
           ))}
         </div>
       )}
-      <div style={{ fontSize: 12, color: brand.muted, marginBottom: 14 }}>
-        Documents matched to <strong>{ticketType}</strong> tickets. Check a document to attach it to this case.
-      </div>
-      <SubSection items={internal} cat="internal" />
-      <SubSection items={clientFacing} cat="client_facing" />
+
+      {/* Suggested documents — tagged docs matching this ticket type */}
+      {suggested.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>
+            ★ Suggested ({suggested.length})
+          </div>
+          {suggested.map(d => <DocRow key={d.id} doc={d} />)}
+        </div>
+      )}
+
+      {/* All documents — collapsed by default */}
+      {rest.length > 0 && (
+        <div>
+          <button onClick={() => setAllDocsOpen(v => !v)}
+            style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", padding: "4px 0", marginBottom: allDocsOpen ? 8 : 0, fontFamily: "inherit" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              All Documents ({rest.length})
+            </span>
+            <span style={{ fontSize: 11, color: brand.muted }}>{allDocsOpen ? "▲" : "▼"}</span>
+          </button>
+          {allDocsOpen && rest.map(d => <DocRow key={d.id} doc={d} />)}
+        </div>
+      )}
+
+      {suggested.length === 0 && rest.length === 0 && (
+        <div style={{ fontSize: 12, color: brand.muted }}>No documents matched to <strong>{ticketType}</strong> tickets.</div>
+      )}
     </div>
   );
 };
