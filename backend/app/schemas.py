@@ -109,6 +109,7 @@ class TicketOut(BaseModel):
     created_by: int
     sla_response_due: Optional[datetime] = None
     sla_resolution_due: Optional[datetime] = None
+    sla_paused_at: Optional[datetime] = None
     service_lines: list[ServiceLineOut] = []
     hour_logs: list[HourLogOut] = []
 

@@ -286,7 +286,27 @@ def update_ticket(
         raise HTTPException(status_code=404, detail="Ticket not found")
 
     prev_status = ticket.status.value if hasattr(ticket.status, "value") else ticket.status
+    new_status = body.status.value if hasattr(body.status, "value") else body.status
     priority_changed = ticket.priority != body.priority
+    now = datetime.now(timezone.utc)
+
+    # SLA pause/resume on Awaiting Client
+    if prev_status != "Awaiting Client" and new_status == "Awaiting Client":
+        # Pause: record when we started waiting
+        ticket.sla_paused_at = now
+    elif prev_status == "Awaiting Client" and new_status not in ("Awaiting Client", "Resolved", "Closed"):
+        # Resume: extend both deadlines by the time spent waiting
+        if ticket.sla_paused_at:
+            paused_at = ticket.sla_paused_at.replace(tzinfo=timezone.utc) if ticket.sla_paused_at.tzinfo is None else ticket.sla_paused_at
+            elapsed = now - paused_at
+            if ticket.sla_response_due:
+                rd = ticket.sla_response_due.replace(tzinfo=timezone.utc) if ticket.sla_response_due.tzinfo is None else ticket.sla_response_due
+                ticket.sla_response_due = rd + elapsed
+            if ticket.sla_resolution_due:
+                rsd = ticket.sla_resolution_due.replace(tzinfo=timezone.utc) if ticket.sla_resolution_due.tzinfo is None else ticket.sla_resolution_due
+                ticket.sla_resolution_due = rsd + elapsed
+            ticket.sla_paused_at = None
+
     ticket.client_id = body.client_id
     ticket.assigned_to = body.assigned_to
     ticket.ticket_type = body.ticket_type
@@ -301,10 +321,11 @@ def update_ticket(
     ticket.description = body.description
     ticket.internal_notes = body.internal_notes
     ticket.travel_fee = body.travel_fee
-    ticket.updated_at = datetime.now(timezone.utc)
+    ticket.updated_at = now
     if priority_changed or ticket.sla_response_due is None:
         base = ticket.created_at.replace(tzinfo=timezone.utc) if ticket.created_at.tzinfo is None else ticket.created_at
         ticket.sla_response_due, ticket.sla_resolution_due = _sla_deadlines(body.priority.value, base)
+        ticket.sla_paused_at = None
 
     # Replace child rows
     db.query(ServiceLine).filter(ServiceLine.ticket_id == ticket_id).delete()

@@ -120,6 +120,7 @@ class Ticket(Base):
     updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     sla_response_due = Column(DateTime, nullable=True)
     sla_resolution_due = Column(DateTime, nullable=True)
+    sla_paused_at = Column(DateTime, nullable=True)  # set when Awaiting Client, cleared on resume
     client_id = Column(Integer, ForeignKey("clients.id"), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)

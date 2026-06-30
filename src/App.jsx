@@ -127,6 +127,7 @@ const apiToEditor = (t) => ({
   createdAtIso:      t.created_at ?? null,
   slaResponseDue:    t.sla_response_due ?? null,
   slaResolutionDue:  t.sla_resolution_due ?? null,
+  slaPausedAt:       t.sla_paused_at ?? null,
   clientId:          t.client_id ?? null,
   assignedTo:        t.assigned_to ?? null,
   ticketType:    t.ticket_type,
@@ -1503,29 +1504,36 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
             const reso = slaStatus(t.slaResolutionDue, t.createdAtIso, t.priority);
             const isClosed = t.status === "Resolved" || t.status === "Closed";
             const isInProgress = t.status === "In Progress";
+            const isPaused = t.status === "Awaiting Client";
+            const pausedSince = isPaused && t.slaPausedAt ? new Date(t.slaPausedAt).toLocaleString() : null;
             return (
-              <div style={{ background: isClosed ? "#f0fdf4" : (reso?.breached ? "#fee2e2" : "#fff"), border:`1.5px solid ${isClosed ? "#86efac" : reso?.breached ? "#fca5a5" : brand.border}`, borderRadius:10, padding:"14px 16px", marginBottom:16 }}>
-                <div style={{ fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.5px", color:brand.muted, marginBottom:10 }}>SLA</div>
+              <div style={{ background: isClosed ? "#f0fdf4" : isPaused ? "#fffbeb" : (reso?.breached ? "#fee2e2" : "#fff"), border:`1.5px solid ${isClosed ? "#86efac" : isPaused ? "#fcd34d" : reso?.breached ? "#fca5a5" : brand.border}`, borderRadius:10, padding:"14px 16px", marginBottom:16 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                  <div style={{ fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.5px", color:brand.muted }}>SLA</div>
+                  {isPaused && <span style={{ fontSize:11, fontWeight:700, color:"#b45309", background:"#fef3c7", borderRadius:20, padding:"2px 10px" }}>⏸ Paused — Awaiting Client</span>}
+                </div>
                 {isClosed ? (
                   <div style={{ fontSize:13, color:"#16a34a", fontWeight:600 }}>Ticket closed — SLA clock stopped</div>
                 ) : (
                   <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                     {[["Response", resp], ["Resolution", reso]].map(([label, s]) => {
                       if (!s) return null;
-                      const responseCompleted = label === "Response" && isInProgress;
+                      const responseCompleted = label === "Response" && (isInProgress || isPaused);
                       return (
                         <div key={label}>
                           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3 }}>
                             <span style={{ fontSize:12, color:brand.muted }}>{label}</span>
-                            <span style={{ fontSize:12, fontWeight:700, color: responseCompleted ? "#16a34a" : s.breached ? "#c0392b" : s.color }}>
-                              {responseCompleted ? "Responded" : s.breached ? "BREACHED" : s.label + " left"}
+                            <span style={{ fontSize:12, fontWeight:700, color: isPaused ? "#b45309" : responseCompleted ? "#16a34a" : s.breached ? "#c0392b" : s.color }}>
+                              {responseCompleted && !isPaused ? "Responded" : isPaused ? "Paused" : s.breached ? "BREACHED" : s.label + " left"}
                             </span>
                           </div>
                           <div style={{ height:5, background:"#e5e7eb", borderRadius:3, overflow:"hidden" }}>
-                            <div style={{ height:"100%", width: responseCompleted ? "100%" : `${Math.max(0, Math.min(100, s.pct*100))}%`, background: responseCompleted ? "#16a34a" : s.color, borderRadius:3, transition:"width 0.3s" }} />
+                            <div style={{ height:"100%", width: responseCompleted && !isPaused ? "100%" : `${Math.max(0, Math.min(100, s.pct*100))}%`, background: isPaused ? "#fcd34d" : responseCompleted ? "#16a34a" : s.color, borderRadius:3, transition:"width 0.3s" }} />
                           </div>
                           <div style={{ fontSize:10, color:brand.muted, marginTop:2 }}>
-                            {responseCompleted ? "Status changed to In Progress" : `Due ${new Date(label === "Response" ? t.slaResponseDue : t.slaResolutionDue).toLocaleString()}`}
+                            {isPaused && pausedSince ? `Paused since ${pausedSince} — clock resumes when status changes` :
+                             responseCompleted ? "Status changed to In Progress" :
+                             `Due ${new Date(label === "Response" ? t.slaResponseDue : t.slaResolutionDue).toLocaleString()}`}
                           </div>
                         </div>
                       );

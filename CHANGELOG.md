@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.2] — 2026-06-30
+
+### Added
+- **SLA pause on Awaiting Client** — when a ticket status is set to "Awaiting Client", both SLA clocks (Response and Resolution) are paused; when status changes back to any active status, the elapsed wait time is added to both deadlines so the technician isn't penalised for client delays
+- SLA panel shows a yellow "⏸ Paused — Awaiting Client" badge and "Paused since..." timestamp while paused
+- `sla_paused_at` column added to tickets table (migration `0012_sla_paused_at`)
+- `sla_paused_at` exposed in `TicketOut` schema and frontend editor state
+
 ## [1.3.1] — 2026-06-30
 
 ### Changed
