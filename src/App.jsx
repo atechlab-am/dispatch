@@ -97,7 +97,7 @@ const TRAVEL_FEES = [
   { id: "travel_30p",  label: "30+ km",              fee: 80 },
 ];
 
-const STATUS_OPTIONS      = ["Open", "In Progress", "Awaiting Client", "Resolved", "Closed"];
+const STATUS_OPTIONS      = ["Open", "In Progress", "Awaiting Client", "On Hold", "Resolved", "Closed"];
 const PRIORITY_OPTIONS    = ["Low", "Medium", "High", "Urgent"];
 const TICKET_TYPE_OPTIONS = ["Incident", "Request", "Change Request"];
 
@@ -1320,6 +1320,9 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
   const [t, setT] = useState(ticket);
   const [savingTpl, setSavingTpl] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState(null); // null | "saving" | "saved"
+  const [holdModal, setHoldModal] = useState(false);
+  const [holdJustification, setHoldJustification] = useState("");
+  const [postingHold, setPostingHold] = useState(false);
   const autoSaveTimer = useRef(null);
   const isNew = !ticket.id;
 
@@ -1383,8 +1386,45 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
 
   const changeType = (val) => setT(p => ({ ...p, clientType:val, services:[], hourLogs:[] }));
 
+  const handleHoldConfirm = async () => {
+    if (!holdJustification.trim()) return;
+    setPostingHold(true);
+    try {
+      if (t.id) {
+        await addComment(t.id, { body: `⏸ Ticket placed On Hold — ${holdJustification.trim()}`, is_internal: true });
+      }
+      up("status", "On Hold");
+      setHoldModal(false);
+    } catch {
+      showToast?.("Failed to post hold justification.", "err");
+    } finally {
+      setPostingHold(false);
+    }
+  };
+
   return (
     <div>
+      {holdModal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(13,27,42,0.45)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div style={{ background:"#fff", borderRadius:12, padding:"28px 32px", width:480, maxWidth:"95vw", boxShadow:"0 8px 32px rgba(0,0,0,0.18)" }}>
+            <div style={{ fontWeight:800, fontSize:17, color:brand.text, marginBottom:6 }}>Place Ticket On Hold</div>
+            <div style={{ fontSize:13, color:brand.muted, marginBottom:16 }}>Provide a justification — this will be recorded as an internal comment and the SLA clock will be paused.</div>
+            <textarea
+              autoFocus
+              value={holdJustification}
+              onChange={e => setHoldJustification(e.target.value)}
+              placeholder="e.g. Waiting for vendor part, escalated to third party, internal approval required…"
+              style={{ width:"100%", height:100, padding:"8px 11px", border:`1px solid ${brand.border}`, borderRadius:6, fontSize:13, fontFamily:"inherit", resize:"vertical", outline:"none", boxSizing:"border-box" }}
+            />
+            <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:16 }}>
+              <Btn onClick={() => setHoldModal(false)} variant="ghost">Cancel</Btn>
+              <Btn onClick={handleHoldConfirm} variant="accent" disabled={postingHold || !holdJustification.trim()}>
+                {postingHold ? "Saving…" : "Confirm Hold"}
+              </Btn>
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20, gap:12 }}>
         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
           <button onClick={onBack} style={{ background:"none", border:`1px solid ${brand.border}`, color:brand.blue, cursor:"pointer", fontSize:18, borderRadius:6, width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center" }}>←</button>
@@ -1420,7 +1460,10 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
         </div>
         <div>
           <FieldLabel>Status</FieldLabel>
-          <Select value={t.status} onChange={v=>up("status",v)} options={STATUS_OPTIONS} />
+          <Select value={t.status} onChange={v => {
+            if (v === "On Hold") { setHoldJustification(""); setHoldModal(true); }
+            else up("status", v);
+          }} options={STATUS_OPTIONS} />
         </div>
         <div>
           <FieldLabel>Priority</FieldLabel>
@@ -1504,13 +1547,13 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
             const reso = slaStatus(t.slaResolutionDue, t.createdAtIso, t.priority);
             const isClosed = t.status === "Resolved" || t.status === "Closed";
             const isInProgress = t.status === "In Progress";
-            const isPaused = t.status === "Awaiting Client";
+            const isPaused = t.status === "Awaiting Client" || t.status === "On Hold";
             const pausedSince = isPaused && t.slaPausedAt ? new Date(t.slaPausedAt).toLocaleString() : null;
             return (
               <div style={{ background: isClosed ? "#f0fdf4" : isPaused ? "#fffbeb" : (reso?.breached ? "#fee2e2" : "#fff"), border:`1.5px solid ${isClosed ? "#86efac" : isPaused ? "#fcd34d" : reso?.breached ? "#fca5a5" : brand.border}`, borderRadius:10, padding:"14px 16px", marginBottom:16 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
                   <div style={{ fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.5px", color:brand.muted }}>SLA</div>
-                  {isPaused && <span style={{ fontSize:11, fontWeight:700, color:"#b45309", background:"#fef3c7", borderRadius:20, padding:"2px 10px" }}>⏸ Paused — Awaiting Client</span>}
+                  {isPaused && <span style={{ fontSize:11, fontWeight:700, color:"#b45309", background:"#fef3c7", borderRadius:20, padding:"2px 10px" }}>⏸ Paused — {t.status}</span>}
                 </div>
                 {isClosed ? (
                   <div style={{ fontSize:13, color:"#16a34a", fontWeight:600 }}>Ticket closed — SLA clock stopped</div>

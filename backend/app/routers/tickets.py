@@ -290,11 +290,12 @@ def update_ticket(
     priority_changed = ticket.priority != body.priority
     now = datetime.now(timezone.utc)
 
-    # SLA pause/resume on Awaiting Client
-    if prev_status != "Awaiting Client" and new_status == "Awaiting Client":
+    # SLA pause/resume on Awaiting Client or On Hold
+    paused_statuses = {"Awaiting Client", "On Hold"}
+    if prev_status not in paused_statuses and new_status in paused_statuses:
         # Pause: record when we started waiting
         ticket.sla_paused_at = now
-    elif prev_status == "Awaiting Client" and new_status not in ("Awaiting Client", "Resolved", "Closed"):
+    elif prev_status in paused_statuses and new_status not in paused_statuses | {"Resolved", "Closed"}:
         # Resume: extend both deadlines by the time spent waiting
         if ticket.sla_paused_at:
             paused_at = ticket.sla_paused_at.replace(tzinfo=timezone.utc) if ticket.sla_paused_at.tzinfo is None else ticket.sla_paused_at

@@ -24,6 +24,7 @@ class TicketStatus(str, enum.Enum):
     open = "Open"
     in_progress = "In Progress"
     awaiting_client = "Awaiting Client"
+    on_hold = "On Hold"
     resolved = "Resolved"
     closed = "Closed"
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.3] — 2026-06-30
+
+### Added
+- **On Hold status** — new ticket status that pauses the SLA clock; changing status to "On Hold" triggers a justification modal requiring a reason before confirming; the justification is automatically posted as an internal comment prefixed with ⏸
+- SLA panel shows "⏸ Paused — On Hold" badge (same yellow style as Awaiting Client) when ticket is on hold
+- Migration `0013_on_hold_status` — adds "On Hold" to the `ticketstatus` PostgreSQL enum
+
 ## [1.3.2] — 2026-06-30
 
 ### Added
