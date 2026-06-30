@@ -314,6 +314,19 @@ class Document(Base):
     updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
+class TicketDocument(Base):
+    """Links a document to a ticket with acknowledgement and signature tracking."""
+    __tablename__ = "ticket_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_id = Column(String(32), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False)
+    document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    acknowledged = Column(Boolean, nullable=False, default=False)
+    signature_obtained = Column(Boolean, nullable=False, default=False)
+    noted_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    noted_at = Column(DateTime, nullable=True)
+
+
 class FormTemplate(Base):
     """Reusable form definitions with typed fields (stored as JSON)."""
     __tablename__ = "form_templates"

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.3.0] — 2026-06-30
+
+### Added
+- **Case document tracking** — in the ticket Playbook & Documents section, each document now has a checkbox to attach it to the case; attached documents show "Acknowledged" and (if requires_signature) "Signature obtained" checkboxes; a green "Case Documents" summary panel at the top of the section lists all attached docs with their status
+- `ticket_documents` table — stores which documents are attached to each ticket, with `acknowledged` and `signature_obtained` flags and who noted them
+- `GET/POST /api/tickets/{id}/documents` — list and attach documents to a ticket
+- `PATCH /api/tickets/{id}/documents/{doc_id}` — update acknowledged/signature_obtained flags
+- `DELETE /api/tickets/{id}/documents/{doc_id}` — detach a document from a ticket
+- Alembic migration `0011_ticket_documents`
+
 ## [1.2.0] — 2026-06-30
 
 ### Added

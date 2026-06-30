@@ -10,6 +10,7 @@ import { listRecurring, createRecurring, updateRecurring, deleteRecurring } from
 import { listUsers } from "./api/users.js";
 import { listClients, createClient, updateClient, deleteClient } from "./api/clients.js";
 import { listDocuments, downloadUrl as docDownloadUrl } from "./api/documents.js";
+import { listTicketDocuments, attachDocument, updateTicketDocument, detachDocument } from "./api/ticketDocuments.js";
 import FormsSection from "./FormsSection.jsx";
 import LoginPage from "./LoginPage.jsx";
 import SettingsPage from "./SettingsPage.jsx";
@@ -1026,18 +1027,23 @@ const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch
 
 // ─── Comments section ─────────────────────────────────────────────────────────
 // ─── Playbook & Documents section ─────────────────────────────────────────────
-const PlaybookSection = ({ ticketType }) => {
-  const [docs, setDocs] = useState(null); // null = loading
+const PlaybookSection = ({ ticketType, ticketId }) => {
+  const [docs, setDocs] = useState(null);
+  const [ticketDocs, setTicketDocs] = useState([]); // attached docs with ack/sig state
 
   useEffect(() => {
     if (!ticketType) return;
-    listDocuments({ ticket_type: ticketType })
-      .then(setDocs)
-      .catch(() => setDocs([]));
+    listDocuments({ ticket_type: ticketType }).then(setDocs).catch(() => setDocs([]));
   }, [ticketType]);
 
+  useEffect(() => {
+    if (!ticketId) return;
+    listTicketDocuments(ticketId).then(setTicketDocs).catch(() => {});
+  }, [ticketId]);
+
+  const tdMap = Object.fromEntries(ticketDocs.map(td => [td.document_id, td]));
+
   const sortDocs = (list) => [...list].sort((a, b) => {
-    // tagged docs first, then ticket-type-specific, then catch-all
     const aTagged = a.tags.length > 0 ? 0 : 1;
     const bTagged = b.tags.length > 0 ? 0 : 1;
     if (aTagged !== bTagged) return aTagged - bTagged;
@@ -1045,8 +1051,32 @@ const PlaybookSection = ({ ticketType }) => {
     const bSpecific = b.ticket_types.length > 0 ? 0 : 1;
     return aSpecific - bSpecific;
   });
-  const internal = sortDocs((docs || []).filter(d => d.category === "internal"));
-  const clientFacing = sortDocs((docs || []).filter(d => d.category === "client_facing"));
+
+  const allDocs = docs || [];
+  const internal = sortDocs(allDocs.filter(d => d.category === "internal"));
+  const clientFacing = sortDocs(allDocs.filter(d => d.category === "client_facing"));
+
+  const handleAttachToggle = async (doc, checked) => {
+    if (!ticketId) return;
+    if (checked) {
+      const td = await attachDocument(ticketId, doc.id);
+      setTicketDocs(p => [...p.filter(x => x.document_id !== doc.id), td]);
+    } else {
+      await detachDocument(ticketId, doc.id);
+      setTicketDocs(p => p.filter(x => x.document_id !== doc.id));
+    }
+  };
+
+  const handleCheckbox = async (doc, field, checked) => {
+    if (!ticketId) return;
+    const td = tdMap[doc.id];
+    if (!td) return;
+    const updated = await updateTicketDocument(ticketId, doc.id, {
+      acknowledged: field === "acknowledged" ? checked : td.acknowledged,
+      signature_obtained: field === "signature_obtained" ? checked : td.signature_obtained,
+    });
+    setTicketDocs(p => p.map(x => x.document_id === doc.id ? updated : x));
+  };
 
   if (docs === null) return null;
   if (internal.length === 0 && clientFacing.length === 0) return null;
@@ -1054,30 +1084,55 @@ const PlaybookSection = ({ ticketType }) => {
   const catBg = (cat) => cat === "internal" ? "#e0eaff" : "#fff3e0";
   const catColor = (cat) => cat === "internal" ? brand.blue : "#c47a00";
 
-  const DocRow = ({ doc }) => (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 7, marginBottom: 6 }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: 13, color: brand.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{doc.name}</div>
-        {doc.description && <div style={{ fontSize: 12, color: brand.muted, marginTop: 1 }}>{doc.description}</div>}
-        {doc.tags.length > 0 && (
-          <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
-            {doc.tags.map(t => (
-              <span key={t} style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 20, padding: "1px 7px", fontSize: 11, color: brand.muted }}>{t}</span>
-            ))}
-          </div>
-        )}
-        {doc.requires_signature && (
-          <div style={{ fontSize: 11, color: "#c47a00", marginTop: 3, fontWeight: 600 }}>✎ Requires signature</div>
-        )}
-      </div>
-      <button onClick={() => downloadWithAuth(docDownloadUrl(doc.id), doc.original_name)}
-        style={{ padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, background: "#fff", color: brand.blue, border: `1.5px solid ${brand.blue}`, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, fontFamily: "inherit" }}>
-        Download
-      </button>
-    </div>
-  );
+  const attached = ticketDocs.filter(td => td.acknowledged || td.signature_obtained);
 
-  const SubSection = ({ title, items, cat }) => {
+  const DocRow = ({ doc }) => {
+    const td = tdMap[doc.id];
+    const isAttached = !!td;
+    return (
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "9px 12px", background: isAttached ? "#f0f4ff" : brand.bg, border: `1px solid ${isAttached ? brand.blue : brand.border}`, borderRadius: 7, marginBottom: 6 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontWeight: 600, fontSize: 13, color: brand.text }}>
+              <input type="checkbox" checked={isAttached} onChange={e => handleAttachToggle(doc, e.target.checked)} />
+              {doc.name}
+            </label>
+          </div>
+          {doc.description && <div style={{ fontSize: 12, color: brand.muted, marginBottom: 4 }}>{doc.description}</div>}
+          {doc.tags.length > 0 && (
+            <div style={{ display: "flex", gap: 4, marginBottom: 4, flexWrap: "wrap" }}>
+              {doc.tags.map(t => (
+                <span key={t} style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 20, padding: "1px 7px", fontSize: 11, color: brand.muted }}>{t}</span>
+              ))}
+            </div>
+          )}
+          {isAttached && (
+            <div style={{ display: "flex", gap: 16, marginTop: 4 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, cursor: "pointer", color: td.acknowledged ? "#16a34a" : brand.muted }}>
+                <input type="checkbox" checked={td.acknowledged} onChange={e => handleCheckbox(doc, "acknowledged", e.target.checked)} />
+                Acknowledged
+              </label>
+              {doc.requires_signature && (
+                <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, cursor: "pointer", color: td.signature_obtained ? "#16a34a" : "#c47a00", fontWeight: td.signature_obtained ? 600 : 400 }}>
+                  <input type="checkbox" checked={td.signature_obtained} onChange={e => handleCheckbox(doc, "signature_obtained", e.target.checked)} />
+                  ✎ Signature obtained
+                </label>
+              )}
+            </div>
+          )}
+          {!isAttached && doc.requires_signature && (
+            <div style={{ fontSize: 11, color: "#c47a00", fontWeight: 600 }}>✎ Requires signature</div>
+          )}
+        </div>
+        <button onClick={() => downloadWithAuth(docDownloadUrl(doc.id), doc.original_name)}
+          style={{ padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, background: "#fff", color: brand.blue, border: `1.5px solid ${brand.blue}`, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, fontFamily: "inherit" }}>
+          Download
+        </button>
+      </div>
+    );
+  };
+
+  const SubSection = ({ items, cat }) => {
     if (items.length === 0) return null;
     return (
       <div style={{ marginBottom: 16 }}>
@@ -1095,11 +1150,24 @@ const PlaybookSection = ({ ticketType }) => {
   return (
     <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "16px 18px", marginTop: 20 }}>
       <SectionHeader>Playbook & Documents</SectionHeader>
+      {attached.length > 0 && (
+        <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#15803d", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>Case Documents</div>
+          {ticketDocs.map(td => (
+            <div key={td.document_id} style={{ fontSize: 12, color: brand.text, display: "flex", gap: 10, marginBottom: 3, alignItems: "center" }}>
+              <span style={{ fontWeight: 600 }}>{td.document_name}</span>
+              {td.acknowledged && <span style={{ color: "#16a34a" }}>✓ Acknowledged</span>}
+              {td.signature_obtained && <span style={{ color: "#16a34a", fontWeight: 700 }}>✓ Signature obtained</span>}
+              {!td.acknowledged && !td.signature_obtained && <span style={{ color: brand.muted }}>Attached</span>}
+            </div>
+          ))}
+        </div>
+      )}
       <div style={{ fontSize: 12, color: brand.muted, marginBottom: 14 }}>
-        Documents matched to <strong>{ticketType}</strong> tickets.
+        Documents matched to <strong>{ticketType}</strong> tickets. Check a document to attach it to this case.
       </div>
-      <SubSection title="Internal" items={internal} cat="internal" />
-      <SubSection title="Client-Facing" items={clientFacing} cat="client_facing" />
+      <SubSection items={internal} cat="internal" />
+      <SubSection items={clientFacing} cat="client_facing" />
     </div>
   );
 };
@@ -1499,7 +1567,7 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
         </div>
       </div>
 
-      {t.id && <PlaybookSection ticketType={t.ticketType} />}
+      {t.id && <PlaybookSection ticketType={t.ticketType} ticketId={t.id} />}
       {t.id && (
         <div>
           <SectionHeader>Forms</SectionHeader>
