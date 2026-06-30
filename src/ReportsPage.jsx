@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getRevenueReport, getTechnicianReport, getSLAReport, revenueCsvUrl, technicianCsvUrl, slaCsvUrl } from "./api/reports.js";
+import { downloadWithAuth } from "./api/client.js";
 
 const brand = {
   blue: "#1A5CBA",
@@ -69,7 +70,7 @@ const thStyle  = { padding: "9px 14px", textAlign: "left", fontSize: 11, fontWei
 
 // ─── Date filter bar ──────────────────────────────────────────────────────────
 
-function DateFilter({ filters, setFilters, csvHref }) {
+function DateFilter({ filters, setFilters, csvHref, csvFilename }) {
   return (
     <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 24 }}>
       <div>
@@ -81,7 +82,7 @@ function DateFilter({ filters, setFilters, csvHref }) {
         <input type="date" style={inp} value={filters.date_to} onChange={e => setFilters(p => ({ ...p, date_to: e.target.value }))} />
       </div>
       <div style={{ marginLeft: "auto" }}>
-        <Btn href={csvHref} variant="secondary" small>↓ Export CSV</Btn>
+        <Btn onClick={() => downloadWithAuth(csvHref, csvFilename || "report.csv")} variant="secondary" small>↓ Export CSV</Btn>
       </div>
     </div>
   );
@@ -105,7 +106,7 @@ function RevenueTab() {
 
   return (
     <div>
-      <DateFilter filters={filters} setFilters={setFilters} csvHref={revenueCsvUrl(params)} />
+      <DateFilter filters={filters} setFilters={setFilters} csvHref={revenueCsvUrl(params)} csvFilename="revenue-report.csv" />
 
       {loading && <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>Loading…</div>}
 
@@ -201,7 +202,7 @@ function TechnicianTab() {
 
   return (
     <div>
-      <DateFilter filters={filters} setFilters={setFilters} csvHref={technicianCsvUrl(params)} />
+      <DateFilter filters={filters} setFilters={setFilters} csvHref={technicianCsvUrl(params)} csvFilename="technician-report.csv" />
 
       {loading && <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>Loading…</div>}
 
@@ -269,7 +270,7 @@ function SLATab() {
 
   return (
     <div>
-      <DateFilter filters={filters} setFilters={setFilters} csvHref={slaCsvUrl(params)} />
+      <DateFilter filters={filters} setFilters={setFilters} csvHref={slaCsvUrl(params)} csvFilename="sla-report.csv" />
 
       {loading && <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>Loading…</div>}
 

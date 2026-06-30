@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.2] — 2026-06-30
+
+### Fixed
+- All file downloads (document library, ticket attachments, report CSV exports) now send the JWT Authorization header; previously used bare `<a href>` links which the browser opens without headers, causing 401 errors
+- Added `downloadWithAuth(url, filename)` helper to `src/api/client.js` — fetches via Axios as a blob and triggers a browser save; used in DocumentsPage, App.jsx (playbook + attachments), and ReportsPage
+
 ## [1.0.1] — 2026-06-29
 
 ### Fixed

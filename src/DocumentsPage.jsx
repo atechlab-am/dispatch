@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { listDocuments, uploadDocument, updateDocument, deleteDocument, downloadUrl } from "./api/documents.js";
+import { downloadWithAuth } from "./api/client.js";
 import FormTemplatesTab from "./FormTemplatesTab.jsx";
 
 const brand = {
@@ -617,10 +618,10 @@ export default function DocumentsPage({ showToast, user }) {
                   <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle", fontSize: 12, color: brand.muted, whiteSpace: "nowrap" }}>{fmtSize(doc.size)}</td>
                   <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle", whiteSpace: "nowrap" }}>
                     <div style={{ display: "flex", gap: 6 }}>
-                      <a href={downloadUrl(doc.id)} download={doc.original_name}
-                        style={{ padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, background: "#fff", color: brand.blue, border: `1.5px solid ${brand.blue}`, textDecoration: "none", cursor: "pointer" }}>
+                      <button onClick={() => downloadWithAuth(downloadUrl(doc.id), doc.original_name)}
+                        style={{ padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, background: "#fff", color: brand.blue, border: `1.5px solid ${brand.blue}`, cursor: "pointer", fontFamily: "inherit" }}>
                         Download
-                      </a>
+                      </button>
                       <Btn onClick={() => setEditDoc(doc)} variant="secondary" small>Edit</Btn>
                       <Btn onClick={() => handleDelete(doc)} variant="danger" small>Delete</Btn>
                     </div>

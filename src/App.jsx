@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { fmt, esc, calcServiceTotal, calcHourTotal } from "./helpers.js";
-import { setTokens, clearTokens, registerLogoutHandler, hasStoredSession } from "./api/client.js";
+import { setTokens, clearTokens, registerLogoutHandler, hasStoredSession, downloadWithAuth } from "./api/client.js";
 import { me, logout as apiLogout } from "./api/auth.js";
 import { listTickets, getTicket, createTicket, updateTicket, deleteTicket, exportTickets } from "./api/tickets.js";
 import { listComments, addComment, deleteComment } from "./api/comments.js";
@@ -1061,10 +1061,10 @@ const PlaybookSection = ({ ticketType }) => {
           <div style={{ fontSize: 11, color: "#c47a00", marginTop: 3, fontWeight: 600 }}>✎ Requires signature</div>
         )}
       </div>
-      <a href={docDownloadUrl(doc.id)} download={doc.original_name}
-        style={{ padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, background: "#fff", color: brand.blue, border: `1.5px solid ${brand.blue}`, textDecoration: "none", whiteSpace: "nowrap", flexShrink: 0 }}>
+      <button onClick={() => downloadWithAuth(docDownloadUrl(doc.id), doc.original_name)}
+        style={{ padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, background: "#fff", color: brand.blue, border: `1.5px solid ${brand.blue}`, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, fontFamily: "inherit" }}>
         Download
-      </a>
+      </button>
     </div>
   );
 
@@ -1214,9 +1214,9 @@ const AttachmentsSection = ({ ticketId, currentUser }) => {
           <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
             <span style={{ fontSize: 18 }}>📎</span>
             <div style={{ overflow: "hidden" }}>
-              <a href={downloadUrl(a.id)} download={a.original_name} style={{ color: brand.blue, fontWeight: 600, fontSize: 13, textDecoration: "none", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <button onClick={() => downloadWithAuth(downloadUrl(a.id), a.original_name)} style={{ color: brand.blue, fontWeight: 600, fontSize: 13, background: "none", border: "none", padding: 0, cursor: "pointer", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "inherit", textAlign: "left" }}>
                 {a.original_name}
-              </a>
+              </button>
               <span style={{ color: brand.muted, fontSize: 11 }}>{fmtSize(a.size)} · {new Date(a.created_at).toLocaleDateString()}</span>
             </div>
           </div>

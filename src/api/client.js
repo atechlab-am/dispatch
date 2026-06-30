@@ -83,4 +83,17 @@ client.interceptors.response.use(
   }
 );
 
+// Download a protected endpoint and trigger a browser file save
+export async function downloadWithAuth(url, filename) {
+  const res = await client.get(url, { responseType: "blob" });
+  const href = URL.createObjectURL(res.data);
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = filename || "download";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(href);
+}
+
 export default client;
