@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.5.15] — 2026-07-02
+
+### Changed
+- **Document categories expanded** — replaced the old two-value Internal / Client-Facing with 9 purpose-built categories matching the service model:
+  - Assessment & Diagnostic Services
+  - Setup & Implementation Services
+  - Migration Services
+  - Recurring / Retainer Services
+  - On-Demand Support & Advisory
+  - Specialized / Infrastructure Services
+  - Policy / Fee Documents
+  - Client-Facing Summary
+  - Documents Clients Need to Sign / Approve (cross-cut view — any document with `requires_signature = true` appears here regardless of its primary category)
+- **Migration 0017** — widens `documents.category` column from `String(20)` to `String(60)` and remaps existing `internal` records to `on_demand_support`.
+
+## [1.5.14] — 2026-07-02
+
+### Changed
+- **Documents grouped by category** — the Document Library now displays documents in collapsible sections (Internal / Client-Facing) instead of a flat table. Each section header shows the document count and can be collapsed independently. The category filter dropdown is removed since categories are now always visible as separate groups. Search and ticket-type filter still apply across all groups.
+
 ## [1.5.13] — 2026-07-02
 
 ### Changed

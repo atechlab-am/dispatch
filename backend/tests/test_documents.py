@@ -3,8 +3,10 @@ import pytest
 
 PDF_BYTES = b"%PDF-1.4 fake pdf content for testing"
 
+VALID_CATEGORY = "on_demand_support"
 
-def _upload(client, headers, name="Server Setup Guide", category="internal",
+
+def _upload(client, headers, name="Server Setup Guide", category=VALID_CATEGORY,
              ticket_types="Incident,Service Request", tags="networking", requires_signature=False):
     return client.post(
         "/api/documents",
@@ -33,7 +35,7 @@ def test_upload_document(client, admin_headers):
     assert r.status_code == 201
     data = r.json()
     assert data["name"] == "Unique Upload Test"
-    assert data["category"] == "internal"
+    assert data["category"] == VALID_CATEGORY
     assert "Incident" in data["ticket_types"]
     assert "networking" in data["tags"]
     assert data["requires_signature"] is False
@@ -43,10 +45,10 @@ def test_upload_document(client, admin_headers):
 
 def test_upload_client_facing_with_signature(client, admin_headers):
     r = _upload(client, admin_headers, name="Service Agreement",
-                category="client_facing", requires_signature=True)
+                category="requires_signature", requires_signature=True)
     assert r.status_code == 201
     data = r.json()
-    assert data["category"] == "client_facing"
+    assert data["category"] == "requires_signature"
     assert data["requires_signature"] is True
 
 
@@ -63,7 +65,7 @@ def test_upload_invalid_category(client, admin_headers):
 def test_upload_disallowed_mime(client, admin_headers):
     r = client.post(
         "/api/documents",
-        params={"name": "Bad", "category": "internal"},
+        params={"name": "Bad", "category": VALID_CATEGORY},
         files={"file": ("f.exe", io.BytesIO(b"MZ"), "application/x-msdownload")},
         headers=admin_headers,
     )
@@ -73,7 +75,7 @@ def test_upload_disallowed_mime(client, admin_headers):
 def test_upload_empty_file(client, admin_headers):
     r = client.post(
         "/api/documents",
-        params={"name": "Empty", "category": "internal"},
+        params={"name": "Empty", "category": VALID_CATEGORY},
         files={"file": ("empty.pdf", io.BytesIO(b""), "application/pdf")},
         headers=admin_headers,
     )
@@ -88,10 +90,10 @@ def test_list_documents(client, admin_headers, doc_id):
 
 
 def test_list_filter_by_category(client, admin_headers):
-    r = client.get("/api/documents", params={"category": "internal"}, headers=admin_headers)
+    r = client.get("/api/documents", params={"category": VALID_CATEGORY}, headers=admin_headers)
     assert r.status_code == 200
     for d in r.json():
-        assert d["category"] == "internal"
+        assert d["category"] == VALID_CATEGORY
 
 
 def test_list_filter_by_ticket_type(client, admin_headers, doc_id):
@@ -102,7 +104,6 @@ def test_list_filter_by_ticket_type(client, admin_headers, doc_id):
 
 
 def test_list_filter_ticket_type_no_match(client, admin_headers):
-    # upload a doc tagged only for "Change"
     r = _upload(client, admin_headers, name="Change Doc", ticket_types="Change")
     change_id = r.json()["id"]
     r = client.get("/api/documents", params={"ticket_type": "Incident"}, headers=admin_headers)
@@ -125,7 +126,7 @@ def test_update_document(client, admin_headers, doc_id):
     r = client.put(f"/api/documents/{doc_id}", json={
         "name": "Updated Guide",
         "description": "Updated desc",
-        "category": "internal",
+        "category": "setup_implementation",
         "ticket_types": ["Incident"],
         "tags": ["networking", "firewall"],
         "requires_signature": False,
@@ -133,13 +134,14 @@ def test_update_document(client, admin_headers, doc_id):
     assert r.status_code == 200
     data = r.json()
     assert data["name"] == "Updated Guide"
+    assert data["category"] == "setup_implementation"
     assert "firewall" in data["tags"]
     assert data["ticket_types"] == ["Incident"]
 
 
 def test_technician_cannot_update_document(client, tech_headers, doc_id):
     r = client.put(f"/api/documents/{doc_id}", json={
-        "name": "Hacked", "description": "", "category": "internal",
+        "name": "Hacked", "description": "", "category": VALID_CATEGORY,
         "ticket_types": [], "tags": [], "requires_signature": False,
     }, headers=tech_headers)
     assert r.status_code == 403

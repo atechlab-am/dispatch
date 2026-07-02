@@ -86,7 +86,7 @@ function mkRow(file) {
     id: `${file.name}-${Date.now()}-${Math.random()}`,
     file,
     name: file.name.replace(/\.[^.]+$/, ""),
-    category: "internal",
+    category: "on_demand_support",
     ticket_types: [],
     tags: [],
     requires_signature: false,
@@ -221,10 +221,9 @@ function BulkUploadZone({ onUploaded, showToast }) {
                       value={row.category}
                       onChange={e => upRow(row.id, { category: e.target.value })}
                       disabled={row.status !== "pending"}
-                      style={{ ...inp, padding: "5px 8px", fontSize: 12, width: 130 }}
+                      style={{ ...inp, padding: "5px 8px", fontSize: 12, width: 200 }}
                     >
-                      <option value="internal">Internal</option>
-                      <option value="client_facing">Client-Facing</option>
+                      {CATEGORY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </td>
                   <td style={{ padding: "6px 12px", borderBottom: `1px solid ${brand.border}` }}>
@@ -292,7 +291,7 @@ function BulkUploadZone({ onUploaded, showToast }) {
 }
 
 function UploadDocModal({ onClose, onUploaded, showToast }) {
-  const [form, setForm] = useState({ name: "", description: "", category: "internal", ticket_types: [], tags: [], requires_signature: false });
+  const [form, setForm] = useState({ name: "", description: "", category: "on_demand_support", ticket_types: [], tags: [], requires_signature: false });
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef();
@@ -348,8 +347,7 @@ function UploadDocModal({ onClose, onUploaded, showToast }) {
           <div style={{ marginBottom: 14 }}>
             <FieldLabel>Category</FieldLabel>
             <select style={inp} value={form.category} onChange={e => up("category", e.target.value)}>
-              <option value="internal">Internal</option>
-              <option value="client_facing">Client-Facing</option>
+              {CATEGORY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
           <div style={{ marginBottom: 14 }}>
@@ -431,8 +429,7 @@ function EditDocModal({ doc, onClose, onUpdated, showToast }) {
           <div style={{ marginBottom: 14 }}>
             <FieldLabel>Category</FieldLabel>
             <select style={inp} value={form.category} onChange={e => up("category", e.target.value)}>
-              <option value="internal">Internal</option>
-              <option value="client_facing">Client-Facing</option>
+              {CATEGORY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
           <div style={{ marginBottom: 14 }}>
@@ -516,8 +513,7 @@ function BulkEditModal({ docs, onClose, onUpdated, showToast }) {
             <FieldLabel>Category</FieldLabel>
             <select style={inp} value={form.category} onChange={e => up("category", e.target.value)}>
               <option value="">— Keep existing —</option>
-              <option value="internal">Internal</option>
-              <option value="client_facing">Client-Facing</option>
+              {CATEGORY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
           <div style={{ marginBottom: 14 }}>
@@ -554,21 +550,99 @@ function BulkEditModal({ docs, onClose, onUpdated, showToast }) {
   );
 }
 
+const CATEGORIES = [
+  { key: "assessment_diagnostic",    label: "Assessment & Diagnostic Services",    accent: "#1a56a0", bg: "#dbeafe" },
+  { key: "setup_implementation",     label: "Setup & Implementation Services",     accent: "#065f46", bg: "#d1fae5" },
+  { key: "migration",                label: "Migration Services",                  accent: "#5b21b6", bg: "#ede9fe" },
+  { key: "recurring_retainer",       label: "Recurring / Retainer Services",       accent: "#0e7490", bg: "#cffafe" },
+  { key: "on_demand_support",        label: "On-Demand Support & Advisory",        accent: "#1d4ed8", bg: "#e0e7ff" },
+  { key: "specialized_infrastructure", label: "Specialized / Infrastructure Services", accent: "#92400e", bg: "#fef3c7" },
+  { key: "policy_fee",               label: "Policy / Fee Documents",              accent: "#6b7280", bg: "#f3f4f6" },
+  { key: "client_facing",            label: "Client-Facing Summary",               accent: "#c47a00", bg: "#fff3e0" },
+];
+
+const CATEGORY_OPTIONS = [
+  { value: "assessment_diagnostic",    label: "Assessment & Diagnostic Services" },
+  { value: "setup_implementation",     label: "Setup & Implementation Services" },
+  { value: "migration",                label: "Migration Services" },
+  { value: "recurring_retainer",       label: "Recurring / Retainer Services" },
+  { value: "on_demand_support",        label: "On-Demand Support & Advisory" },
+  { value: "specialized_infrastructure", label: "Specialized / Infrastructure Services" },
+  { value: "policy_fee",               label: "Policy / Fee Documents" },
+  { value: "client_facing",            label: "Client-Facing Summary" },
+  { value: "requires_signature",       label: "Documents Clients Need to Sign / Approve" },
+];
+
+function DocTable({ docs, isAdmin, selected, setSelected, setEditDoc, handleDelete, fmtSize }) {
+  return (
+    <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr style={{ background: brand.bg }}>
+            {isAdmin && <th style={{ padding: "10px 10px", borderBottom: `1px solid ${brand.border}`, width: 36 }} />}
+            {["Name", "Ticket Types", "Tags", "Size", "Actions"].map(h => (
+              <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {docs.map(doc => (
+            <tr key={doc.id} style={{ background: selected.has(doc.id) ? "#f0f4ff" : "#fff" }}>
+              {isAdmin && (
+                <td style={{ padding: "0 10px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle", textAlign: "center" }}>
+                  <input type="checkbox" checked={selected.has(doc.id)}
+                    onChange={e => setSelected(p => { const s = new Set(p); e.target.checked ? s.add(doc.id) : s.delete(doc.id); return s; })} />
+                </td>
+              )}
+              <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle" }}>
+                <div style={{ fontWeight: 600, color: brand.text }}>{doc.name}</div>
+                {doc.description && <div style={{ fontSize: 12, color: brand.muted, marginTop: 2 }}>{doc.description}</div>}
+                {doc.requires_signature && <div style={{ fontSize: 11, color: "#c47a00", marginTop: 3, fontWeight: 600 }}>✎ Requires signature</div>}
+              </td>
+              <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle", fontSize: 12 }}>
+                {doc.ticket_types.length === 0 ? <span style={{ color: brand.muted }}>All types</span> : doc.ticket_types.join(", ")}
+              </td>
+              <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                  {doc.tags.map(t => (
+                    <span key={t} style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 20, padding: "1px 8px", fontSize: 11 }}>{t}</span>
+                  ))}
+                </div>
+              </td>
+              <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle", fontSize: 12, color: brand.muted, whiteSpace: "nowrap" }}>{fmtSize(doc.size)}</td>
+              <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle", whiteSpace: "nowrap" }}>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button onClick={() => downloadWithAuth(downloadUrl(doc.id), doc.original_name)}
+                    style={{ padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, background: "#fff", color: brand.blue, border: `1.5px solid ${brand.blue}`, cursor: "pointer", fontFamily: "inherit" }}>
+                    Download
+                  </button>
+                  <Btn onClick={() => setEditDoc(doc)} variant="secondary" small>Edit</Btn>
+                  <Btn onClick={() => handleDelete(doc)} variant="danger" small>Delete</Btn>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function DocumentsPage({ showToast, user }) {
   const isAdmin = user?.role === "admin";
   const [tab, setTab] = useState("files");
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState({ category: "", ticket_type: "", search: "" });
+  const [filter, setFilter] = useState({ ticket_type: "", search: "" });
   const [showUpload, setShowUpload] = useState(false);
   const [editDoc, setEditDoc] = useState(null);
   const [showBulk, setShowBulk] = useState(false);
   const [selected, setSelected] = useState(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
+  const [collapsed, setCollapsed] = useState({});
 
   const load = () => {
     const params = {};
-    if (filter.category) params.category = filter.category;
     if (filter.ticket_type) params.ticket_type = filter.ticket_type;
     setLoading(true);
     listDocuments(params)
@@ -577,7 +651,7 @@ export default function DocumentsPage({ showToast, user }) {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); setSelected(new Set()); }, [filter.category, filter.ticket_type]);
+  useEffect(() => { load(); setSelected(new Set()); }, [filter.ticket_type]);
 
   const visible = docs.filter(d =>
     !filter.search ||
@@ -596,19 +670,13 @@ export default function DocumentsPage({ showToast, user }) {
     }
   };
 
-  const catBadge = (cat) => (
-    <span style={{
-      background: cat === "internal" ? "#e0eaff" : "#fff3e0",
-      color: cat === "internal" ? brand.blue : "#c47a00",
-      borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700, textTransform: "uppercase",
-    }}>{cat === "internal" ? "Internal" : "Client-Facing"}</span>
-  );
-
   const fmtSize = (bytes) => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
+
+  const toggleCollapse = (key) => setCollapsed(p => ({ ...p, [key]: !p[key] }));
 
   return (
     <div>
@@ -688,14 +756,6 @@ export default function DocumentsPage({ showToast, user }) {
           <input style={inp} value={filter.search} onChange={e => setFilter(p => ({ ...p, search: e.target.value }))} placeholder="Name or tag…" />
         </div>
         <div>
-          <FieldLabel>Category</FieldLabel>
-          <select style={{ ...inp, width: 160 }} value={filter.category} onChange={e => setFilter(p => ({ ...p, category: e.target.value }))}>
-            <option value="">All Categories</option>
-            <option value="internal">Internal</option>
-            <option value="client_facing">Client-Facing</option>
-          </select>
-        </div>
-        <div>
           <FieldLabel>Ticket Type</FieldLabel>
           <select style={{ ...inp, width: 180 }} value={filter.ticket_type} onChange={e => setFilter(p => ({ ...p, ticket_type: e.target.value }))}>
             <option value="">All Types</option>
@@ -709,56 +769,71 @@ export default function DocumentsPage({ showToast, user }) {
       ) : visible.length === 0 ? (
         <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>No documents found.</div>
       ) : (
-        <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: brand.bg }}>
-                {isAdmin && <th style={{ padding: "10px 10px", borderBottom: `1px solid ${brand.border}`, width: 36 }} />}
-                {["Name", "Category", "Ticket Types", "Tags", "Size", "Actions"].map(h => (
-                  <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {visible.map(doc => (
-                <tr key={doc.id} style={{ background: selected.has(doc.id) ? "#f0f4ff" : "#fff" }}>
-                  {isAdmin && (
-                    <td style={{ padding: "0 10px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle", textAlign: "center" }}>
-                      <input type="checkbox" checked={selected.has(doc.id)}
-                        onChange={e => setSelected(p => { const s = new Set(p); e.target.checked ? s.add(doc.id) : s.delete(doc.id); return s; })} />
-                    </td>
-                  )}
-                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle" }}>
-                    <div style={{ fontWeight: 600, color: brand.text }}>{doc.name}</div>
-                    {doc.description && <div style={{ fontSize: 12, color: brand.muted, marginTop: 2 }}>{doc.description}</div>}
-                    {doc.requires_signature && <div style={{ fontSize: 11, color: "#c47a00", marginTop: 3, fontWeight: 600 }}>✎ Requires signature</div>}
-                  </td>
-                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle" }}>{catBadge(doc.category)}</td>
-                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle", fontSize: 12 }}>
-                    {doc.ticket_types.length === 0 ? <span style={{ color: brand.muted }}>All types</span> : doc.ticket_types.join(", ")}
-                  </td>
-                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle" }}>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                      {doc.tags.map(t => (
-                        <span key={t} style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 20, padding: "1px 8px", fontSize: 11 }}>{t}</span>
-                      ))}
-                    </div>
-                  </td>
-                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle", fontSize: 12, color: brand.muted, whiteSpace: "nowrap" }}>{fmtSize(doc.size)}</td>
-                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle", whiteSpace: "nowrap" }}>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => downloadWithAuth(downloadUrl(doc.id), doc.original_name)}
-                        style={{ padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, background: "#fff", color: brand.blue, border: `1.5px solid ${brand.blue}`, cursor: "pointer", fontFamily: "inherit" }}>
-                        Download
-                      </button>
-                      <Btn onClick={() => setEditDoc(doc)} variant="secondary" small>Edit</Btn>
-                      <Btn onClick={() => handleDelete(doc)} variant="danger" small>Delete</Btn>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          {/* Special cross-cut: docs requiring signature/approval */}
+          {(() => {
+            const sigDocs = visible.filter(d => d.requires_signature);
+            if (sigDocs.length === 0) return null;
+            const key = "__requires_signature";
+            const isOpen = !collapsed[key];
+            return (
+              <div key={key}>
+                <button
+                  onClick={() => toggleCollapse(key)}
+                  style={{ display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: isOpen ? 12 : 0, width: "100%", textAlign: "left" }}
+                >
+                  <span style={{ background: "#fce7f3", color: "#9d174d", borderRadius: 6, padding: "3px 12px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Documents Clients Need to Sign / Approve
+                  </span>
+                  <span style={{ fontSize: 12, color: brand.muted }}>{sigDocs.length} document{sigDocs.length !== 1 ? "s" : ""}</span>
+                  <span style={{ marginLeft: "auto", fontSize: 13, color: brand.muted }}>{isOpen ? "▲" : "▼"}</span>
+                </button>
+                {isOpen && (
+                  <DocTable
+                    docs={sigDocs}
+                    isAdmin={isAdmin}
+                    selected={selected}
+                    setSelected={setSelected}
+                    setEditDoc={setEditDoc}
+                    handleDelete={handleDelete}
+                    fmtSize={fmtSize}
+                  />
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Regular category groups */}
+          {CATEGORIES.map(cat => {
+            const group = visible.filter(d => d.category === cat.key);
+            if (group.length === 0) return null;
+            const isOpen = !collapsed[cat.key];
+            return (
+              <div key={cat.key}>
+                <button
+                  onClick={() => toggleCollapse(cat.key)}
+                  style={{ display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: isOpen ? 12 : 0, width: "100%", textAlign: "left" }}
+                >
+                  <span style={{ background: cat.bg, color: cat.accent, borderRadius: 6, padding: "3px 12px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    {cat.label}
+                  </span>
+                  <span style={{ fontSize: 12, color: brand.muted }}>{group.length} document{group.length !== 1 ? "s" : ""}</span>
+                  <span style={{ marginLeft: "auto", fontSize: 13, color: brand.muted }}>{isOpen ? "▲" : "▼"}</span>
+                </button>
+                {isOpen && (
+                  <DocTable
+                    docs={group}
+                    isAdmin={isAdmin}
+                    selected={selected}
+                    setSelected={setSelected}
+                    setEditDoc={setEditDoc}
+                    handleDelete={handleDelete}
+                    fmtSize={fmtSize}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
       </>)}

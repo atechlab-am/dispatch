@@ -302,7 +302,7 @@ class Document(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=False, default="")
-    category = Column(String(20), nullable=False, default="internal")  # internal | client_facing
+    category = Column(String(60), nullable=False, default="on_demand_support")
     # comma-separated ticket type values, e.g. "Incident,Service Request"
     ticket_types = Column(Text, nullable=False, default="")
     # comma-separated free-form tags, e.g. "networking,backup"

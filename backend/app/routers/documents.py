@@ -32,7 +32,17 @@ ALLOWED_TYPES = {
     "image/png",
 }
 
-CATEGORIES = {"internal", "client_facing"}
+CATEGORIES = {
+    "assessment_diagnostic",
+    "setup_implementation",
+    "migration",
+    "recurring_retainer",
+    "on_demand_support",
+    "specialized_infrastructure",
+    "policy_fee",
+    "client_facing",
+    "requires_signature",
+}
 
 
 # ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -75,7 +85,7 @@ class DocumentOut(BaseModel):
 class DocumentUpdate(BaseModel):
     name: str = Field(..., max_length=255)
     description: str = Field("", max_length=2000)
-    category: str = Field("internal", max_length=20)
+    category: str = Field("on_demand_support", max_length=60)
     ticket_types: list[str] = []
     tags: list[str] = []
     requires_signature: bool = False
@@ -109,7 +119,7 @@ async def upload_document(
     file: UploadFile = File(...),
     name: str = Query(..., max_length=255),
     description: str = Query("", max_length=2000),
-    category: str = Query("internal", max_length=20),
+    category: str = Query("on_demand_support", max_length=60),
     ticket_types: str = Query(""),   # comma-separated
     tags: str = Query(""),           # comma-separated
     requires_signature: bool = Query(False),
