@@ -1416,7 +1416,7 @@ const AttachmentsSection = ({ ticketId, currentUser }) => {
 };
 
 // ─── Ticket editor ────────────────────────────────────────────────────────────
-const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoice, users, currentUser, onTemplateSaved, showToast, clients = [] }) => {
+const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoice, users, currentUser, onTemplateSaved, showToast, clients = [], onClientUpdated }) => {
   const [t, setT] = useState(ticket);
   const [savingTpl, setSavingTpl] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState(null); // null | "saving" | "saved"
@@ -1451,24 +1451,30 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
     return { pickableClients: [...primaries, ...residential], companyMembers: membersByPrimaryId };
   })();
 
-  // When ticket loads, figure out which primary company and which contact is selected
-  const resolveIds = () => {
+  const [pickerCompanyId, setPickerCompanyId] = useState(null);
+  const [pickerContactId, setPickerContactId] = useState(null);
+
+  // Once clients load, resolve which company + contact the ticket's client_id maps to
+  useEffect(() => {
+    if (!clients.length || !t.clientId) return;
     const rawId = t.clientId;
-    if (!rawId) return { companyId: null, contactId: null };
-    // Is this id a primary?
     const isPrimary = pickableClients.some(c => c.id === rawId);
-    if (isPrimary) return { companyId: rawId, contactId: null };
-    // It's a contact — find which company it belongs to
-    for (const [primaryId, members] of Object.entries(companyMembers)) {
-      if (members.some(m => m.id === rawId)) {
-        return { companyId: parseInt(primaryId), contactId: rawId };
+    if (isPrimary) {
+      setPickerCompanyId(rawId);
+      setPickerContactId(null);
+    } else {
+      for (const [primaryId, members] of Object.entries(companyMembers)) {
+        if (members.some(m => m.id === rawId)) {
+          setPickerCompanyId(parseInt(primaryId));
+          setPickerContactId(rawId);
+          return;
+        }
       }
+      // Fallback: treat as primary
+      setPickerCompanyId(rawId);
+      setPickerContactId(null);
     }
-    return { companyId: rawId, contactId: null };
-  };
-  const resolved = resolveIds();
-  const [pickerCompanyId, setPickerCompanyId] = useState(resolved.companyId);
-  const [pickerContactId, setPickerContactId] = useState(resolved.contactId);
+  }, [clients.length]);
 
   const pickerContacts = pickerCompanyId ? (companyMembers[pickerCompanyId] || []) : [];
   const pickerCompany  = pickableClients.find(c => c.id === pickerCompanyId) || null;
@@ -1503,6 +1509,41 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
     setPickerContactId(contactId);
     applyClientPick(pickerCompanyId, contactId);
   };
+
+  // Inline contact/company edit
+  const [editingClientId, setEditingClientId] = useState(null); // id of the record being edited
+  const [clientEditForm, setClientEditForm]   = useState({});
+  const [savingClientEdit, setSavingClientEdit] = useState(false);
+
+  const openClientEdit = () => {
+    const id = pickerContactId || pickerCompanyId;
+    const rec = clients.find(c => c.id === id);
+    if (!rec) return;
+    setEditingClientId(id);
+    setClientEditForm({ name: rec.name, email: rec.email || "", phone: rec.phone || "", address: rec.address || "", notes: rec.notes || "" });
+  };
+
+  const handleClientEditSave = async () => {
+    setSavingClientEdit(true);
+    try {
+      const rec = clients.find(c => c.id === editingClientId);
+      const updated = await updateClient(editingClientId, { ...rec, ...clientEditForm, name: clientEditForm.name.trim() });
+      // Refresh clients list so dropdowns reflect changes
+      onClientUpdated?.(updated);
+      // Also update ticket display fields if this is the active client
+      setT(prev => ({
+        ...prev,
+        clientName:    pickerContactId ? prev.clientName.replace(/—.*$/, `— ${updated.name}`) : (updated.company || updated.name),
+        clientEmail:   updated.email,
+        clientPhone:   updated.phone,
+        clientAddress: updated.address,
+      }));
+      setEditingClientId(null);
+      showToast?.("Contact updated.", "ok");
+    } catch {
+      showToast?.("Failed to update contact.", "err");
+    } finally { setSavingClientEdit(false); }
+  };
   // ── end client picker ──
 
   // Autosave: 3s after any change on existing tickets
@@ -1510,7 +1551,7 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
     if (isNew) return;
     clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(async () => {
-      if (!t.name?.trim() || !t.title?.trim()) return;
+      if (!t.title?.trim()) return;
       setAutoSaveStatus("saving");
       try {
         await onSave(t, true);
@@ -1658,58 +1699,64 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
         <div>
           <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
-            <SectionHeader>Client Information</SectionHeader>
-            {clients.length > 0 ? (
-              <div style={{ display:"grid", gap:10 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+              <SectionHeader style={{ margin:0 }}>Client Information</SectionHeader>
+              {autoSaveStatus === "saving" && <span style={{ fontSize:11, color:brand.muted }}>Saving…</span>}
+              {autoSaveStatus === "saved"  && <span style={{ fontSize:11, color:brand.success }}>Saved ✓</span>}
+            </div>
+            <div style={{ display:"grid", gap:10 }}>
+              <div>
+                <FieldLabel>Company / Client</FieldLabel>
+                <select value={pickerCompanyId ?? ""} onChange={e => handleCompanyChange(e.target.value || null)} style={inp}>
+                  <option value="">— Select a client —</option>
+                  {pickableClients.map(c => (
+                    <option key={c.id} value={c.id}>{c.company || c.name}</option>
+                  ))}
+                </select>
+              </div>
+              {pickerContacts.length > 0 && (
                 <div>
-                  <FieldLabel>Company / Client</FieldLabel>
-                  <select value={pickerCompanyId ?? ""} onChange={e => handleCompanyChange(e.target.value || null)} style={inp}>
-                    <option value="">— Manual entry —</option>
-                    {pickableClients.map(c => (
-                      <option key={c.id} value={c.id}>{c.company || c.name}</option>
+                  <FieldLabel>Contact</FieldLabel>
+                  <select value={pickerContactId ?? ""} onChange={e => handleContactChange(e.target.value || null)} style={inp}>
+                    <option value="">— No specific contact —</option>
+                    {pickerContacts.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}{c.email ? ` (${c.email})` : ""}</option>
                     ))}
                   </select>
                 </div>
-                {pickerContacts.length > 0 && (
-                  <div>
-                    <FieldLabel>Contact</FieldLabel>
-                    <select value={pickerContactId ?? ""} onChange={e => handleContactChange(e.target.value || null)} style={inp}>
-                      <option value="">— No specific contact —</option>
-                      {pickerContacts.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}{c.email ? ` (${c.email})` : ""}</option>
-                      ))}
-                    </select>
+              )}
+              {pickerCompanyId && !editingClientId && (
+                <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:7, padding:"10px 14px", fontSize:13 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:6 }}>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, flex:1 }}>
+                      <div><span style={{ fontWeight:600, color:brand.muted, fontSize:11, textTransform:"uppercase" }}>Name </span><br/>{t.clientName || "—"}</div>
+                      <div><span style={{ fontWeight:600, color:brand.muted, fontSize:11, textTransform:"uppercase" }}>Phone </span><br/>{t.clientPhone || "—"}</div>
+                      <div><span style={{ fontWeight:600, color:brand.muted, fontSize:11, textTransform:"uppercase" }}>Email </span><br/>{t.clientEmail || "—"}</div>
+                      <div><span style={{ fontWeight:600, color:brand.muted, fontSize:11, textTransform:"uppercase" }}>Address </span><br/>{t.clientAddress || "—"}</div>
+                    </div>
+                    <button onClick={openClientEdit} style={{ marginLeft:10, flexShrink:0, background:"none", border:`1px solid ${brand.border}`, borderRadius:5, padding:"3px 10px", fontSize:12, fontWeight:600, color:brand.muted, cursor:"pointer" }}>Edit</button>
                   </div>
-                )}
-                {pickerCompanyId && (
-                  <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:7, padding:"10px 14px", fontSize:13, color:brand.muted, display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
-                    <div><span style={{ fontWeight:600, color:brand.text }}>Name: </span>{t.clientName || "—"}</div>
-                    <div><span style={{ fontWeight:600, color:brand.text }}>Phone: </span>{t.clientPhone || "—"}</div>
-                    <div><span style={{ fontWeight:600, color:brand.text }}>Email: </span>{t.clientEmail || "—"}</div>
-                    <div><span style={{ fontWeight:600, color:brand.text }}>Address: </span>{t.clientAddress || "—"}</div>
+                </div>
+              )}
+              {editingClientId && (
+                <div style={{ background:brand.bg, border:`1.5px solid ${brand.blue}`, borderRadius:7, padding:"14px 16px" }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:brand.blue, textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:10 }}>
+                    Edit {pickerContactId ? "Contact" : "Company"}
                   </div>
-                )}
-                {!pickerCompanyId && (
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-                    {[["Client Name","clientName","Full name or company"],["Phone","clientPhone","(514) 000-0000"],["Email","clientEmail","client@example.com"],["Address","clientAddress","Street, City, QC"]].map(([label,field,ph])=>(
-                      <div key={field}>
-                        <FieldLabel>{label}</FieldLabel>
-                        <Input value={t[field]} onChange={v=>up(field,v)} placeholder={ph} />
-                      </div>
-                    ))}
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
+                    <div><FieldLabel>Name *</FieldLabel><input style={inp} value={clientEditForm.name} onChange={e => setClientEditForm(p => ({ ...p, name: e.target.value }))} autoFocus /></div>
+                    <div><FieldLabel>Phone</FieldLabel><input style={inp} value={clientEditForm.phone} onChange={e => setClientEditForm(p => ({ ...p, phone: e.target.value }))} /></div>
+                    <div><FieldLabel>Email</FieldLabel><input style={inp} type="email" autoComplete="off" value={clientEditForm.email} onChange={e => setClientEditForm(p => ({ ...p, email: e.target.value }))} /></div>
+                    <div><FieldLabel>Address</FieldLabel><input style={inp} value={clientEditForm.address} onChange={e => setClientEditForm(p => ({ ...p, address: e.target.value }))} /></div>
+                    <div style={{ gridColumn:"1/-1" }}><FieldLabel>Notes</FieldLabel><textarea style={{ ...inp, resize:"vertical", minHeight:48 }} value={clientEditForm.notes} onChange={e => setClientEditForm(p => ({ ...p, notes: e.target.value }))} /></div>
                   </div>
-                )}
-              </div>
-            ) : (
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-                {[["Client Name","clientName","Full name or company"],["Phone","clientPhone","(514) 000-0000"],["Email","clientEmail","client@example.com"],["Address","clientAddress","Street, City, QC"]].map(([label,field,ph])=>(
-                  <div key={field}>
-                    <FieldLabel>{label}</FieldLabel>
-                    <Input value={t[field]} onChange={v=>up(field,v)} placeholder={ph} />
+                  <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+                    <Btn variant="ghost" small onClick={() => setEditingClientId(null)}>Cancel</Btn>
+                    <Btn variant="accent" small disabled={savingClientEdit || !clientEditForm.name.trim()} onClick={handleClientEditSave}>{savingClientEdit ? "Saving…" : "Save"}</Btn>
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
           <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px" }}>
             <SectionHeader>Issue Details</SectionHeader>
@@ -2047,7 +2094,7 @@ const RecurringPage = ({ showToast, clients = [] }) => {
 };
 
 // ─── Ticket editor route wrapper ──────────────────────────────────────────────
-const TicketEditorRoute = ({ saving, onSave, onDelete, onCreateInvoice, users, currentUser, onTemplateSaved, showToast, onBack, clients }) => {
+const TicketEditorRoute = ({ saving, onSave, onDelete, onCreateInvoice, users, currentUser, onTemplateSaved, showToast, onBack, clients, onClientUpdated }) => {
   const { ticketId } = useParams();
   const navigate = useNavigate();
   const [ticket, setTicket] = useState(null);
@@ -2077,6 +2124,7 @@ const TicketEditorRoute = ({ saving, onSave, onDelete, onCreateInvoice, users, c
       onTemplateSaved={onTemplateSaved}
       showToast={showToast}
       clients={clients}
+      onClientUpdated={onClientUpdated}
     />
   );
 };
@@ -2409,6 +2457,7 @@ export default function App() {
               onTemplateSaved={loadTemplates}
               showToast={showToast}
               clients={clients}
+              onClientUpdated={loadClients}
             />
           } />
           <Route path="/clients"   element={<ClientsPage showToast={showToast} />} />
