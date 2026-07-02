@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.18] — 2026-07-02
+
+### Fixed
+- **Adding contact while Edit Business was open created a new business** — the contacts section (including + Add Contact) is now hidden while the Edit Business form is open, so the two forms can never be active simultaneously. Clicking "Edit Business" also clears any open Add Contact form.
+- **No way to delete a business** — a Delete button now appears in each company group header alongside "Edit Business". Deleting a business removes the primary record; contacts under that business should be deleted or reassigned separately.
+- **Business count included contacts** — the "Business" section header count now shows the number of companies only, not companies + contacts.
+
 ## [1.5.17] — 2026-07-02
 
 ### Fixed

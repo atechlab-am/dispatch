@@ -462,13 +462,17 @@ function ResidentialRow({ c, onUpdated, onDeleted, onStatement, showToast, compa
 
 // ─── Business company group ───────────────────────────────────────────────────
 
-function CompanyGroup({ primary, contacts, company, showToast, onPrimaryUpdated, onContactUpdated, onContactDeleted, onContactAdded, companies }) {
+function CompanyGroup({ primary, contacts, company, showToast, onPrimaryUpdated, onContactUpdated, onContactDeleted, onContactAdded, onBusinessDeleted, companies }) {
   const [expanded, setExpanded] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
 
   const slug = primary.slug;
-  const allMembers = [primary, ...contacts];
+
+  function handleCancelEdit() {
+    setEditingBusiness(false);
+    setShowAddContact(false);
+  }
 
   return (
     <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 12, background: brand.surface }}>
@@ -496,8 +500,11 @@ function CompanyGroup({ primary, contacts, company, showToast, onPrimaryUpdated,
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }} onClick={e => e.stopPropagation()}>
-          <Btn small variant="secondary" onClick={() => { setEditingBusiness(p => !p); setExpanded(true); }}>
+          <Btn small variant="secondary" onClick={() => { setEditingBusiness(p => !p); setShowAddContact(false); setExpanded(true); }}>
             {editingBusiness ? "Cancel" : "Edit Business"}
+          </Btn>
+          <Btn small variant="danger" onClick={() => onBusinessDeleted(primary.id, company)}>
+            Delete
           </Btn>
           <span style={{ color: brand.muted, fontSize: 14, cursor: "pointer" }} onClick={() => setExpanded(p => !p)}>
             {expanded ? "▲" : "▼"}
@@ -505,12 +512,12 @@ function CompanyGroup({ primary, contacts, company, showToast, onPrimaryUpdated,
         </div>
       </div>
 
-      {/* Business info panel */}
+      {/* Business edit form — only shown when editingBusiness, not when adding contact */}
       {editingBusiness && (
         <EditBusinessForm
           primary={primary}
           onSaved={updated => { onPrimaryUpdated(updated); setEditingBusiness(false); }}
-          onCancel={() => setEditingBusiness(false)}
+          onCancel={handleCancelEdit}
           showToast={showToast}
         />
       )}
@@ -523,8 +530,8 @@ function CompanyGroup({ primary, contacts, company, showToast, onPrimaryUpdated,
         </div>
       )}
 
-      {/* Contacts */}
-      {expanded && (
+      {/* Contacts — only shown when expanded and NOT editing the business */}
+      {expanded && !editingBusiness && (
         <>
           {showAddContact ? (
             <div style={{ padding: "14px 16px 0" }}>
@@ -688,7 +695,7 @@ export default function ClientsPage({ showToast }) {
         <>
           {filteredBusinessGroups.length > 0 && (
             <>
-              <SectionHeader label="Business" count={filteredBusinessGroups.reduce((s, g) => s + 1 + g.contacts.length, 0)} />
+              <SectionHeader label="Business" count={filteredBusinessGroups.length} />
               {filteredBusinessGroups.map(g => (
                 <CompanyGroup
                   key={g.key}
@@ -701,6 +708,7 @@ export default function ClientsPage({ showToast }) {
                   onContactUpdated={updateOne}
                   onContactDeleted={(id, name) => handleDelete(id, name)}
                   onContactAdded={c => { setClients(p => [...p, c]); showToast("Contact added.", "ok"); }}
+                  onBusinessDeleted={(id, name) => handleDelete(id, name)}
                 />
               ))}
             </>
