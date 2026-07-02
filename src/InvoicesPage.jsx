@@ -294,8 +294,7 @@ function TicketPickerPanel({ invoice, showToast, onInvoiceUpdated }) {
     try {
       await markTicketsPaid(ids);
       showToast("Tickets marked as paid.", "ok");
-      // Refresh linked list display
-      const updated = await import("./api/invoices.js").then(m => m.getInvoice(invoice.id));
+      const updated = await getInvoice(invoice.id);
       onInvoiceUpdated(updated);
     } catch { showToast("Failed to mark tickets paid.", "err"); }
   };
