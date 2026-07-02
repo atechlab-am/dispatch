@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.6.1] — 2026-07-02
+
+### Changed
+- **Ticket editor — company + contact picker** — the "Client Information" section now shows two dropdowns instead of free-text fields when clients exist. The first dropdown lists all companies (one entry per company, not one per contact). Selecting a company reveals a second "Contact" dropdown showing only that company's contacts. Choosing a contact sets the ticket's `client_id` to that contact's record and fills Name / Phone / Email / Address below as a read-only summary. Switching the company clears the contact. Tickets without a linked client still fall back to the four editable text fields.
+
 ## [1.6.0] — 2026-07-02
 
 ### Added

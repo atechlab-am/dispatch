@@ -1416,7 +1416,7 @@ const AttachmentsSection = ({ ticketId, currentUser }) => {
 };
 
 // ─── Ticket editor ────────────────────────────────────────────────────────────
-const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoice, users, currentUser, onTemplateSaved, showToast }) => {
+const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoice, users, currentUser, onTemplateSaved, showToast, clients = [] }) => {
   const [t, setT] = useState(ticket);
   const [savingTpl, setSavingTpl] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState(null); // null | "saving" | "saved"
@@ -1427,6 +1427,83 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
   const isNew = !ticket.id;
 
   const up = (field, val) => setT(prev => ({ ...prev, [field]: val }));
+
+  // ── Client picker (business: company → contact; residential: flat list) ──
+  const { pickableClients, companyMembers } = (() => {
+    const businessGroups = {};
+    const residential = [];
+    for (const c of clients) {
+      if (c.client_type === "business" && c.company) {
+        const key = c.company.toLowerCase();
+        if (!businessGroups[key]) businessGroups[key] = { primary: null, members: [] };
+        if (!businessGroups[key].primary || c.id < businessGroups[key].primary.id)
+          businessGroups[key].primary = c;
+        businessGroups[key].members.push(c);
+      } else {
+        residential.push(c);
+      }
+    }
+    const primaries = Object.values(businessGroups).map(g => g.primary);
+    const membersByPrimaryId = {};
+    for (const g of Object.values(businessGroups)) {
+      membersByPrimaryId[g.primary.id] = g.members.filter(m => m.id !== g.primary.id);
+    }
+    return { pickableClients: [...primaries, ...residential], companyMembers: membersByPrimaryId };
+  })();
+
+  // When ticket loads, figure out which primary company and which contact is selected
+  const resolveIds = () => {
+    const rawId = t.clientId;
+    if (!rawId) return { companyId: null, contactId: null };
+    // Is this id a primary?
+    const isPrimary = pickableClients.some(c => c.id === rawId);
+    if (isPrimary) return { companyId: rawId, contactId: null };
+    // It's a contact — find which company it belongs to
+    for (const [primaryId, members] of Object.entries(companyMembers)) {
+      if (members.some(m => m.id === rawId)) {
+        return { companyId: parseInt(primaryId), contactId: rawId };
+      }
+    }
+    return { companyId: rawId, contactId: null };
+  };
+  const resolved = resolveIds();
+  const [pickerCompanyId, setPickerCompanyId] = useState(resolved.companyId);
+  const [pickerContactId, setPickerContactId] = useState(resolved.contactId);
+
+  const pickerContacts = pickerCompanyId ? (companyMembers[pickerCompanyId] || []) : [];
+  const pickerCompany  = pickableClients.find(c => c.id === pickerCompanyId) || null;
+
+  const applyClientPick = (companyId, contactId) => {
+    const company = pickableClients.find(c => c.id === companyId) || null;
+    const contact = (companyMembers[companyId] || []).find(c => c.id === contactId) || null;
+    const effectiveId = contact ? contact.id : (company ? company.id : null);
+    const displayName = company
+      ? (contact ? `${company.company || company.name} — ${contact.name}` : (company.company || company.name))
+      : "";
+    setT(prev => ({
+      ...prev,
+      clientId:      effectiveId,
+      clientType:    company ? (company.client_type || "business") : prev.clientType,
+      clientName:    displayName || prev.clientName,
+      clientEmail:   contact?.email || company?.email || prev.clientEmail,
+      clientPhone:   contact?.phone || company?.phone || prev.clientPhone,
+      clientAddress: company?.address || prev.clientAddress,
+    }));
+  };
+
+  const handleCompanyChange = (id) => {
+    const companyId = id ? parseInt(id) : null;
+    setPickerCompanyId(companyId);
+    setPickerContactId(null);
+    applyClientPick(companyId, null);
+  };
+
+  const handleContactChange = (id) => {
+    const contactId = id ? parseInt(id) : null;
+    setPickerContactId(contactId);
+    applyClientPick(pickerCompanyId, contactId);
+  };
+  // ── end client picker ──
 
   // Autosave: 3s after any change on existing tickets
   useEffect(() => {
@@ -1582,14 +1659,57 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
         <div>
           <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
             <SectionHeader>Client Information</SectionHeader>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-              {[["Client Name","clientName","Full name or company"],["Phone","clientPhone","(514) 000-0000"],["Email","clientEmail","client@example.com"],["Address","clientAddress","Street, City, QC"]].map(([label,field,ph])=>(
-                <div key={field}>
-                  <FieldLabel>{label}</FieldLabel>
-                  <Input value={t[field]} onChange={v=>up(field,v)} placeholder={ph} />
+            {clients.length > 0 ? (
+              <div style={{ display:"grid", gap:10 }}>
+                <div>
+                  <FieldLabel>Company / Client</FieldLabel>
+                  <select value={pickerCompanyId ?? ""} onChange={e => handleCompanyChange(e.target.value || null)} style={inp}>
+                    <option value="">— Manual entry —</option>
+                    {pickableClients.map(c => (
+                      <option key={c.id} value={c.id}>{c.company || c.name}</option>
+                    ))}
+                  </select>
                 </div>
-              ))}
-            </div>
+                {pickerContacts.length > 0 && (
+                  <div>
+                    <FieldLabel>Contact</FieldLabel>
+                    <select value={pickerContactId ?? ""} onChange={e => handleContactChange(e.target.value || null)} style={inp}>
+                      <option value="">— No specific contact —</option>
+                      {pickerContacts.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}{c.email ? ` (${c.email})` : ""}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {pickerCompanyId && (
+                  <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:7, padding:"10px 14px", fontSize:13, color:brand.muted, display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+                    <div><span style={{ fontWeight:600, color:brand.text }}>Name: </span>{t.clientName || "—"}</div>
+                    <div><span style={{ fontWeight:600, color:brand.text }}>Phone: </span>{t.clientPhone || "—"}</div>
+                    <div><span style={{ fontWeight:600, color:brand.text }}>Email: </span>{t.clientEmail || "—"}</div>
+                    <div><span style={{ fontWeight:600, color:brand.text }}>Address: </span>{t.clientAddress || "—"}</div>
+                  </div>
+                )}
+                {!pickerCompanyId && (
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                    {[["Client Name","clientName","Full name or company"],["Phone","clientPhone","(514) 000-0000"],["Email","clientEmail","client@example.com"],["Address","clientAddress","Street, City, QC"]].map(([label,field,ph])=>(
+                      <div key={field}>
+                        <FieldLabel>{label}</FieldLabel>
+                        <Input value={t[field]} onChange={v=>up(field,v)} placeholder={ph} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                {[["Client Name","clientName","Full name or company"],["Phone","clientPhone","(514) 000-0000"],["Email","clientEmail","client@example.com"],["Address","clientAddress","Street, City, QC"]].map(([label,field,ph])=>(
+                  <div key={field}>
+                    <FieldLabel>{label}</FieldLabel>
+                    <Input value={t[field]} onChange={v=>up(field,v)} placeholder={ph} />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px" }}>
             <SectionHeader>Issue Details</SectionHeader>
@@ -1927,7 +2047,7 @@ const RecurringPage = ({ showToast, clients = [] }) => {
 };
 
 // ─── Ticket editor route wrapper ──────────────────────────────────────────────
-const TicketEditorRoute = ({ saving, onSave, onDelete, onCreateInvoice, users, currentUser, onTemplateSaved, showToast, onBack }) => {
+const TicketEditorRoute = ({ saving, onSave, onDelete, onCreateInvoice, users, currentUser, onTemplateSaved, showToast, onBack, clients }) => {
   const { ticketId } = useParams();
   const navigate = useNavigate();
   const [ticket, setTicket] = useState(null);
@@ -1956,6 +2076,7 @@ const TicketEditorRoute = ({ saving, onSave, onDelete, onCreateInvoice, users, c
       currentUser={currentUser}
       onTemplateSaved={onTemplateSaved}
       showToast={showToast}
+      clients={clients}
     />
   );
 };
@@ -2287,6 +2408,7 @@ export default function App() {
               currentUser={user}
               onTemplateSaved={loadTemplates}
               showToast={showToast}
+              clients={clients}
             />
           } />
           <Route path="/clients"   element={<ClientsPage showToast={showToast} />} />
