@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.6.2] — 2026-07-02
+
+### Changed
+- **Sidebar UI is now the only UI** — the classic top-nav shell has been removed. `AppNew` (sidebar layout) is always rendered; the `newUI` localStorage toggle, the "✦ NEW UI" badge, and the "Classic UI" sidebar button are all gone. No behaviour or feature changes — purely structural cleanup.
+
 ## [1.6.1] — 2026-07-02
 
 ### Changed

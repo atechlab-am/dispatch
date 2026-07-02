@@ -3,7 +3,7 @@ import { Routes, Route, useNavigate, useParams, Navigate } from "react-router-do
 import { fmt, esc, calcServiceTotal, calcHourTotal } from "./helpers.js";
 import { setTokens, clearTokens, registerLogoutHandler, hasStoredSession, downloadWithAuth } from "./api/client.js";
 import { me, logout as apiLogout } from "./api/auth.js";
-import { listTickets, getTicket, createTicket, updateTicket, deleteTicket, exportTickets } from "./api/tickets.js";
+import { listTickets, getTicket, createTicket, updateTicket, deleteTicket } from "./api/tickets.js";
 import { listComments, addComment, deleteComment } from "./api/comments.js";
 import { listTemplates, createTemplate, deleteTemplate } from "./api/templates.js";
 import { listAttachments, uploadAttachment, deleteAttachment, downloadUrl } from "./api/attachments.js";
@@ -20,13 +20,10 @@ import ReportsPage from "./ReportsPage.jsx";
 import PortalPage from "./PortalPage.jsx";
 import ClientsPage from "./ClientsPage.jsx";
 import InvoicesPage from "./InvoicesPage.jsx";
-import DashboardPage from "./DashboardPage.jsx";
 import SetupPage from "./SetupPage.jsx";
 import { getSetupStatus } from "./api/setup.js";
 import AppNew from "./AppNew.jsx";
-import UpdateBanner from "./UpdateBanner.jsx";
 import { BrandingProvider } from "./branding.jsx";
-import { checkVersion } from "./api/version.js";
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const brand = {
@@ -526,32 +523,23 @@ const HourRow = ({ log, defaultRate, onChange, onRemove }) => {
 };
 
 // ─── New ticket modal ─────────────────────────────────────────────────────────
-const NewTicketModal = ({ onCreate, onCancel, clients, onClientCreated, templates }) => {
-  const [ticketType,   setTicketType]   = useState("Incident");
-  const [clientType,   setClientType]   = useState("business");
-  const [title,        setTitle]        = useState("");
-  const [priority,     setPriority]     = useState("Medium");
-  const [clientId,     setClientId]     = useState("");
-  const [contactId,    setContactId]    = useState("");
-  const [search,       setSearch]       = useState("");
-  const [showNewClient,setShowNewClient]= useState(false);
-
-  const applyTemplate = (tpl) => {
-    setTicketType(tpl.ticket_type);
-    setClientType(tpl.client_type);
-    setPriority(tpl.priority);
-    setTitle(tpl.title);
-  };
-  const [newName,      setNewName]      = useState("");
-  const [newEmail,     setNewEmail]     = useState("");
-  const [newPhone,     setNewPhone]     = useState("");
-  const [newCompany,   setNewCompany]   = useState("");
-  const [saving,       setSaving]       = useState(false);
-  const [savingClient, setSavingClient] = useState(false);
+const NewTicketModal = ({ onCreate, onCancel, clients, templates }) => {
+  const [ticketType, setTicketType] = useState("Incident");
+  const [title,      setTitle]      = useState("");
+  const [priority,   setPriority]   = useState("Medium");
+  const [companyId,  setCompanyId]  = useState(null);
+  const [contactId,  setContactId]  = useState(null);
+  const [saving,     setSaving]     = useState(false);
 
   const typeIcons = { Incident:"🔥", Request:"📋", "Change Request":"🔄" };
 
-  // Build a deduplicated picker: one entry per business (primary record = lowest id in company group) + all residential
+  const applyTemplate = (tpl) => {
+    setTicketType(tpl.ticket_type);
+    setPriority(tpl.priority);
+    setTitle(tpl.title);
+  };
+
+  // Same grouping logic as ticket editor
   const { pickableClients, companyMembers } = (() => {
     const businessGroups = {};
     const residential = [];
@@ -574,43 +562,30 @@ const NewTicketModal = ({ onCreate, onCancel, clients, onClientCreated, template
     return { pickableClients: [...primaries, ...residential], companyMembers: membersByPrimaryId };
   })();
 
-  const filtered = pickableClients.filter(c => {
-    const q = search.toLowerCase();
-    return (c.company || c.name).toLowerCase().includes(q) ||
-      (c.email || "").toLowerCase().includes(q);
-  });
-
-  const selectedCompany = pickableClients.find(c => c.id === clientId);
-  const contacts = clientId ? (companyMembers[clientId] || []) : [];
+  const contacts        = companyId ? (companyMembers[companyId] || []) : [];
+  const selectedCompany = pickableClients.find(c => c.id === companyId) || null;
   const selectedContact = contacts.find(c => c.id === contactId) || null;
 
-  const handleSaveNewClient = async () => {
-    if (!newName.trim()) return;
-    setSavingClient(true);
-    try {
-      const c = await createClient({ name:newName.trim(), email:newEmail, phone:newPhone, company:newCompany, address:"", client_type:clientType, notes:"" });
-      await onClientCreated();
-      setClientId(c.id);
-      setShowNewClient(false);
-      setNewName(""); setNewEmail(""); setNewPhone(""); setNewCompany("");
-    } finally { setSavingClient(false); }
+  const handleCompanyChange = (id) => {
+    setCompanyId(id ? parseInt(id) : null);
+    setContactId(null);
   };
 
   const handleSubmit = async () => {
     if (!title.trim()) return;
     setSaving(true);
-    // For business: pass the contact's id if one is selected, otherwise the primary record id
-    const effectiveClientId = (selectedContact ? selectedContact.id : clientId) || null;
-    await onCreate({ ticketType, clientType, title:title.trim(), priority, clientId:effectiveClientId, selectedCompany, selectedContact });
+    const effectiveClientId = selectedContact ? selectedContact.id : (selectedCompany ? selectedCompany.id : null);
+    const clientType = selectedCompany?.client_type || "business";
+    await onCreate({ ticketType, clientType, title: title.trim(), priority, clientId: effectiveClientId, selectedCompany, selectedContact });
     setSaving(false);
   };
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(13,27,42,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <div style={{ background:"#fff", borderRadius:12, padding:"28px 32px", width:540, maxHeight:"90vh", overflowY:"auto", boxShadow:"0 8px 40px rgba(0,0,0,0.18)" }}>
+      <div style={{ background:"#fff", borderRadius:12, padding:"28px 32px", width:480, maxHeight:"90vh", overflowY:"auto", boxShadow:"0 8px 40px rgba(0,0,0,0.18)" }}>
         <div style={{ fontWeight:800, fontSize:18, color:brand.text, marginBottom:20 }}>New Ticket</div>
 
-        {templates && templates.length > 0 && (
+        {templates?.length > 0 && (
           <div style={{ marginBottom:16 }}>
             <FieldLabel>Start from Template</FieldLabel>
             <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
@@ -639,103 +614,52 @@ const NewTicketModal = ({ onCreate, onCancel, clients, onClientCreated, template
 
         <div style={{ marginBottom:16 }}>
           <FieldLabel>Title</FieldLabel>
-          <input autoFocus value={title} onChange={e=>setTitle(e.target.value)}
-            onKeyDown={e=>e.key==="Enter"&&handleSubmit()}
+          <input autoFocus value={title} onChange={e => setTitle(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleSubmit()}
             placeholder="Brief description of the issue…" style={inp} />
         </div>
 
-        <div style={{ marginBottom:16 }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-            <FieldLabel>Client</FieldLabel>
-            <button onClick={()=>setShowNewClient(v=>!v)} style={{ fontSize:12, color:brand.blue, background:"none", border:"none", cursor:"pointer", fontWeight:600 }}>
-              {showNewClient ? "← Pick existing" : "+ New client"}
-            </button>
+        <div style={{ display:"grid", gap:10, marginBottom:16 }}>
+          <div>
+            <FieldLabel>Company / Client</FieldLabel>
+            <select value={companyId ?? ""} onChange={e => handleCompanyChange(e.target.value || null)} style={inp}>
+              <option value="">— Select a client —</option>
+              {pickableClients.map(c => (
+                <option key={c.id} value={c.id}>{c.company || c.name}</option>
+              ))}
+            </select>
           </div>
-
-          {showNewClient ? (
-            <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:8, padding:"14px 16px" }}>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
-                <div>
-                  <FieldLabel>Name *</FieldLabel>
-                  <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Full name" style={inp} />
-                </div>
-                <div>
-                  <FieldLabel>Company</FieldLabel>
-                  <input value={newCompany} onChange={e=>setNewCompany(e.target.value)} placeholder="Company (optional)" style={inp} />
-                </div>
-                <div>
-                  <FieldLabel>Email</FieldLabel>
-                  <input value={newEmail} onChange={e=>setNewEmail(e.target.value)} placeholder="email@example.com" style={inp} />
-                </div>
-                <div>
-                  <FieldLabel>Phone</FieldLabel>
-                  <input value={newPhone} onChange={e=>setNewPhone(e.target.value)} placeholder="(514) 000-0000" style={inp} />
-                </div>
-              </div>
-              <div style={{ marginBottom:10 }}>
-                <FieldLabel>Type</FieldLabel>
-                <Select value={clientType} onChange={setClientType} options={[{value:"business",label:"🏢 Business"},{value:"residential",label:"🏠 Residential"}]} />
-              </div>
-              <Btn onClick={handleSaveNewClient} variant="secondary" small disabled={savingClient||!newName.trim()}>
-                {savingClient ? "Saving…" : "Save client & select"}
-              </Btn>
-            </div>
-          ) : (
+          {contacts.length > 0 && (
             <div>
-              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search clients…" style={{...inp, marginBottom:8}} autoComplete="off" />
-              {selectedCompany && (
-                <div style={{ background:brand.blue+"18", border:`1.5px solid ${brand.blue}`, borderRadius:8, padding:"8px 12px", marginBottom:8, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                  <div>
-                    <div style={{ fontWeight:700, fontSize:13, color:brand.blue }}>{selectedCompany.company || selectedCompany.name}</div>
-                    {selectedCompany.company && <div style={{ fontSize:11, color:brand.muted }}>{selectedCompany.email}</div>}
-                  </div>
-                  <button onClick={()=>{setClientId("");setContactId("");}} style={{ background:"none", border:"none", color:brand.muted, cursor:"pointer", fontSize:16 }}>×</button>
-                </div>
-              )}
-              {!selectedCompany && (
-                <div style={{ maxHeight:160, overflowY:"auto", border:`1px solid ${brand.border}`, borderRadius:8 }}>
-                  {filtered.length === 0 ? (
-                    <div style={{ padding:"12px 14px", color:brand.muted, fontSize:13 }}>No clients found</div>
-                  ) : filtered.map(c => (
-                    <div key={c.id} onClick={()=>{setClientId(c.id);setContactId("");setSearch("");setClientType(c.client_type||clientType);}}
-                      style={{ padding:"10px 14px", cursor:"pointer", borderBottom:`1px solid ${brand.border}`, background:clientId===c.id?brand.blue+"10":"#fff" }}>
-                      <div style={{ fontWeight:600, fontSize:13, color:brand.text }}>{c.company || c.name}</div>
-                      <div style={{ fontSize:11, color:brand.muted }}>{c.email}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {selectedCompany && contacts.length > 0 && (
-                <div style={{ marginTop:10 }}>
-                  <FieldLabel>Contact</FieldLabel>
-                  <select value={contactId} onChange={e=>setContactId(e.target.value ? parseInt(e.target.value) : "")} style={inp}>
-                    <option value="">— No specific contact —</option>
-                    {contacts.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}{c.email ? ` (${c.email})` : ""}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              <FieldLabel>Contact</FieldLabel>
+              <select value={contactId ?? ""} onChange={e => setContactId(e.target.value ? parseInt(e.target.value) : null)} style={inp}>
+                <option value="">— No specific contact —</option>
+                {contacts.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}{c.email ? ` (${c.email})` : ""}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {selectedCompany && (
+            <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:7, padding:"10px 14px", fontSize:13 }}>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+                <div><span style={{ fontWeight:600, color:brand.muted, fontSize:11, textTransform:"uppercase" }}>Name </span><br/>{(selectedContact?.name || selectedCompany.company || selectedCompany.name) || "—"}</div>
+                <div><span style={{ fontWeight:600, color:brand.muted, fontSize:11, textTransform:"uppercase" }}>Phone </span><br/>{selectedContact?.phone || selectedCompany.phone || "—"}</div>
+                <div><span style={{ fontWeight:600, color:brand.muted, fontSize:11, textTransform:"uppercase" }}>Email </span><br/>{selectedContact?.email || selectedCompany.email || "—"}</div>
+                <div><span style={{ fontWeight:600, color:brand.muted, fontSize:11, textTransform:"uppercase" }}>Address </span><br/>{selectedCompany.address || "—"}</div>
+              </div>
             </div>
           )}
         </div>
 
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:24 }}>
-          {!showNewClient && (
-            <div>
-              <FieldLabel>Client Type</FieldLabel>
-              <Select value={clientType} onChange={setClientType} options={[{value:"business",label:"🏢 Business"},{value:"residential",label:"🏠 Residential"}]} />
-            </div>
-          )}
-          <div>
-            <FieldLabel>Priority</FieldLabel>
-            <Select value={priority} onChange={setPriority} options={PRIORITY_OPTIONS} />
-          </div>
+        <div style={{ marginBottom:24 }}>
+          <FieldLabel>Priority</FieldLabel>
+          <Select value={priority} onChange={setPriority} options={PRIORITY_OPTIONS} />
         </div>
 
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
           <Btn onClick={onCancel} variant="ghost">Cancel</Btn>
-          <Btn onClick={handleSubmit} variant="accent" disabled={saving||!title.trim()}>
+          <Btn onClick={handleSubmit} variant="accent" disabled={saving || !title.trim()}>
             {saving ? "Creating…" : "Create Ticket"}
           </Btn>
         </div>
@@ -2148,16 +2072,8 @@ export default function App() {
   const [assigneeFilter, setAssigneeFilter] = useState(null);
   const [toast, setToast]           = useState(null);
   const [invoiceDraft, setInvoiceDraft] = useState(null);
-  const [newUI, setNewUI]           = useState(() => localStorage.getItem("dispatch_newui") === "1");
-  const [appVersion, setAppVersion] = useState(null);
 
   const navigate = useNavigate();
-
-  const toggleUI = () => setNewUI(v => {
-    const next = !v;
-    localStorage.setItem("dispatch_newui", next ? "1" : "0");
-    return next;
-  });
 
   const INACTIVITY_MS = 30 * 60 * 1000;
 
@@ -2221,7 +2137,6 @@ export default function App() {
       listClients().then(setClients).catch(() => {});
       listUsers().then(setUsers).catch(() => {});
       listTemplates().then(setTemplates).catch(() => {});
-      checkVersion().then(v => setAppVersion(v.current)).catch(() => {});
     } catch {
       clearTokens();
       showToast("Could not load user profile. Please try again.", "err");
@@ -2370,117 +2285,32 @@ export default function App() {
   if (!authed) return <LoginPage onLogin={handleLogin} />;
 
   // Derive active nav item from current path for highlighting
-  const sharedProps = {
-    tickets, total, loadingList,
-    search, setSearch, statusFilter, setStatus, quickFilter, setQuickFilter,
-    assigneeFilter, setAssigneeFilter, users, clients, templates,
-    toast, showToast, invoiceDraft, setInvoiceDraft,
-    newModal, setNewModal, saving,
-    handleLogin, handleLogout, handleNew, handleCreate, handleSave,
-    handleSelect, handleDelete, handleCreateInvoiceFromTicket, handleDashboardNav,
-    handleBoardStatusChange,
-    loadList, loadClients, loadTemplates, user, onToggleUI: toggleUI,
-    TicketList, TicketEditor, TicketEditorRoute, NewTicketModal, RecurringPage,
-    navigate,
-  };
-
-  if (newUI) return (
-    <BrandingProvider>
-      <AppNew {...sharedProps} />
-    </BrandingProvider>
-  );
-
-  const NAV_ITEMS = [
-    { path: "/",          label: "Home" },
-    { path: "/tickets",   label: "Tickets" },
-    { path: "/clients",   label: "Clients" },
-    { path: "/invoices",  label: "Invoices" },
-    { path: "/recurring", label: "Recurring" },
-    { path: "/documents", label: "Documents" },
-    { path: "/reports",   label: "Reports" },
-    ...(user?.role === "admin" ? [{ path: "/portal", label: "Portal" }] : []),
-  ];
-
   return (
-    <div style={{ minHeight:"100vh", background:brand.bg, fontFamily:"'Segoe UI', Arial, sans-serif" }}>
-      <UpdateBanner user={user} />
-      <div style={{ background:brand.blue, padding:"0 28px", height:54, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:100 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-          <span onClick={() => navigate("/")} style={{ color:"#fff", fontWeight:800, fontSize:18, letterSpacing:"-0.3px", cursor:"pointer", marginRight:12 }}>
-            ATech<span style={{ color:brand.accent }}>Solutions</span>
-          </span>
-          {NAV_ITEMS.map(n => {
-            const active = n.path === "/" ? location.pathname === "/" : location.pathname.startsWith(n.path);
-            return (
-              <button key={n.path} onClick={() => navigate(n.path)}
-                style={{ background: active ? "rgba(255,255,255,0.18)" : "none", border:"none", borderBottom: active ? "2px solid #fff" : "2px solid transparent", color: active ? "#fff" : "rgba(255,255,255,0.7)", cursor:"pointer", padding:"0 14px", height:54, fontSize:13, fontWeight: active ? 700 : 500, fontFamily:"inherit", transition:"all 0.15s" }}>
-                {n.label}
-              </button>
-            );
-          })}
-        </div>
-        <div style={{ display:"flex", alignItems:"center", gap:16 }}>
-          {user && <span style={{ color:"rgba(255,255,255,0.7)", fontSize:12 }}>{user.name} &nbsp;·&nbsp; {user.role}</span>}
-          {appVersion && <span style={{ color:"rgba(255,255,255,0.4)", fontSize:11 }}>v{appVersion}</span>}
-          <button onClick={toggleUI} style={{ background:"rgba(232,160,32,0.2)", border:"1px solid rgba(232,160,32,0.6)", color:brand.accent, cursor:"pointer", borderRadius:20, padding:"4px 12px", fontSize:11, fontWeight:700, fontFamily:"inherit", letterSpacing:"0.3px" }}>✦ New UI</button>
-          <button onClick={() => navigate("/settings")} style={{ background: location.pathname === "/settings" ? "rgba(255,255,255,0.15)" : "none", border:"1px solid rgba(255,255,255,0.3)", color:"rgba(255,255,255,0.8)", cursor:"pointer", borderRadius:6, padding:"5px 12px", fontSize:12, fontFamily:"inherit" }}>Settings</button>
-          <button onClick={handleLogout} style={{ background:"none", border:"1px solid rgba(255,255,255,0.3)", color:"rgba(255,255,255,0.8)", cursor:"pointer", borderRadius:6, padding:"5px 12px", fontSize:12, fontFamily:"inherit" }}>Sign out</button>
-        </div>
-      </div>
-
-      <div style={{ maxWidth:1140, margin:"0 auto", padding:"28px 20px" }}>
-        <Routes>
-          <Route path="/" element={
-            <DashboardPage user={user} showToast={showToast} onSelectTicket={handleSelect} onNavigate={handleDashboardNav} />
-          } />
-          <Route path="/tickets" element={
-            <TicketList
-              tickets={tickets} total={total} loading={loadingList}
-              onSelect={handleSelect} onNew={handleNew}
-              search={search} onSearch={setSearch}
-              statusFilter={statusFilter} onStatusFilter={(s) => { setStatus(s); setQuickFilter(null); }}
-              quickFilter={quickFilter} onClearQuickFilter={() => setQuickFilter(null)}
-              onExport={exportTickets} users={users}
-              assigneeFilter={assigneeFilter} onAssigneeFilter={setAssigneeFilter}
-              onStatusChange={handleBoardStatusChange}
-            />
-          } />
-          <Route path="/tickets/:ticketId" element={
-            <TicketEditorRoute
-              saving={saving}
-              onSave={handleSave}
-              onBack={() => { navigate("/tickets"); loadList(); }}
-              onDelete={handleDelete}
-              onCreateInvoice={handleCreateInvoiceFromTicket}
-              users={users}
-              currentUser={user}
-              onTemplateSaved={loadTemplates}
-              showToast={showToast}
-              clients={clients}
-              onClientUpdated={loadClients}
-            />
-          } />
-          <Route path="/clients"   element={<ClientsPage showToast={showToast} />} />
-          <Route path="/invoices"  element={<InvoicesPage showToast={showToast} initialDraft={invoiceDraft} onDraftConsumed={() => setInvoiceDraft(null)} />} />
-          <Route path="/recurring" element={<RecurringPage showToast={showToast} clients={clients} />} />
-          <Route path="/documents" element={<DocumentsPage showToast={showToast} user={user} />} />
-          <Route path="/reports"   element={<ReportsPage />} />
-          {user?.role === "admin" && <Route path="/portal" element={<PortalPage showToast={showToast} />} />}
-          <Route path="/settings"  element={<SettingsPage user={user} showToast={showToast} />} />
-          <Route path="*"          element={<Navigate to="/" replace />} />
-        </Routes>
-      </div>
-
-      {newModal && (
-        <NewTicketModal
-          onCreate={handleCreate}
-          onCancel={() => setNewModal(false)}
-          clients={clients}
-          onClientCreated={loadClients}
-          templates={templates}
-        />
-      )}
-      {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
-    </div>
+    <BrandingProvider>
+      <AppNew
+        tickets={tickets} total={total} loadingList={loadingList}
+        search={search} setSearch={setSearch}
+        statusFilter={statusFilter} setStatus={setStatus}
+        quickFilter={quickFilter} setQuickFilter={setQuickFilter}
+        assigneeFilter={assigneeFilter} setAssigneeFilter={setAssigneeFilter}
+        users={users} clients={clients} templates={templates}
+        toast={toast} showToast={showToast}
+        invoiceDraft={invoiceDraft} setInvoiceDraft={setInvoiceDraft}
+        newModal={newModal} setNewModal={setNewModal}
+        saving={saving}
+        handleLogin={handleLogin} handleLogout={handleLogout}
+        handleNew={handleNew} handleCreate={handleCreate} handleSave={handleSave}
+        handleSelect={handleSelect} handleDelete={handleDelete}
+        handleCreateInvoiceFromTicket={handleCreateInvoiceFromTicket}
+        handleDashboardNav={handleDashboardNav}
+        handleBoardStatusChange={handleBoardStatusChange}
+        loadList={loadList} loadClients={loadClients} loadTemplates={loadTemplates}
+        user={user}
+        navigate={navigate}
+        TicketList={TicketList} TicketEditor={TicketEditor}
+        TicketEditorRoute={TicketEditorRoute} NewTicketModal={NewTicketModal}
+        RecurringPage={RecurringPage}
+      />
+    </BrandingProvider>
   );
 }

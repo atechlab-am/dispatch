@@ -108,7 +108,6 @@ export default function AppNew({
   handleCreateInvoiceFromTicket, handleDashboardNav, handleBoardStatusChange,
   loadList, loadClients, loadTemplates,
   user,
-  onToggleUI,
   navigate,
   // child components forwarded as render props
   TicketList, TicketEditor, TicketEditorRoute, NewTicketModal, RecurringPage,
@@ -214,14 +213,6 @@ export default function AppNew({
           {BOTTOM_NAV.map(n => (
             <NavItem key={n.path} {...n} active={isActive(n.path)} onClick={(p) => { navigate(p); setShowBranding(false); }} primary={accent} collapsed={collapsed} dark={dark} />
           ))}
-          {/* Toggle classic UI */}
-          <button
-            onClick={onToggleUI}
-            title="Switch to Classic UI"
-            style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: collapsed ? "10px 0" : "10px 14px", justifyContent: collapsed ? "center" : "flex-start", background: "none", border: "none", borderLeft: "3px solid transparent", borderRadius: radius.sm, color: sidebarMuted, cursor: "pointer", fontSize: 12, fontFamily: "inherit", transition: "color 0.15s" }}>
-            <Icon d={ICONS.newUI} size={16} style={{ flexShrink: 0 }} />
-            {!collapsed && <span>Classic UI</span>}
-          </button>
           {/* User info + logout */}
           {user && (
             <div style={{ padding: collapsed ? "8px 0" : "8px 10px", marginTop: 4, borderTop: `1px solid ${sidebarBorder}` }}>
@@ -255,9 +246,6 @@ export default function AppNew({
                 + New Ticket
               </button>
             )}
-            <button onClick={onToggleUI} style={{ background: `${accent}18`, border: `1px solid ${accent}55`, color: accent, borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", letterSpacing: "0.3px" }}>
-              ✦ NEW UI
-            </button>
           </div>
         </div>
 
@@ -290,6 +278,8 @@ export default function AppNew({
                 currentUser={user}
                 onTemplateSaved={loadTemplates}
                 showToast={showToast}
+                clients={clients}
+                onClientUpdated={loadClients}
               />
             } />
             <Route path="/clients"   element={<ClientsPage showToast={showToast} />} />
