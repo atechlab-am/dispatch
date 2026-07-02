@@ -13,7 +13,8 @@ export const sendInvoiceEmail = (invoiceId, data) => client.post(`/invoices/${in
 export const invoicePdfUrl   = (invoiceId)      => `/invoices/${invoiceId}/pdf`;
 export const clientStatement = (clientId)       => client.get(`/clients/${clientId}/statement`).then(r => r.data);
 
-export const listUnbilledTickets = (invoiceId)           => client.get(`/invoices/${invoiceId}/unbilled-tickets`).then(r => r.data);
+export const listUnbilledTickets      = (invoiceId)                       => client.get(`/invoices/${invoiceId}/unbilled-tickets`).then(r => r.data);
+export const listUnbilledTicketsForClient = (clientId, clientName) => client.get("/invoices/unbilled-tickets", { params: { client_id: clientId || undefined, client_name: clientName || undefined } }).then(r => r.data);
 export const attachTickets       = (invoiceId, ids)      => client.post(`/invoices/${invoiceId}/tickets`, { ticket_ids: ids }).then(r => r.data);
 export const detachTicket        = (invoiceId, ticketId) => client.delete(`/invoices/${invoiceId}/tickets/${ticketId}`).then(r => r.data);
 export const markTicketsPaid     = (ids)                 => client.post("/invoices/tickets/mark-paid", { ticket_ids: ids });

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   listInvoices, getInvoice, createInvoice, updateInvoice, deleteInvoice,
   listPayments, recordPayment, deletePayment, sendInvoiceEmail, invoicePdfUrl,
-  listUnbilledTickets, attachTickets, detachTicket, markTicketsPaid,
+  listUnbilledTickets, listUnbilledTicketsForClient, attachTickets, detachTicket, markTicketsPaid,
 } from "./api/invoices.js";
 import { listClients } from "./api/clients.js";
 import { openPdfWithAuth } from "./api/client.js";
@@ -396,6 +396,64 @@ function TicketPickerPanel({ invoice, showToast, onInvoiceUpdated }) {
   );
 }
 
+// ─── Ticket picker for new invoices (no invoice ID yet) ──────────────────────
+function NewInvoiceTicketPicker({ clientId, clientName, selected, onToggle }) {
+  const [unbilled, setUnbilled] = useState(null);
+
+  useEffect(() => {
+    if (!clientId && !clientName) { setUnbilled([]); return; }
+    setUnbilled(null);
+    listUnbilledTicketsForClient(clientId, clientName)
+      .then(setUnbilled)
+      .catch(() => setUnbilled([]));
+  }, [clientId, clientName]);
+
+  if (!clientId && !clientName) return null;
+
+  const rowStyle = { padding: "8px 12px", borderBottom: `1px solid ${brand.border}`, fontSize: 13 };
+
+  return (
+    <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px", marginTop: 20 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
+        Attach Unbilled Tickets
+      </div>
+      {unbilled === null ? (
+        <div style={{ color: brand.muted, fontSize: 13 }}>Loading…</div>
+      ) : unbilled.length === 0 ? (
+        <div style={{ color: brand.muted, fontSize: 13 }}>No unbilled tickets for this client.</div>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: brand.bg }}>
+              <th style={{ padding: "6px 12px", width: 32 }}></th>
+              {["Ticket", "Title", "Date"].map((h, i) => (
+                <th key={i} style={{ padding: "6px 12px", textAlign: "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {unbilled.map(t => (
+              <tr key={t.id} style={{ cursor: "pointer" }} onClick={() => onToggle(t.id)}>
+                <td style={{ padding: "8px 12px", borderBottom: `1px solid ${brand.border}`, width: 32 }}>
+                  <input type="checkbox" checked={selected.has(t.id)} onChange={() => onToggle(t.id)} onClick={e => e.stopPropagation()} />
+                </td>
+                <td style={{ ...rowStyle, fontWeight: 700, color: brand.blue }}>{t.id}</td>
+                <td style={rowStyle}>{t.title}</td>
+                <td style={{ ...rowStyle, color: brand.muted }}>{fmtDate(t.created_at?.slice(0, 10))}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {selected.size > 0 && (
+        <div style={{ marginTop: 8, fontSize: 12, color: brand.muted }}>
+          {selected.size} ticket{selected.size > 1 ? "s" : ""} will be attached after saving the invoice.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Invoice editor (create / edit) ──────────────────────────────────────────
 function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, showToast, onRefresh }) {
   const isNew = !invoice;
@@ -416,10 +474,11 @@ function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, showToast,
       lines: invoice.lines.length ? invoice.lines.map(l => ({ description: l.description, qty: l.qty, unit_price: l.unit_price, amount: l.amount })) : [{ ...EMPTY_LINE }],
     };
   });
-  const [saving, setSaving]       = useState(false);
-  const [showEmail, setShowEmail] = useState(false);
-  const [liveInvoice, setLive]    = useState(invoice);
+  const [saving, setSaving]             = useState(false);
+  const [showEmail, setShowEmail]       = useState(false);
+  const [liveInvoice, setLive]          = useState(invoice);
   const [ticketRefresh, setTicketRefresh] = useState(0);
+  const [stagedTickets, setStagedTickets] = useState(new Set());
 
   const up = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -460,7 +519,11 @@ function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, showToast,
         tax_rate: Number(form.tax_rate),
         lines: form.lines.map(l => ({ ...l, qty: Number(l.qty), unit_price: Number(l.unit_price), amount: Number(l.amount) })),
       };
-      const saved = isNew ? await createInvoice(payload) : await updateInvoice(invoice.id, payload);
+      let saved = isNew ? await createInvoice(payload) : await updateInvoice(invoice.id, payload);
+      // Attach any staged tickets selected during new-invoice creation
+      if (isNew && stagedTickets.size > 0) {
+        saved = await attachTickets(saved.id, [...stagedTickets]);
+      }
       setLive(saved);
       onSave(saved);
     } catch { showToast("Failed to save invoice.", "err"); }
@@ -628,6 +691,20 @@ function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, showToast,
             </div>
           </div>
         </div>
+
+        {/* Ticket picker during new invoice creation */}
+        {isNew && (
+          <NewInvoiceTicketPicker
+            clientId={form.client_id}
+            clientName={form.client_id ? null : form.client_name}
+            selected={stagedTickets}
+            onToggle={(id) => setStagedTickets(prev => {
+              const next = new Set(prev);
+              next.has(id) ? next.delete(id) : next.add(id);
+              return next;
+            })}
+          />
+        )}
       </form>
 
       {/* Payments panel — only visible when editing an existing invoice */}

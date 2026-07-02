@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.3] — 2026-07-02
+
+### Fixed
+- **Invoice ticket picker — company-wide scope** — unbilled tickets are now fetched for the entire company, not just the one contact selected on the invoice. All contacts who share the same company name are included, so a monthly support invoice for "Acme Corp" shows tickets raised by any Acme contact.
+
+### Added
+- **Ticket picker during new invoice creation** — the "Attach Unbilled Tickets" picker now appears as soon as you select a client while creating a new invoice (previously it was only available after the invoice was saved). Selected tickets are attached automatically when you click "Create Invoice".
+
 ## [1.6.2] — 2026-07-02
 
 ### Changed

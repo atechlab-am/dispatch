@@ -277,20 +277,50 @@ class UnbilledTicketOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+def _client_id_set(db: Session, client_id: int) -> set[int]:
+    """Return all client IDs in the same company as client_id (company-wide scope)."""
+    from ..models.models import Client
+    anchor = db.query(Client).filter(Client.id == client_id).first()
+    if not anchor or not anchor.company:
+        return {client_id}
+    siblings = db.query(Client.id).filter(Client.company == anchor.company).all()
+    return {row[0] for row in siblings}
+
+
+@router.get("/unbilled-tickets", response_model=list[UnbilledTicketOut])
+def list_unbilled_tickets_for_client(
+    client_id: Optional[int] = Query(None),
+    client_name: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Return unbilled tickets for a client before an invoice exists (used during new-invoice creation)."""
+    q = db.query(Ticket).filter(Ticket.billing_status == "unbilled")
+    if client_id:
+        ids = _client_id_set(db, client_id)
+        q = q.filter(Ticket.client_id.in_(ids))
+    elif client_name:
+        q = q.filter(Ticket.client_name == client_name)
+    else:
+        return []
+    return q.order_by(Ticket.created_at.desc()).all()
+
+
 @router.get("/{invoice_id}/unbilled-tickets", response_model=list[UnbilledTicketOut])
 def list_unbilled_tickets(
     invoice_id: str,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    """Return unbilled tickets that belong to the same client as this invoice."""
+    """Return unbilled tickets that belong to the same company as this invoice's client."""
     inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
     q = db.query(Ticket).filter(Ticket.billing_status == "unbilled")
     if inv.client_id:
-        q = q.filter(Ticket.client_id == inv.client_id)
+        ids = _client_id_set(db, inv.client_id)
+        q = q.filter(Ticket.client_id.in_(ids))
     else:
         # No client_id — match by client_name (manual entry invoices)
         q = q.filter(Ticket.client_name == inv.client_name)
