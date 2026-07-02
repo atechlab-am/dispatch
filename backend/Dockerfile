@@ -5,10 +5,11 @@ WORKDIR /app
 # ── Test target ────────────────────────────────────────────────────────────────
 FROM base AS test
 
-COPY requirements-dev.txt requirements.txt ./
+COPY backend/requirements-dev.txt backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements-dev.txt
 
-COPY . .
+COPY backend/ .
+COPY VERSION /app/VERSION
 
 ENV DATABASE_URL=sqlite:///./test.db
 ENV SECRET_KEY=test-secret-key-at-least-32-chars-long
@@ -17,10 +18,11 @@ CMD ["python3", "-m", "pytest", "tests/", "-v"]
 # ── Production target ──────────────────────────────────────────────────────────
 FROM base AS production
 
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY backend/ .
+COPY VERSION /app/VERSION
 
 RUN addgroup --system app && adduser --system --ingroup app app
 RUN chown -R app:app /app && chmod +x entrypoint.sh

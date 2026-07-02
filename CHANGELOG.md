@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.17] — 2026-07-02
+
+### Fixed
+- **Version number visible in nav bar** — the running version (e.g. `v1.5.17`) now appears in the top-right of the staff nav bar. It is fetched from `/api/version/check` after login so it always reflects what is actually running on the server.
+- **VERSION file missing inside Docker** — the backend Dockerfile previously built from the `./backend` context, which excluded the repo-root `VERSION` file. The build context is now the repo root (`.`) so `VERSION` is copied into `/app/VERSION` and the backend reads the correct version instead of "unknown".
+
 ## [1.5.16] — 2026-07-02
 
 ### Changed

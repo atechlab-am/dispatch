@@ -26,6 +26,7 @@ import { getSetupStatus } from "./api/setup.js";
 import AppNew from "./AppNew.jsx";
 import UpdateBanner from "./UpdateBanner.jsx";
 import { BrandingProvider } from "./branding.jsx";
+import { checkVersion } from "./api/version.js";
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const brand = {
@@ -1979,6 +1980,7 @@ export default function App() {
   const [toast, setToast]           = useState(null);
   const [invoiceDraft, setInvoiceDraft] = useState(null);
   const [newUI, setNewUI]           = useState(() => localStorage.getItem("dispatch_newui") === "1");
+  const [appVersion, setAppVersion] = useState(null);
 
   const navigate = useNavigate();
 
@@ -2050,6 +2052,7 @@ export default function App() {
       listClients().then(setClients).catch(() => {});
       listUsers().then(setUsers).catch(() => {});
       listTemplates().then(setTemplates).catch(() => {});
+      checkVersion().then(v => setAppVersion(v.current)).catch(() => {});
     } catch {
       clearTokens();
       showToast("Could not load user profile. Please try again.", "err");
@@ -2249,6 +2252,7 @@ export default function App() {
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:16 }}>
           {user && <span style={{ color:"rgba(255,255,255,0.7)", fontSize:12 }}>{user.name} &nbsp;·&nbsp; {user.role}</span>}
+          {appVersion && <span style={{ color:"rgba(255,255,255,0.4)", fontSize:11 }}>v{appVersion}</span>}
           <button onClick={toggleUI} style={{ background:"rgba(232,160,32,0.2)", border:"1px solid rgba(232,160,32,0.6)", color:brand.accent, cursor:"pointer", borderRadius:20, padding:"4px 12px", fontSize:11, fontWeight:700, fontFamily:"inherit", letterSpacing:"0.3px" }}>✦ New UI</button>
           <button onClick={() => navigate("/settings")} style={{ background: location.pathname === "/settings" ? "rgba(255,255,255,0.15)" : "none", border:"1px solid rgba(255,255,255,0.3)", color:"rgba(255,255,255,0.8)", cursor:"pointer", borderRadius:6, padding:"5px 12px", fontSize:12, fontFamily:"inherit" }}>Settings</button>
           <button onClick={handleLogout} style={{ background:"none", border:"1px solid rgba(255,255,255,0.3)", color:"rgba(255,255,255,0.8)", cursor:"pointer", borderRadius:6, padding:"5px 12px", fontSize:12, fontFamily:"inherit" }}>Sign out</button>
