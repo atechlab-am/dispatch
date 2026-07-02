@@ -1,12 +1,21 @@
 from datetime import datetime, date, timezone
 from sqlalchemy import (
     Column, String, Integer, Numeric, Boolean, Date,
-    DateTime, ForeignKey, Text, Enum as SAEnum
+    DateTime, ForeignKey, Text, Enum as SAEnum, Table
 )
 from sqlalchemy.orm import relationship
 import enum
 
 from ..database import Base
+
+
+# Many-to-many: invoices ↔ tickets
+invoice_tickets = Table(
+    "invoice_tickets",
+    Base.metadata,
+    Column("invoice_id", String(32), ForeignKey("invoices.id", ondelete="CASCADE"), primary_key=True),
+    Column("ticket_id",  String(32), ForeignKey("tickets.id",  ondelete="CASCADE"), primary_key=True),
+)
 
 
 class UserRole(str, enum.Enum):
@@ -126,6 +135,7 @@ class Ticket(Base):
     client_id = Column(Integer, ForeignKey("clients.id"), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
+    billing_status = Column(String(20), nullable=False, default="unbilled")  # unbilled | invoiced | paid
 
     client = relationship("Client", back_populates="tickets")
     creator = relationship("User", foreign_keys=[created_by], back_populates="tickets")
@@ -170,6 +180,7 @@ class Invoice(Base):
     client = relationship("Client")
     lines = relationship("InvoiceLine", back_populates="invoice", cascade="all, delete-orphan")
     payments = relationship("InvoicePayment", back_populates="invoice", cascade="all, delete-orphan")
+    linked_tickets = relationship("Ticket", secondary="invoice_tickets", lazy="joined")
 
 
 class InvoiceLine(Base):

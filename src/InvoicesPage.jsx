@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   listInvoices, getInvoice, createInvoice, updateInvoice, deleteInvoice,
   listPayments, recordPayment, deletePayment, sendInvoiceEmail, invoicePdfUrl,
+  listUnbilledTickets, attachTickets, detachTicket, markTicketsPaid,
 } from "./api/invoices.js";
 import { listClients } from "./api/clients.js";
 import { openPdfWithAuth } from "./api/client.js";
@@ -244,6 +245,158 @@ function SendEmailModal({ invoice, showToast, onClose }) {
   );
 }
 
+// ─── Ticket picker panel ─────────────────────────────────────────────────────
+function TicketPickerPanel({ invoice, showToast, onInvoiceUpdated }) {
+  const [unbilled, setUnbilled]   = useState(null);   // null = loading
+  const [selected, setSelected]   = useState(new Set());
+  const [adding, setAdding]       = useState(false);
+
+  const load = useCallback(async () => {
+    setUnbilled(null);
+    try { setUnbilled(await listUnbilledTickets(invoice.id)); }
+    catch { showToast("Failed to load unbilled tickets.", "err"); setUnbilled([]); }
+  }, [invoice.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const toggle = (id) => setSelected(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  const handleAdd = async () => {
+    if (!selected.size) return;
+    setAdding(true);
+    try {
+      const updated = await attachTickets(invoice.id, [...selected]);
+      setSelected(new Set());
+      onInvoiceUpdated(updated);
+      await load();
+      showToast(`${selected.size} ticket${selected.size > 1 ? "s" : ""} added.`, "ok");
+    } catch { showToast("Failed to attach tickets.", "err"); }
+    finally { setAdding(false); }
+  };
+
+  const handleDetach = async (ticketId) => {
+    try {
+      const updated = await detachTicket(invoice.id, ticketId);
+      onInvoiceUpdated(updated);
+      await load();
+      showToast("Ticket removed from invoice.", "ok");
+    } catch { showToast("Failed to remove ticket.", "err"); }
+  };
+
+  const handleMarkPaid = async () => {
+    const ids = invoice.linked_tickets.map(t => t.id);
+    if (!ids.length) return;
+    if (!window.confirm(`Mark ${ids.length} ticket${ids.length > 1 ? "s" : ""} as paid?`)) return;
+    try {
+      await markTicketsPaid(ids);
+      showToast("Tickets marked as paid.", "ok");
+      // Refresh linked list display
+      const updated = await import("./api/invoices.js").then(m => m.getInvoice(invoice.id));
+      onInvoiceUpdated(updated);
+    } catch { showToast("Failed to mark tickets paid.", "err"); }
+  };
+
+  const BILLING_COLORS = {
+    unbilled: { bg: "#f3f4f6", color: "#6b7280" },
+    invoiced: { bg: "#dbeafe", color: "#1d4ed8" },
+    paid:     { bg: "#d1fae5", color: "#065f46" },
+  };
+
+  const rowStyle = { padding: "8px 12px", borderBottom: `1px solid ${brand.border}`, fontSize: 13 };
+
+  return (
+    <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px", marginTop: 20 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>
+        Linked Tickets
+      </div>
+
+      {/* Already attached */}
+      {invoice.linked_tickets?.length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: brand.bg }}>
+                {["Ticket", "Title", "Status", "Billing", ""].map((h, i) => (
+                  <th key={i} style={{ padding: "6px 12px", textAlign: "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {invoice.linked_tickets.map(t => {
+                const bc = BILLING_COLORS[t.billing_status] || BILLING_COLORS.unbilled;
+                return (
+                  <tr key={t.id}>
+                    <td style={{ ...rowStyle, fontWeight: 700, color: brand.blue, whiteSpace: "nowrap" }}>{t.id}</td>
+                    <td style={rowStyle}>{t.title}</td>
+                    <td style={rowStyle}><span style={{ color: brand.muted }}>{t.status}</span></td>
+                    <td style={rowStyle}>
+                      <span style={{ ...bc, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{t.billing_status}</span>
+                    </td>
+                    <td style={{ ...rowStyle, textAlign: "right" }}>
+                      <button onClick={() => handleDetach(t.id)}
+                        style={{ background: "none", border: "none", color: brand.danger, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Remove</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <div style={{ marginTop: 10 }}>
+            <Btn small variant="success" onClick={handleMarkPaid}>✓ Mark All Tickets Paid</Btn>
+          </div>
+        </div>
+      )}
+
+      {/* Unbilled ticket picker */}
+      <div style={{ fontSize: 12, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
+        Add Unbilled Tickets from This Client
+      </div>
+      {unbilled === null ? (
+        <div style={{ color: brand.muted, fontSize: 13 }}>Loading…</div>
+      ) : unbilled.length === 0 ? (
+        <div style={{ color: brand.muted, fontSize: 13 }}>No unbilled tickets for this client.</div>
+      ) : (
+        <>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: brand.bg }}>
+                <th style={{ padding: "6px 12px", width: 32 }}></th>
+                {["Ticket", "Title", "Date"].map((h, i) => (
+                  <th key={i} style={{ padding: "6px 12px", textAlign: "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {unbilled.map(t => (
+                <tr key={t.id} style={{ cursor: "pointer" }} onClick={() => toggle(t.id)}>
+                  <td style={{ padding: "8px 12px", borderBottom: `1px solid ${brand.border}`, width: 32 }}>
+                    <input type="checkbox" checked={selected.has(t.id)} onChange={() => toggle(t.id)} onClick={e => e.stopPropagation()} />
+                  </td>
+                  <td style={{ ...rowStyle, fontWeight: 700, color: brand.blue }}>{t.id}</td>
+                  <td style={rowStyle}>{t.title}</td>
+                  <td style={{ ...rowStyle, color: brand.muted }}>{fmtDate(t.created_at?.slice(0, 10))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 12 }}>
+            <Btn small variant="primary" onClick={handleAdd} disabled={!selected.size || adding}>
+              {adding ? "Adding…" : `+ Add ${selected.size || ""} Selected`}
+            </Btn>
+            {selected.size > 0 && (
+              <span style={{ fontSize: 12, color: brand.muted }}>{selected.size} ticket{selected.size > 1 ? "s" : ""} selected</span>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Invoice editor (create / edit) ──────────────────────────────────────────
 function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, showToast, onRefresh }) {
   const isNew = !invoice;
@@ -267,6 +420,7 @@ function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, showToast,
   const [saving, setSaving]       = useState(false);
   const [showEmail, setShowEmail] = useState(false);
   const [liveInvoice, setLive]    = useState(invoice);
+  const [ticketRefresh, setTicketRefresh] = useState(0);
 
   const up = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -317,6 +471,13 @@ function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, showToast,
   const refreshLive = async () => {
     if (!invoice?.id) return;
     try { setLive(await getInvoice(invoice.id)); } catch {}
+  };
+
+  const handleInvoiceUpdated = (updated) => {
+    setLive(updated);
+    // Re-sync form lines so totals match
+    setForm(p => ({ ...p, lines: updated.lines.map(l => ({ description: l.description, qty: l.qty, unit_price: l.unit_price, amount: l.amount })) }));
+    setTicketRefresh(n => n + 1);
   };
 
   return (
@@ -476,6 +637,16 @@ function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, showToast,
           invoice={liveInvoice}
           showToast={showToast}
           onRefresh={refreshLive}
+        />
+      )}
+
+      {/* Ticket picker — only visible when editing an existing invoice with a client */}
+      {!isNew && liveInvoice && (liveInvoice.client_id || liveInvoice.client_name) && (
+        <TicketPickerPanel
+          key={ticketRefresh}
+          invoice={liveInvoice}
+          showToast={showToast}
+          onInvoiceUpdated={handleInvoiceUpdated}
         />
       )}
     </>

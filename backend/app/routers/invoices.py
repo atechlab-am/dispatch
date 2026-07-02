@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models.models import Invoice, InvoiceLine, InvoicePayment, InvoiceStatus, User
+from ..models.models import Invoice, InvoiceLine, InvoicePayment, InvoiceStatus, User, Ticket
 from ..security import get_current_user
 from .. import email as mail
 
@@ -46,6 +46,14 @@ class InvoiceIn(BaseModel):
     lines: list[InvoiceLineIn] = Field(default=[], max_length=200)
 
 
+class LinkedTicketOut(BaseModel):
+    id: str
+    title: str
+    status: str
+    billing_status: str
+    model_config = {"from_attributes": True}
+
+
 class InvoiceOut(BaseModel):
     id: str
     ticket_id: Optional[str]
@@ -67,6 +75,7 @@ class InvoiceOut(BaseModel):
     lines: list[InvoiceLineOut] = []
     amount_paid: float = 0
     balance: float = 0
+    linked_tickets: list[LinkedTicketOut] = []
     model_config = {"from_attributes": True}
 
 
@@ -135,11 +144,15 @@ def _compute_totals(lines: list[InvoiceLineIn], tax_rate: float):
 
 
 def _enrich(inv: Invoice) -> dict:
-    """Return InvoiceOut dict with computed amount_paid and balance."""
+    """Return InvoiceOut dict with computed amount_paid, balance, and linked_tickets."""
     data = InvoiceOut.model_validate(inv).model_dump()
     paid = float(sum(p.amount for p in inv.payments))
     data["amount_paid"] = round(paid, 2)
     data["balance"] = round(float(inv.total) - paid, 2)
+    data["linked_tickets"] = [
+        {"id": t.id, "title": t.title, "status": t.status, "billing_status": t.billing_status}
+        for t in inv.linked_tickets
+    ]
     return data
 
 
@@ -247,6 +260,148 @@ def delete_invoice(invoice_id: str, db: Session = Depends(get_db), _: User = Dep
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
     db.delete(inv)
+    db.commit()
+
+
+# ─── Ticket linking ───────────────────────────────────────────────────────────
+
+class AttachTicketsIn(BaseModel):
+    ticket_ids: list[str]
+
+
+class UnbilledTicketOut(BaseModel):
+    id: str
+    title: str
+    status: str
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+@router.get("/{invoice_id}/unbilled-tickets", response_model=list[UnbilledTicketOut])
+def list_unbilled_tickets(
+    invoice_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Return unbilled tickets that belong to the same client as this invoice."""
+    inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    q = db.query(Ticket).filter(Ticket.billing_status == "unbilled")
+    if inv.client_id:
+        q = q.filter(Ticket.client_id == inv.client_id)
+    else:
+        # No client_id — match by client_name (manual entry invoices)
+        q = q.filter(Ticket.client_name == inv.client_name)
+
+    # Exclude tickets already on this invoice
+    already = {t.id for t in inv.linked_tickets}
+    tickets = [t for t in q.order_by(Ticket.created_at.desc()).all() if t.id not in already]
+    return tickets
+
+
+@router.post("/{invoice_id}/tickets", response_model=InvoiceOut)
+def attach_tickets(
+    invoice_id: str,
+    body: AttachTicketsIn,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Attach tickets to an invoice and import their service lines + hour logs as invoice lines."""
+    inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    for tid in body.ticket_ids:
+        ticket = db.query(Ticket).filter(Ticket.id == tid).first()
+        if not ticket:
+            continue
+        if ticket in inv.linked_tickets:
+            continue
+
+        inv.linked_tickets.append(ticket)
+        ticket.billing_status = "invoiced"
+
+        # Import service lines
+        for sl in ticket.service_lines:
+            qty = sl.qty + (sl.extra_qty or 0)
+            unit = float(sl.base) + float(sl.per_unit) * float(sl.extra_qty or 0)
+            amount = round(float(sl.rate) * qty if float(sl.rate) > 0 else unit, 2)
+            db.add(InvoiceLine(
+                invoice_id=inv.id,
+                description=f"[{ticket.id}] {sl.name}",
+                qty=qty,
+                unit_price=round(float(sl.rate) if float(sl.rate) > 0 else unit / max(qty, 1), 2),
+                amount=amount,
+            ))
+
+        # Import hour logs
+        for hl in ticket.hour_logs:
+            hours = float(hl.hours)
+            rate = float(hl.rate)
+            db.add(InvoiceLine(
+                invoice_id=inv.id,
+                description=f"[{ticket.id}] Labour{' — ' + hl.description if hl.description else ''}",
+                qty=hours,
+                unit_price=rate,
+                amount=round(hours * rate, 2),
+            ))
+
+    db.flush()
+    # Recompute totals
+    all_lines = db.query(InvoiceLine).filter(InvoiceLine.invoice_id == inv.id).all()
+    subtotal = round(sum(float(l.amount) for l in all_lines), 2)
+    tax = round(subtotal * float(inv.tax_rate), 2)
+    inv.subtotal = subtotal
+    inv.tax_amount = tax
+    inv.total = round(subtotal + tax, 2)
+    inv.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(inv)
+    return _enrich(inv)
+
+
+@router.delete("/{invoice_id}/tickets/{ticket_id}", response_model=InvoiceOut)
+def detach_ticket(
+    invoice_id: str,
+    ticket_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Remove a ticket from an invoice (does not delete the ticket or its lines from the invoice)."""
+    inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if ticket and ticket in inv.linked_tickets:
+        inv.linked_tickets.remove(ticket)
+        # Only revert to unbilled if not on another invoice
+        from ..models.models import invoice_tickets
+        still_linked = db.execute(
+            invoice_tickets.select().where(invoice_tickets.c.ticket_id == ticket_id)
+        ).fetchall()
+        if not still_linked:
+            ticket.billing_status = "unbilled"
+    db.commit()
+    db.refresh(inv)
+    return _enrich(inv)
+
+
+class MarkPaidIn(BaseModel):
+    ticket_ids: list[str]
+
+
+@router.post("/tickets/mark-paid", status_code=status.HTTP_204_NO_CONTENT)
+def mark_tickets_paid(
+    body: MarkPaidIn,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Bulk-mark tickets as paid."""
+    db.query(Ticket).filter(Ticket.id.in_(body.ticket_ids)).update(
+        {"billing_status": "paid"}, synchronize_session=False
+    )
     db.commit()
 
 
@@ -394,7 +549,7 @@ def _build_invoice_html(inv: Invoice) -> str:
         <strong>Invoice Details</strong>
         <p><strong>Issue Date:</strong> {inv.issue_date}</p>
         {due_html}
-        {f"<p><strong>Ticket:</strong> {inv.ticket_id}</p>" if inv.ticket_id else ""}
+        {f"<p><strong>Tickets:</strong> {', '.join(t.id for t in inv.linked_tickets)}</p>" if inv.linked_tickets else (f"<p><strong>Ticket:</strong> {inv.ticket_id}</p>" if inv.ticket_id else "")}
       </div>
     </div>
 

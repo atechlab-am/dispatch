@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.0] — 2026-07-02
+
+### Added
+- **Multi-ticket invoicing** — an invoice can now be linked to multiple tickets from the same client. A "Linked Tickets" panel appears on any existing invoice with a client assigned. From there you can:
+  - Browse and checkbox-select all unbilled tickets for that specific client (other clients' tickets are never shown)
+  - Click **+ Add Selected** to pull the selected tickets' service lines and hour logs in as invoice line items (automatically grouped with the ticket ID as prefix); invoice totals recalculate immediately
+  - Remove a previously linked ticket from the invoice (its lines stay on the invoice but the ticket reverts to *unbilled*)
+  - Click **✓ Mark All Tickets Paid** to bulk-set all linked tickets to *paid* billing status in one step
+- **`billing_status` on tickets** — tickets now track `unbilled` (default) → `invoiced` (when added to a draft invoice) → `paid` (when the invoice is settled and you confirm). This lets you filter "what needs billing this month" from the tickets list.
+- **`invoice_tickets` join table** — replaces the old single `ticket_id` column on invoices with a proper many-to-many relationship. Existing single-ticket links are migrated automatically (Alembic migration 0018).
+- Invoice PDF and email now list all linked ticket IDs in the Invoice Details section.
+
 ## [1.5.18] — 2026-07-02
 
 ### Fixed
