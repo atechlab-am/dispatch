@@ -65,6 +65,7 @@ class Client(Base):
     client_type = Column(SAEnum(ClientType, values_callable=lambda e: [m.value for m in e]), nullable=False, default=ClientType.business)
     company = Column(String(255), nullable=False, default="")
     notes = Column(Text, nullable=False, default="")
+    slug = Column(String(100), unique=True, nullable=True, index=True)  # e.g. "acme-corp" → portal at /p/acme-corp
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     tickets = relationship("Ticket", back_populates="client")
@@ -360,6 +361,35 @@ class FormInstance(Base):
     updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     template = relationship("FormTemplate", back_populates="instances")
+
+
+class ClientPortalUser(Base):
+    """Login credentials for client-facing portal accounts."""
+    __tablename__ = "client_portal_users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+    must_change_password = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    client = relationship("Client")
+    refresh_tokens = relationship("PortalRefreshToken", back_populates="portal_user", cascade="all, delete-orphan")
+
+
+class PortalRefreshToken(Base):
+    __tablename__ = "portal_refresh_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    token_hash = Column(String(64), unique=True, nullable=False, index=True)
+    portal_user_id = Column(Integer, ForeignKey("client_portal_users.id", ondelete="CASCADE"), nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    portal_user = relationship("ClientPortalUser", back_populates="refresh_tokens")
 
 
 class TicketTemplate(Base):

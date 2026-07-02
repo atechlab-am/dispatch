@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { listUsers, createUser, updateUser, deactivateUser, changeOwnPassword } from "./api/users.js";
+import { listPortalAccounts, createPortalAccount, updatePortalAccount, deletePortalAccount } from "./api/portal.js";
+import { listClients } from "./api/clients.js";
 
 const brand = {
   blue: "#1A5CBA",
@@ -327,6 +329,190 @@ function PasswordTab({ showToast }) {
         {saving ? "Changing…" : "Change Password"}
       </Btn>
     </form>
+  );
+}
+
+// ─── Portal Accounts tab ──────────────────────────────────────────────────────
+function PortalAccountsTab({ showToast }) {
+  const [accounts, setAccounts] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ client_id: "", name: "", email: "", password: "" });
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(null); // { id, name, email, password, active }
+
+  const up = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  useEffect(() => {
+    Promise.all([listPortalAccounts(), listClients()])
+      .then(([accts, cls]) => { setAccounts(accts); setClients(cls); })
+      .catch(() => showToast("Failed to load portal accounts.", "err"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const clientName = (id) => clients.find(c => c.id === id)?.name || `Client #${id}`;
+
+  async function handleAdd(e) {
+    e.preventDefault();
+    if (!form.client_id || !form.name || !form.email || !form.password) return;
+    setSaving(true);
+    try {
+      const acct = await createPortalAccount({ ...form, client_id: parseInt(form.client_id) });
+      setAccounts(p => [...p, acct]);
+      setForm({ client_id: "", name: "", email: "", password: "" });
+      showToast("Portal account created.", "ok");
+    } catch (err) {
+      showToast(err.response?.data?.detail || "Failed to create account.", "err");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSaveEdit(id) {
+    setSaving(true);
+    try {
+      const patch = {};
+      if (editing.name) patch.name = editing.name;
+      if (editing.email) patch.email = editing.email;
+      if (editing.password) patch.password = editing.password;
+      if (editing.active !== undefined) patch.active = editing.active;
+      const updated = await updatePortalAccount(id, patch);
+      setAccounts(p => p.map(a => a.id === id ? updated : a));
+      setEditing(null);
+      showToast("Portal account updated.", "ok");
+    } catch (err) {
+      showToast(err.response?.data?.detail || "Failed to update account.", "err");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(id, name) {
+    if (!window.confirm(`Delete portal account for ${name}? They will no longer be able to sign in.`)) return;
+    try {
+      await deletePortalAccount(id);
+      setAccounts(p => p.filter(a => a.id !== id));
+      showToast("Portal account deleted.", "ok");
+    } catch {
+      showToast("Failed to delete account.", "err");
+    }
+  }
+
+  if (loading) return <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>Loading…</div>;
+
+  const cellStyle = { padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle" };
+
+  return (
+    <div>
+      <div style={{ fontSize: 13, color: brand.muted, marginBottom: 18 }}>
+        Create login accounts for clients to access their portal at <strong>/p/[client-slug]</strong>. Set a slug on the client record first, then create a portal account. Each account is scoped to that client's tickets and invoices only.
+      </div>
+
+      <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: brand.bg }}>
+              {["Client", "Portal URL", "Name", "Email", "Status", "Actions"].map(h => (
+                <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: `1px solid ${brand.border}` }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {accounts.length === 0 && (
+              <tr>
+                <td colSpan={6} style={{ ...cellStyle, color: brand.muted, textAlign: "center", fontSize: 13 }}>
+                  No portal accounts yet.
+                </td>
+              </tr>
+            )}
+            {accounts.map(a => {
+              const c = clients.find(cl => cl.id === a.client_id);
+              const slug = c?.slug;
+              return editing?.id === a.id ? (
+              <tr key={a.id} style={{ background: "#f0f6ff" }}>
+                <td style={cellStyle}>{clientName(a.client_id)}</td>
+                <td style={{ ...cellStyle, fontSize: 12, color: brand.muted }}>{slug ? `/p/${slug}` : "—"}</td>
+                <td style={cellStyle}>
+                  <input style={{ ...inp, width: "100%" }} value={editing.name} onChange={e => setEditing(p => ({ ...p, name: e.target.value }))} />
+                </td>
+                <td style={cellStyle}>
+                  <input style={{ ...inp, width: "100%" }} type="email" value={editing.email} onChange={e => setEditing(p => ({ ...p, email: e.target.value }))} />
+                </td>
+                <td style={cellStyle}>
+                  <input style={{ ...inp, width: "100%" }} type="password" value={editing.password} onChange={e => setEditing(p => ({ ...p, password: e.target.value }))} placeholder="New password (leave blank to keep)" />
+                </td>
+                <td style={{ ...cellStyle, whiteSpace: "nowrap" }}>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <Btn onClick={() => handleSaveEdit(a.id)} variant="accent" small disabled={saving}>{saving ? "Saving…" : "Save"}</Btn>
+                    <Btn onClick={() => setEditing(null)} variant="ghost" small>Cancel</Btn>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              <tr key={a.id} style={{ background: a.active ? brand.surface : "#f9fafb" }}>
+                <td style={{ ...cellStyle, fontWeight: 600, color: brand.text }}>{clientName(a.client_id)}</td>
+                <td style={{ ...cellStyle, fontSize: 12, color: slug ? brand.blue : brand.muted }}>
+                  {slug ? <code style={{ background: "#f0f6ff", padding: "2px 6px", borderRadius: 4 }}>/p/{slug}</code> : <span style={{ color: "#e67e22" }}>no slug set</span>}
+                </td>
+                <td style={{ ...cellStyle, color: brand.text }}>{a.name}</td>
+                <td style={{ ...cellStyle, color: brand.muted, fontSize: 13 }}>{a.email}</td>
+                <td style={cellStyle}>
+                  <span style={{ background: a.active ? "#dcfce7" : "#f3f4f6", color: a.active ? brand.success : brand.muted, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                    {a.active ? "Active" : "Inactive"}
+                  </span>
+                </td>
+                <td style={{ ...cellStyle, whiteSpace: "nowrap" }}>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <Btn onClick={() => setEditing({ id: a.id, name: a.name, email: a.email, password: "" })} variant="secondary" small>Edit</Btn>
+                    {a.active ? (
+                      <Btn onClick={() => updatePortalAccount(a.id, { active: false }).then(u => setAccounts(p => p.map(x => x.id === a.id ? u : x))).catch(() => showToast("Failed.", "err"))} variant="ghost" small>Disable</Btn>
+                    ) : (
+                      <Btn onClick={() => updatePortalAccount(a.id, { active: true }).then(u => setAccounts(p => p.map(x => x.id === a.id ? u : x))).catch(() => showToast("Failed.", "err"))} variant="secondary" small>Enable</Btn>
+                    )}
+                    <Btn onClick={() => handleDelete(a.id, a.name)} variant="danger" small>Delete</Btn>
+                  </div>
+                </td>
+              </tr>
+            );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <form onSubmit={handleAdd}>
+        <div style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "16px 18px", marginTop: 24 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>
+            Add Portal Account
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto", gap: 10, alignItems: "flex-end" }}>
+            <div>
+              <FieldLabel>Client</FieldLabel>
+              <select style={inp} value={form.client_id} onChange={e => up("client_id", e.target.value)} required>
+                <option value="">Select client…</option>
+                {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <FieldLabel>Name</FieldLabel>
+              <input style={inp} value={form.name} onChange={e => up("name", e.target.value)} placeholder="Contact name" required />
+            </div>
+            <div>
+              <FieldLabel>Email</FieldLabel>
+              <input style={inp} type="email" value={form.email} onChange={e => up("email", e.target.value)} placeholder="client@example.com" required />
+            </div>
+            <div>
+              <FieldLabel>Password</FieldLabel>
+              <input style={inp} type="password" value={form.password} onChange={e => up("password", e.target.value)} placeholder="Min 8 characters" required minLength={8} />
+            </div>
+            <div style={{ paddingTop: 18 }}>
+              <Btn type="submit" variant="accent" disabled={saving}>{saving ? "Adding…" : "+ Add"}</Btn>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
   );
 }
 

@@ -303,12 +303,7 @@ def delete_payment(payment_id: int, db: Session = Depends(get_db), _: User = Dep
 
 # ─── PDF (styled HTML, opened by browser print dialog) ───────────────────────
 
-@router.get("/{invoice_id}/pdf", response_class=HTMLResponse)
-def invoice_pdf(invoice_id: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
-    if not inv:
-        raise HTTPException(status_code=404, detail="Invoice not found")
-
+def _build_invoice_html(inv: Invoice) -> str:
     paid = round(float(sum(p.amount for p in inv.payments)), 2)
     balance = round(float(inv.total) - paid, 2)
     tax_pct = round(float(inv.tax_rate) * 100, 3)
@@ -434,7 +429,15 @@ def invoice_pdf(invoice_id: str, db: Session = Depends(get_db), _: User = Depend
 <script>window.onload = function(){{ window.print(); }}</script>
 </body>
 </html>"""
-    return HTMLResponse(content=html)
+    return html
+
+
+@router.get("/{invoice_id}/pdf", response_class=HTMLResponse)
+def invoice_pdf(invoice_id: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+    inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    return HTMLResponse(content=_build_invoice_html(inv))
 
 
 # ─── Send invoice by email ────────────────────────────────────────────────────

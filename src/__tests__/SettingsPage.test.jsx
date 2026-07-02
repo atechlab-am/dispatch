@@ -18,6 +18,20 @@ vi.mock("../api/documents.js", () => ({
   downloadUrl: vi.fn(id => `/api/documents/${id}/download`),
 }));
 
+vi.mock("../api/portal.js", () => ({
+  listPortalAccounts: vi.fn().mockResolvedValue([]),
+  createPortalAccount: vi.fn(),
+  updatePortalAccount: vi.fn(),
+  deletePortalAccount: vi.fn(),
+}));
+
+vi.mock("../api/clients.js", () => ({
+  listClients: vi.fn().mockResolvedValue([]),
+  createClient: vi.fn(),
+  updateClient: vi.fn(),
+  deleteClient: vi.fn(),
+}));
+
 import { listUsers, createUser, changeOwnPassword } from "../api/users.js";
 
 const adminUser = { id: 1, name: "Admin", email: "admin@test.com", role: "admin", active: true };

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -12,22 +12,22 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 class UserCreateIn(BaseModel):
     email: EmailStr
-    name: str
-    password: str
+    name: str = Field(..., min_length=1, max_length=255)
+    password: str = Field(..., min_length=8, max_length=128)
     role: str = "technician"
 
 
 class UserUpdateIn(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1, max_length=255)
     email: EmailStr
     role: str
     active: bool
-    password: str = ""
+    password: str = Field("", max_length=128)
 
 
 class PasswordChangeIn(BaseModel):
     current_password: str
-    new_password: str
+    new_password: str = Field(..., min_length=8, max_length=128)
 
 
 @router.get("", response_model=list[UserOut])

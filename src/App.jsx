@@ -17,6 +17,7 @@ import LoginPage from "./LoginPage.jsx";
 import SettingsPage from "./SettingsPage.jsx";
 import DocumentsPage from "./DocumentsPage.jsx";
 import ReportsPage from "./ReportsPage.jsx";
+import PortalPage from "./PortalPage.jsx";
 import ClientsPage from "./ClientsPage.jsx";
 import InvoicesPage from "./InvoicesPage.jsx";
 import DashboardPage from "./DashboardPage.jsx";
@@ -473,6 +474,7 @@ const NewTicketModal = ({ onCreate, onCancel, clients, onClientCreated, template
   const [title,        setTitle]        = useState("");
   const [priority,     setPriority]     = useState("Medium");
   const [clientId,     setClientId]     = useState("");
+  const [contactId,    setContactId]    = useState("");
   const [search,       setSearch]       = useState("");
   const [showNewClient,setShowNewClient]= useState(false);
 
@@ -491,11 +493,38 @@ const NewTicketModal = ({ onCreate, onCancel, clients, onClientCreated, template
 
   const typeIcons = { Incident:"🔥", Request:"📋", "Change Request":"🔄" };
 
-  const filtered = clients.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.company.toLowerCase().includes(search.toLowerCase()) ||
-    c.email.toLowerCase().includes(search.toLowerCase())
-  );
+  // Build a deduplicated picker: one entry per business (primary record = lowest id in company group) + all residential
+  const { pickableClients, companyMembers } = (() => {
+    const businessGroups = {};
+    const residential = [];
+    for (const c of clients) {
+      if (c.client_type === "business" && c.company) {
+        const key = c.company.toLowerCase();
+        if (!businessGroups[key]) businessGroups[key] = { primary: null, members: [] };
+        if (!businessGroups[key].primary || c.id < businessGroups[key].primary.id)
+          businessGroups[key].primary = c;
+        businessGroups[key].members.push(c);
+      } else {
+        residential.push(c);
+      }
+    }
+    const primaries = Object.values(businessGroups).map(g => g.primary);
+    const membersByPrimaryId = {};
+    for (const g of Object.values(businessGroups)) {
+      membersByPrimaryId[g.primary.id] = g.members.filter(m => m.id !== g.primary.id);
+    }
+    return { pickableClients: [...primaries, ...residential], companyMembers: membersByPrimaryId };
+  })();
+
+  const filtered = pickableClients.filter(c => {
+    const q = search.toLowerCase();
+    return (c.company || c.name).toLowerCase().includes(q) ||
+      (c.email || "").toLowerCase().includes(q);
+  });
+
+  const selectedCompany = pickableClients.find(c => c.id === clientId);
+  const contacts = clientId ? (companyMembers[clientId] || []) : [];
+  const selectedContact = contacts.find(c => c.id === contactId) || null;
 
   const handleSaveNewClient = async () => {
     if (!newName.trim()) return;
@@ -512,11 +541,11 @@ const NewTicketModal = ({ onCreate, onCancel, clients, onClientCreated, template
   const handleSubmit = async () => {
     if (!title.trim()) return;
     setSaving(true);
-    await onCreate({ ticketType, clientType, title:title.trim(), priority, clientId:clientId||null });
+    // For business: pass the contact's id if one is selected, otherwise the primary record id
+    const effectiveClientId = (selectedContact ? selectedContact.id : clientId) || null;
+    await onCreate({ ticketType, clientType, title:title.trim(), priority, clientId:effectiveClientId, selectedCompany, selectedContact });
     setSaving(false);
   };
-
-  const selected = clients.find(c => c.id === clientId);
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(13,27,42,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center" }}>
@@ -595,27 +624,40 @@ const NewTicketModal = ({ onCreate, onCancel, clients, onClientCreated, template
             </div>
           ) : (
             <div>
-              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search clients…" style={{...inp, marginBottom:8}} />
-              {selected && (
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search clients…" style={{...inp, marginBottom:8}} autoComplete="off" />
+              {selectedCompany && (
                 <div style={{ background:brand.blue+"18", border:`1.5px solid ${brand.blue}`, borderRadius:8, padding:"8px 12px", marginBottom:8, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                   <div>
-                    <div style={{ fontWeight:700, fontSize:13, color:brand.blue }}>{selected.name}</div>
-                    {selected.company && <div style={{ fontSize:11, color:brand.muted }}>{selected.company}</div>}
+                    <div style={{ fontWeight:700, fontSize:13, color:brand.blue }}>{selectedCompany.company || selectedCompany.name}</div>
+                    {selectedCompany.company && <div style={{ fontSize:11, color:brand.muted }}>{selectedCompany.email}</div>}
                   </div>
-                  <button onClick={()=>setClientId("")} style={{ background:"none", border:"none", color:brand.muted, cursor:"pointer", fontSize:16 }}>×</button>
+                  <button onClick={()=>{setClientId("");setContactId("");}} style={{ background:"none", border:"none", color:brand.muted, cursor:"pointer", fontSize:16 }}>×</button>
                 </div>
               )}
-              <div style={{ maxHeight:160, overflowY:"auto", border:`1px solid ${brand.border}`, borderRadius:8 }}>
-                {filtered.length === 0 ? (
-                  <div style={{ padding:"12px 14px", color:brand.muted, fontSize:13 }}>No clients found</div>
-                ) : filtered.map(c => (
-                  <div key={c.id} onClick={()=>{setClientId(c.id);setSearch("");}}
-                    style={{ padding:"10px 14px", cursor:"pointer", borderBottom:`1px solid ${brand.border}`, background:clientId===c.id?brand.blue+"10":"#fff" }}>
-                    <div style={{ fontWeight:600, fontSize:13, color:brand.text }}>{c.name}</div>
-                    <div style={{ fontSize:11, color:brand.muted }}>{[c.company, c.email].filter(Boolean).join(" · ")}</div>
-                  </div>
-                ))}
-              </div>
+              {!selectedCompany && (
+                <div style={{ maxHeight:160, overflowY:"auto", border:`1px solid ${brand.border}`, borderRadius:8 }}>
+                  {filtered.length === 0 ? (
+                    <div style={{ padding:"12px 14px", color:brand.muted, fontSize:13 }}>No clients found</div>
+                  ) : filtered.map(c => (
+                    <div key={c.id} onClick={()=>{setClientId(c.id);setContactId("");setSearch("");setClientType(c.client_type||clientType);}}
+                      style={{ padding:"10px 14px", cursor:"pointer", borderBottom:`1px solid ${brand.border}`, background:clientId===c.id?brand.blue+"10":"#fff" }}>
+                      <div style={{ fontWeight:600, fontSize:13, color:brand.text }}>{c.company || c.name}</div>
+                      <div style={{ fontSize:11, color:brand.muted }}>{c.email}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {selectedCompany && contacts.length > 0 && (
+                <div style={{ marginTop:10 }}>
+                  <FieldLabel>Contact</FieldLabel>
+                  <select value={contactId} onChange={e=>setContactId(e.target.value ? parseInt(e.target.value) : "")} style={inp}>
+                    <option value="">— No specific contact —</option>
+                    {contacts.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}{c.email ? ` (${c.email})` : ""}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1987,17 +2029,24 @@ export default function App() {
 
   const handleNew = () => setNewModal(true);
 
-  const handleCreate = async ({ ticketType, clientType, title, priority, clientId }) => {
+  const handleCreate = async ({ ticketType, clientType, title, priority, clientId, selectedCompany, selectedContact }) => {
     try {
-      const selected = clients.find(c => c.id === clientId);
+      const rec = clients.find(c => c.id === clientId);
+      // Build display name: "Company — Contact" when a contact is selected, else company or name
+      const displayName = selectedCompany
+        ? (selectedContact ? `${selectedCompany.company} — ${selectedContact.name}` : (selectedCompany.company || selectedCompany.name))
+        : (rec?.name ?? "");
+      const email = selectedContact?.email || selectedCompany?.email || rec?.email || "";
+      const phone = selectedContact?.phone || selectedCompany?.phone || rec?.phone || "";
+      const address = selectedCompany?.address || rec?.address || "";
       const created = await createTicket({
         client_id:     clientId ?? null,
         ticket_type:   ticketType, status: "Open", priority,
-        client_type:   selected?.client_type ?? clientType,
-        client_name:   selected?.name ?? "",
-        client_email:  selected?.email ?? "",
-        client_phone:  selected?.phone ?? "",
-        client_address:selected?.address ?? "",
+        client_type:   rec?.client_type ?? clientType,
+        client_name:   displayName,
+        client_email:  email,
+        client_phone:  phone,
+        client_address:address,
         title,
         description: "", internal_notes: "",
         travel_fee: "travel_none", service_lines: [], hour_logs: [],
@@ -2120,6 +2169,7 @@ export default function App() {
     { path: "/recurring", label: "Recurring" },
     { path: "/documents", label: "Documents" },
     { path: "/reports",   label: "Reports" },
+    ...(user?.role === "admin" ? [{ path: "/portal", label: "Portal" }] : []),
   ];
 
   return (
@@ -2183,6 +2233,7 @@ export default function App() {
           <Route path="/recurring" element={<RecurringPage showToast={showToast} clients={clients} />} />
           <Route path="/documents" element={<DocumentsPage showToast={showToast} user={user} />} />
           <Route path="/reports"   element={<ReportsPage />} />
+          {user?.role === "admin" && <Route path="/portal" element={<PortalPage showToast={showToast} />} />}
           <Route path="/settings"  element={<SettingsPage user={user} showToast={showToast} />} />
           <Route path="*"          element={<Navigate to="/" replace />} />
         </Routes>

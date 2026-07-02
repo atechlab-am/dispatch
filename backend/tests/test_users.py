@@ -27,7 +27,7 @@ def test_duplicate_email_rejected(client, admin_headers):
     r = client.post("/api/users", json={
         "email": "admin@test.com",
         "name": "Dup",
-        "password": "x",
+        "password": "validpass123",
         "role": "technician",
     }, headers=admin_headers)
     assert r.status_code == 409

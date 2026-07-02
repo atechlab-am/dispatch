@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.models import User, Ticket, ServiceLine, HourLog, TicketStatus
 from ..schemas import TicketIn, TicketOut, TicketsPage, TicketListItem
-from ..security import get_current_user
+from ..security import get_current_user, require_admin
 from .. import email as mailer
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
@@ -25,11 +25,44 @@ SLA_HOURS = {
 }
 
 
+def _add_business_hours(dt: datetime, hours: int) -> datetime:
+    """Advance dt by `hours` of business time, skipping Sat/Sun."""
+    remaining = timedelta(hours=hours)
+    current = dt
+    while remaining > timedelta(0):
+        # If we're already on a weekend, jump to next Monday 00:00
+        if current.weekday() >= 5:
+            days_ahead = 7 - current.weekday()
+            current = (current + timedelta(days=days_ahead)).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+            continue
+        # How much of today is left before the weekend?
+        # Find start of next Saturday
+        days_to_weekend = 5 - current.weekday()  # days until Saturday
+        end_of_week = (current + timedelta(days=days_to_weekend)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        available = end_of_week - current
+        if remaining <= available:
+            current = current + remaining
+            remaining = timedelta(0)
+        else:
+            remaining -= available
+            current = end_of_week
+    return current
+
+
 def _sla_deadlines(priority: str, from_dt: datetime):
     response_h, resolution_h = SLA_HOURS.get(priority, (8, 24))
+    if priority == "Urgent":
+        return (
+            from_dt + timedelta(hours=response_h),
+            from_dt + timedelta(hours=resolution_h),
+        )
     return (
-        from_dt + timedelta(hours=response_h),
-        from_dt + timedelta(hours=resolution_h),
+        _add_business_hours(from_dt, response_h),
+        _add_business_hours(from_dt, resolution_h),
     )
 
 
@@ -109,7 +142,7 @@ def export_tickets(
     date_to: Optional[date] = Query(None),
     fmt: str = Query("csv"),
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_admin),
 ):
     q = db.query(Ticket)
     if status_filter and status_filter != "All":

@@ -11,6 +11,7 @@ import InvoicesPage from "./InvoicesPage.jsx";
 import SettingsPage from "./SettingsPage.jsx";
 import DocumentsPage from "./DocumentsPage.jsx";
 import ReportsPage from "./ReportsPage.jsx";
+import PortalPage from "./PortalPage.jsx";
 import BrandingSettingsPanel from "./BrandingSettingsPanel.jsx";
 import UpdateBanner from "./UpdateBanner.jsx";
 
@@ -32,6 +33,7 @@ const ICONS = {
   documents: "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M12 18v-6 M9 15h6",
   reports:   "M18 20V10 M12 20V4 M6 20v-6",
   settings:  "M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z",
+  portal:    "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z",
   branding:  "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
   logout:    "M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4 M16 17l5-5-5-5 M21 12H9",
   newUI:     "M4 12h16 M4 6h16 M4 18h7",
@@ -126,6 +128,8 @@ export default function AppNew({
   const collapseBtn  = dark ? { bg: "rgba(255,255,255,0.08)", fg: "rgba(255,255,255,0.6)" }
                              : { bg: "rgba(0,0,0,0.06)",       fg: "rgba(15,23,42,0.5)" };
 
+  const isAdmin = user?.role === "admin";
+
   const NAV = [
     { path: "/",          label: "Dashboard",  icon: ICONS.home },
     { path: "/tickets",   label: "Tickets",    icon: ICONS.tickets },
@@ -134,6 +138,7 @@ export default function AppNew({
     { path: "/recurring", label: "Recurring",  icon: ICONS.recurring },
     { path: "/documents", label: "Documents",  icon: ICONS.documents },
     { path: "/reports",   label: "Reports",    icon: ICONS.reports },
+    ...(isAdmin ? [{ path: "/portal", label: "Portal",    icon: ICONS.portal }] : []),
   ];
 
   const BOTTOM_NAV = [
@@ -151,6 +156,7 @@ export default function AppNew({
     if (location.pathname === "/recurring") return "Recurring Tickets";
     if (location.pathname === "/documents") return "Documents";
     if (location.pathname === "/reports") return "Reports";
+    if (location.pathname === "/portal") return "Client Portal";
     if (location.pathname === "/settings") return "Settings";
     return "";
   })();
@@ -291,6 +297,7 @@ export default function AppNew({
             <Route path="/recurring" element={<RecurringPage showToast={showToast} clients={clients} />} />
             <Route path="/documents" element={<DocumentsPage showToast={showToast} user={user} />} />
             <Route path="/reports"   element={<ReportsPage />} />
+            {isAdmin && <Route path="/portal" element={<PortalPage showToast={showToast} />} />}
             <Route path="/settings"  element={
               <div>
                 <div style={{ display: "flex", gap: 6, marginBottom: 24, borderBottom: "2px solid #e2e8f0", paddingBottom: 0 }}>

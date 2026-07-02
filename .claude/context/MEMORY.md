@@ -9,3 +9,4 @@
 - [Security standards](feedback_security_standards.md) — all features/changes must pass the checklist in .claude/context/security-standards.md before implementation
 - [Edit permission](feedback_edit_permission.md) — blanket permission to edit any file in the repo without asking; just do it
 - [Caveman mode](feedback_caveman_mode.md) — no narration, just do the work; one or two line summary at the end
+- [Version update rule](feedback_version_updates.md) — update VERSION file with every change: major.minor.patch

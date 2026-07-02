@@ -107,10 +107,17 @@
 - [x] Ticket "Playbook & Documents" section — surfaces matched docs by ticket type; split Internal / Client-Facing; download button on each; requires_signature indicator
 - [x] Future hook: requires_signature flag in data model and UI; signed copy upload slot for later e-sign wiring
 
-## Phase 9 — Client Portal (Future)
-- [ ] Client-facing portal — read-only view where clients can see their own tickets and invoices
-- [ ] Client login — separate auth flow for client accounts (non-admin, scoped to their data)
-- [ ] Client ticket submission — clients can open new tickets via the portal
+## Phase 9 — Client Portal (Complete)
+- [x] Client-facing portal at `/portal` — separate SPA with its own Vite entry point and React app
+- [x] Portal auth — separate JWT (`type: "portal"`), rate-limited login, refresh rotation, auto-logout
+- [x] Portal ticket list — clients see only their tickets (scoped by `client_id`)
+- [x] Portal ticket detail — read-only view with status, priority, description, SLA
+- [x] Portal ticket submission — clients can open new tickets from the portal
+- [x] Portal invoices — list and detail with payments, balance, and PDF download
+- [x] Admin portal account management — Settings > Client Portal tab; create/edit/disable/delete accounts
+- [x] `ClientPortalUser` + `PortalRefreshToken` models — migration 0014
+- [x] Backend router: `/api/portal/auth/*`, `/api/portal/tickets`, `/api/portal/invoices`, `/api/portal/accounts`
+- [x] nginx `/portal` location block serving `portal.html` for SPA routing
 
 ## Phase 10 — Reporting (Complete)
 - [x] Revenue report — total billed per month, breakdown by client, outstanding balance; stat cards

@@ -2,7 +2,7 @@ from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -10,6 +10,11 @@ from ..models.models import Client, ClientType, Invoice, InvoicePayment
 from ..security import get_current_user
 
 router = APIRouter(prefix="/clients", tags=["clients"])
+
+
+import re as _re
+
+_SLUG_RE = _re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$')
 
 
 class ClientIn(BaseModel):
@@ -20,6 +25,14 @@ class ClientIn(BaseModel):
     client_type: str = "business"
     company: str = Field("", max_length=255)
     notes: str = Field("", max_length=5000)
+    slug: Optional[str] = Field(None, max_length=100)
+
+    @field_validator("slug", mode="before")
+    @classmethod
+    def validate_slug(cls, v):
+        if v and not _SLUG_RE.match(v):
+            raise ValueError("Slug must be lowercase letters, numbers, and hyphens only (e.g. acme-corp)")
+        return v or None
 
 
 class ClientOut(BaseModel):
@@ -31,6 +44,7 @@ class ClientOut(BaseModel):
     client_type: str
     company: str
     notes: str
+    slug: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -54,10 +68,15 @@ def create_client(
     except ValueError:
         raise HTTPException(status_code=422, detail=f"Invalid client_type: {body.client_type}")
 
+    if body.slug:
+        existing = db.query(Client).filter(Client.slug == body.slug).first()
+        if existing:
+            raise HTTPException(status_code=409, detail=f"Slug '{body.slug}' is already in use by another client")
+
     client = Client(
         name=body.name, email=body.email, phone=body.phone,
         address=body.address, client_type=ct, company=body.company,
-        notes=body.notes,
+        notes=body.notes, slug=body.slug,
     )
     db.add(client)
     db.commit()
@@ -93,6 +112,11 @@ def update_client(
     except ValueError:
         raise HTTPException(status_code=422, detail=f"Invalid client_type: {body.client_type}")
 
+    if body.slug:
+        existing = db.query(Client).filter(Client.slug == body.slug, Client.id != client_id).first()
+        if existing:
+            raise HTTPException(status_code=409, detail=f"Slug '{body.slug}' is already in use by another client")
+
     client.name = body.name
     client.email = body.email
     client.phone = body.phone
@@ -100,6 +124,7 @@ def update_client(
     client.client_type = ct
     client.company = body.company
     client.notes = body.notes
+    client.slug = body.slug
     db.commit()
     db.refresh(client)
     return client

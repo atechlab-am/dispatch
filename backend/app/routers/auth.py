@@ -38,7 +38,8 @@ def login(request: Request, body: LoginIn, db: Session = Depends(get_db)):
 
 
 @router.post("/refresh", response_model=TokenOut)
-def refresh(body: RefreshIn, db: Session = Depends(get_db)):
+@_limiter.limit("30/minute")
+def refresh(request: Request, body: RefreshIn, db: Session = Depends(get_db)):
     token_hash = hash_token(body.refresh_token)
     now = datetime.now(timezone.utc)
 

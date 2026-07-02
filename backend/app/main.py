@@ -13,8 +13,8 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy.exc import SQLAlchemyError
 
 from . import database as _db
-from .models.models import RefreshToken
-from .routers import auth, tickets, users, setup, clients, invoices, dashboard, comments, templates, attachments, recurring, documents, reports, form_templates, version, ticket_documents
+from .models.models import RefreshToken, PortalRefreshToken
+from .routers import auth, tickets, users, setup, clients, invoices, dashboard, comments, templates, attachments, recurring, documents, reports, form_templates, version, ticket_documents, portal
 from .tasks import recurring_ticket_loop
 from . import config
 
@@ -57,14 +57,20 @@ async def _purge_expired_tokens_loop():
     while True:
         try:
             with _db.SessionLocal() as db:
+                now = datetime.now(timezone.utc)
                 deleted = (
                     db.query(RefreshToken)
-                    .filter(RefreshToken.expires_at < datetime.now(timezone.utc))
+                    .filter(RefreshToken.expires_at < now)
+                    .delete(synchronize_session=False)
+                )
+                portal_deleted = (
+                    db.query(PortalRefreshToken)
+                    .filter(PortalRefreshToken.expires_at < now)
                     .delete(synchronize_session=False)
                 )
                 db.commit()
-                if deleted:
-                    logger.info("Purged %d expired refresh tokens", deleted)
+                if deleted or portal_deleted:
+                    logger.info("Purged %d staff + %d portal expired refresh tokens", deleted, portal_deleted)
         except Exception:
             logger.exception("Failed to purge expired refresh tokens")
         await asyncio.sleep(3600)
@@ -96,8 +102,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=config.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 app.include_router(setup.router, prefix="/api")
@@ -116,6 +122,7 @@ app.include_router(reports.router, prefix="/api")
 app.include_router(form_templates.router, prefix="/api")
 app.include_router(version.router, prefix="/api")
 app.include_router(ticket_documents.router, prefix="/api")
+app.include_router(portal.router, prefix="/api")
 
 
 @app.get("/health")

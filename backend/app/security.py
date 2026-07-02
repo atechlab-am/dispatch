@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from .config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
 from .database import get_db
-from .models.models import User, RefreshToken
+from .models.models import User, RefreshToken, ClientPortalUser, PortalRefreshToken
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer()
@@ -63,3 +63,28 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role.value != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return current_user
+
+
+def create_portal_access_token(portal_user_id: int) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    return jwt.encode({"sub": str(portal_user_id), "exp": expire, "type": "portal"}, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def get_portal_user(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> ClientPortalUser:
+    token = credentials.credentials
+    exc = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "portal":
+            raise exc
+        portal_user_id = int(payload["sub"])
+    except (JWTError, KeyError, ValueError):
+        raise exc
+
+    pu = db.query(ClientPortalUser).filter(ClientPortalUser.id == portal_user_id, ClientPortalUser.active == True).first()
+    if not pu:
+        raise exc
+    return pu

@@ -1,5 +1,128 @@
 # Changelog
 
+## [1.5.13] — 2026-07-02
+
+### Changed
+- **SLA deadlines skip weekends for non-Urgent priorities** — High, Medium, and Low SLA clocks now advance through business time only (Mon–Fri), skipping Saturday and Sunday. Urgent tickets continue to use wall-clock time so they are never delayed. A ticket created Friday at 22:00 with High priority (4h response) will be due Monday at 02:00 instead of Saturday at 02:00.
+
+## [1.5.12] — 2026-07-02
+
+### Security
+- **Portal idle timeout** — client portal now auto-logs out after 30 minutes of inactivity (no mouse, keyboard, pointer, or scroll events). Matches the existing idle timeout already in place on the staff app. The timer resets on any user activity and triggers a clean logout (tokens cleared, refresh token revoked on the server).
+
+## [1.5.11] — 2026-06-30
+
+### Security
+- **Slug validation now Pydantic-native** — `validate_slug` converted from a manually-called `@classmethod` to a proper Pydantic `@field_validator`. Slug format is now enforced automatically on deserialization for every code path, not only where the caller remembered to invoke it.
+- **Refresh endpoints rate-limited** — both staff (`/api/auth/refresh`) and portal (`/portal/auth/refresh`) refresh endpoints now have a 30/min per-IP limit, closing the unlimited token-refresh attack surface.
+- **Ticket export restricted to admin** — `GET /api/tickets/export` (full CSV dump of all tickets and client data) now requires `require_admin`. Previously any authenticated staff user could download the entire dataset.
+
+## [1.5.10] — 2026-06-30
+
+### Security
+- **Staff password validation** — `UserCreateIn` and `UserUpdateIn` now enforce `min_length=8, max_length=128` and `min_length=1` on name, matching the constraints already in place for portal users. Previously a 1-character password could be set via API even if the frontend enforced length.
+- **CORS tightened** — replaced `allow_methods=["*"]` and `allow_headers=["*"]` with explicit allowlists (`GET, POST, PUT, PATCH, DELETE, OPTIONS` and `Authorization, Content-Type`).
+- **Full security audit passed** — verified: JWT token type isolation (portal tokens rejected by staff endpoints and vice versa), all endpoints protected with `get_current_user` or `require_admin`, no SQL injection (100% SQLAlchemy ORM), XSS escaping on all print/PDF output, refresh token rotation, setup lock, rate limiting on both login endpoints. `npm audit` and `pip-audit` both clean.
+
+## [1.5.9] — 2026-06-30
+
+### Fixed
+- **Portal login failing for contact-linked users** — after the fix that stores portal users against their own contact record (not the primary), the login slug-scope check was still filtering by `client_id == primary.id` only. It now resolves all client IDs in the company group and uses `.in_()`, so any contact-linked portal user can log in via the company slug.
+- **Cross-client session check broken for contacts** — `getClientBySlug` now returns `member_ids` (all client IDs in the company group). The frontend session validation checks `me.client_id` against the full `member_ids` list instead of just the primary record's id.
+
+## [1.5.8] — 2026-06-30
+
+### Fixed
+- **Portal user linked to their own contact record** — when adding a portal user for a business contact, `client_id` is now set to the selected contact's id (not the primary/business record). This means tickets created by that user are attributed to them specifically, while the company-group scoping ensures all company users still see all tickets.
+- **Portal ticket creation uses company primary for address/phone** — even when the portal user's `client_id` is a contact record, the ticket correctly pulls address and phone from the primary business record (lowest id in the company group).
+
+## [1.5.7] — 2026-06-30
+
+### Fixed
+- **Portal ticket/invoice visibility** — tickets and invoices created against any contact in a business group are now visible in the portal. The portal user is scoped to the primary record (slug holder), but tickets can be filed against any member (contact) of the same company. The backend now resolves all client IDs sharing the same `company` name and filters by the full set, not just `pu.client_id`.
+- **Portal ticket creation identifies the submitter** — tickets created from the portal now set `client_name` to "Company — Portal User Name" and `client_email` to the portal user's own email, so staff can see exactly who submitted the ticket rather than just the company name.
+- **Invoice scoping** — same company-group fix applied to all three invoice endpoints (list, get, PDF).
+
+## [1.5.6] — 2026-06-30
+
+### Changed
+- **New Ticket modal — two-step business client selection** — after picking a company, a Contact dropdown appears listing all contacts under that business. Selecting a contact sets `client_name` to "Company — Contact Name" and uses the contact's email/phone. If no contact is selected the ticket is assigned to the company directly. Residential clients work as before.
+
+## [1.5.5] — 2026-06-30
+
+### Fixed
+- **New Ticket modal — client picker now matches business/residential model** — the picker previously showed all flat client records (including contacts under a business). It now deduplicates: each business company appears once (the primary record, lowest id in the company group), and residential clients appear individually. Selecting a business sets `client_name` to the company name and `client_type` to business automatically. The search matches on company name or email.
+
+## [1.5.4] — 2026-06-30
+
+### Added
+- **Portal page** — dedicated top-level nav item (admin only) replacing the Settings tab; shows a client-first view where each client is an expandable card listing their portal users
+- Each client card shows the portal URL (`/p/slug`), user count, and an inline slug editor — no need to go to the Clients page to set the slug
+- Multiple portal users per client — each card has its own user table with add/edit/disable/delete; no limit on how many users a client can have
+- "Show clients without portal" toggle — by default only clients with a slug or existing users are shown; checkbox reveals all clients to onboard new ones
+- Portal tab removed from Settings page — all portal management is now on the dedicated Portal page
+
+## [1.5.3] — 2026-06-30
+
+### Security
+- **Critical fix: cross-client session leak** — navigating from `/p/client-a` to `/p/client-b` while logged in as client-a showed client-b's data because the stored session was reused without checking ownership. `SlugPortal` now fetches both `portalMe()` and `getClientBySlug(slug)` in parallel on load and compares `me.client_id` against the slug's `client.id`; if they don't match the session is immediately cleared and the user is forced to log in to the correct portal.
+
+## [1.5.2] — 2026-06-30
+
+### Added
+- **`frontend-portal` Docker service** — separate nginx container serving only the client portal; runs on `PORTAL_PORT` (default 8080); point your Cloudflare tunnel at this port
+- `nginx.portal.conf` — portal-only nginx config: serves `portal.html` for `/p/*`, proxies only `/api/portal/` to the backend, returns 404 for all other `/api/*` routes so staff endpoints are unreachable from the portal instance
+- `portal` build stage in `Dockerfile` — reuses the same Vite `dist/` as the staff app but copies `nginx.portal.conf` instead of `nginx.conf`
+- `PORTAL_PORT` env var (default `8080`) controls which host port the portal service binds to
+- `.env.example` updated with `PORTAL_PORT` and a comment explaining the Cloudflare setup
+
+## [1.5.1] — 2026-06-30
+
+### Changed
+- Client portal URLs changed from `/portal` to `/p/:slug` — each client gets their own URL (e.g. `/p/acme-corp`)
+- Portal login page shows the client's name fetched from the slug; wrong slug returns 404
+- Login is scoped to the slug — a portal user can only authenticate against their own client's portal
+- nginx `location /portal` changed to `location /p/` to serve `portal.html` for all client slugs
+- `GET /api/portal/slug/:slug` — new public endpoint; returns client name for a slug so the login page can display it
+- `POST /api/portal/auth/login` now accepts an optional `slug` field to scope login to a specific client
+- `slug` field added to `Client` model — unique, optional, URL-safe (lowercase, hyphens); validated server-side with regex
+- Alembic migration `0015_client_slug` — adds `slug` column + unique index to `clients` table
+- Clients page — Portal Slug field on add/edit forms (auto-sanitises to lowercase + hyphens); Portal URL shown in expanded row view
+- Settings → Client Portal tab — Portal URL column shows `/p/:slug` (or "no slug set" warning) for each account
+
+## [1.5.0] — 2026-06-30
+
+### Added
+- **Client Portal** — a separate SPA at `/portal` where clients can log in and view their own tickets and invoices
+- **Portal authentication** — dedicated JWT flow (`type: "portal"`) that is completely separate from staff tokens; portal tokens cannot access any staff endpoint; rate-limited login; refresh token rotation; auto-logout on expiry
+- **Portal ticket list & detail** — clients see only tickets linked to their client record; read-only view showing status, priority, type, description, and SLA deadlines
+- **Portal ticket submission** — clients can open new tickets via the portal; the ticket is created against their client record with the correct priority and SLA deadlines
+- **Portal invoice list & detail** — clients see all non-void invoices with balance, payment history, and a PDF download button (authenticated, same print-ready HTML as the staff view)
+- **Client Portal Accounts** — new "Client Portal" tab in Settings (admin only); create, edit, enable/disable, and delete portal login accounts; each account is linked to a client record
+- `ClientPortalUser` and `PortalRefreshToken` models — separate tables from staff users; deleted automatically when a client is deleted
+- Alembic migration `0014_client_portal` — `client_portal_users` and `portal_refresh_tokens` tables
+- `POST /api/portal/auth/login` — portal login (rate-limited 10 req/min); issues `type: "portal"` JWT
+- `POST /api/portal/auth/refresh` — portal token refresh with rotation
+- `POST /api/portal/auth/logout` — revokes portal refresh tokens
+- `GET /api/portal/auth/me` — returns current portal user
+- `GET /api/portal/tickets` — list tickets scoped to the authenticated client
+- `GET /api/portal/tickets/{id}` — ticket detail (enforces client ownership)
+- `POST /api/portal/tickets` — submit a new ticket as a portal client
+- `GET /api/portal/invoices` — list non-void invoices scoped to the authenticated client
+- `GET /api/portal/invoices/{id}` — invoice detail with line items and payments
+- `GET /api/portal/invoices/{id}/pdf` — authenticated invoice PDF for portal clients
+- `GET /api/portal/accounts` — list portal accounts (admin only, optional `?client_id=` filter)
+- `POST /api/portal/accounts` — create portal account (admin only)
+- `PATCH /api/portal/accounts/{id}` — update name, email, password, or active status (admin only)
+- `DELETE /api/portal/accounts/{id}` — delete portal account (admin only)
+- `_build_invoice_html()` extracted from `invoice_pdf` route so it can be reused by the portal PDF endpoint
+- `src/portal/` — new portal frontend directory with its own Axios client, API wrappers, and full React SPA
+- `portal.html` — Vite multi-page entry point for the portal SPA
+- Vite multi-page build configured in `vite.config.js` — both `index.html` and `portal.html` compiled to `dist/`
+- nginx `location /portal` block — `try_files` to `portal.html` for client-side routing under `/portal`
+- `src/api/portal.js` — admin API wrappers for portal account CRUD
+- Expired portal refresh tokens purged by the existing hourly background task
+
 ## [1.4.2] — 2026-06-30
 
 ### Fixed
