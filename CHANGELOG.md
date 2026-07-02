@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.5.16] — 2026-07-02
+
+### Changed
+- **Skeleton loading screens** — replaced plain "Loading…" text and spinners with animated shimmer skeletons on the four highest-visibility loading states: staff ticket list (card-shaped rows), ticket editor (field blocks), portal ticket table, and portal invoice table. The shimmer sweeps left-to-right at 1.4s to signal active loading.
+
 ## [1.5.15] — 2026-07-02
 
 ### Changed

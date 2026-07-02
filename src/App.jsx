@@ -368,6 +368,63 @@ const FieldLabel = ({ children }) => (
   <div style={{ fontSize:11, fontWeight:700, color:brand.muted, textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:5 }}>{children}</div>
 );
 
+const shimmerCSS = `
+@keyframes _shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+._sk {
+  background: linear-gradient(90deg, #e8edf4 25%, #f4f7fc 50%, #e8edf4 75%);
+  background-size: 600px 100%;
+  animation: _shimmer 1.4s ease-in-out infinite;
+  border-radius: 6px;
+}`;
+
+function ShimmerStyle() {
+  return <style>{shimmerCSS}</style>;
+}
+
+function Sk({ w = "100%", h = 14, mb = 0, br = 6 }) {
+  return <div className="_sk" style={{ width: w, height: h, marginBottom: mb, borderRadius: br }} />;
+}
+
+function TicketListSkeleton() {
+  return (
+    <>
+      <ShimmerStyle />
+      {[...Array(8)].map((_, i) => (
+        <div key={i} style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "14px 18px", marginBottom: 10, borderLeft: `4px solid ${brand.border}` }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <Sk w={80} h={12} />
+            <Sk w={60} h={12} />
+            <Sk w={60} h={12} />
+            <Sk w={70} h={12} />
+          </div>
+          <Sk w="55%" h={15} mb={8} />
+          <Sk w="35%" h={11} />
+        </div>
+      ))}
+    </>
+  );
+}
+
+function TicketEditorSkeleton() {
+  return (
+    <div style={{ padding: 40 }}>
+      <ShimmerStyle />
+      <Sk w={160} h={13} mb={24} />
+      <Sk w="60%" h={28} mb={12} />
+      <Sk w="40%" h={13} mb={32} />
+      {[...Array(5)].map((_, i) => (
+        <div key={i} style={{ marginBottom: 20 }}>
+          <Sk w={100} h={11} mb={6} />
+          <Sk w="100%" h={38} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const Spinner = () => (
   <div style={{ display:"flex", justifyContent:"center", alignItems:"center", padding:"60px 20px", color:brand.muted, fontSize:14 }}>
     Loading…
@@ -1012,7 +1069,7 @@ const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch
         />
       )}
 
-      {viewMode === "list" && loading && <Spinner />}
+      {viewMode === "list" && loading && <TicketListSkeleton />}
 
       {viewMode === "list" && (() => {
         const visible = quickFilter ? tickets.filter(quickFilter.fn) : tickets;
@@ -1883,7 +1940,7 @@ const TicketEditorRoute = ({ saving, onSave, onDelete, onCreateInvoice, users, c
       .finally(() => setLoading(false));
   }, [ticketId, navigate]);
 
-  if (loading) return <div style={{ padding: 40, color: brand.muted, fontSize: 14 }}>Loading…</div>;
+  if (loading) return <TicketEditorSkeleton />;
   if (!ticket) return null;
 
   return (

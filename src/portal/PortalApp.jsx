@@ -69,6 +69,50 @@ function Spinner() {
   );
 }
 
+const portalShimmerCSS = `
+@keyframes _psk {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+._psk {
+  background: linear-gradient(90deg, #e8edf4 25%, #f4f7fc 50%, #e8edf4 75%);
+  background-size: 600px 100%;
+  animation: _psk 1.4s ease-in-out infinite;
+  border-radius: 6px;
+}`;
+
+function PSk({ w = "100%", h = 14 }) {
+  return <div className="_psk" style={{ width: w, height: h }} />;
+}
+
+function TableSkeleton({ cols = 5, rows = 6 }) {
+  return (
+    <div style={{ background: "#fff", borderRadius: 12, border: `1px solid ${brand.border}`, overflow: "hidden" }}>
+      <style>{portalShimmerCSS}</style>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr style={{ borderBottom: `2px solid ${brand.border}`, background: "#f8fafc" }}>
+            {[...Array(cols)].map((_, i) => (
+              <th key={i} style={{ padding: "12px 16px" }}><PSk w="70%" h={11} /></th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {[...Array(rows)].map((_, r) => (
+            <tr key={r} style={{ borderBottom: `1px solid ${brand.border}` }}>
+              {[...Array(cols)].map((_, c) => (
+                <td key={c} style={{ padding: "14px 16px" }}>
+                  <PSk w={c === 1 ? "80%" : c === 0 ? "55%" : "60%"} h={13} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function Toast({ message, type, onClose }) {
   useEffect(() => {
     const t = setTimeout(onClose, 4000);
@@ -422,7 +466,7 @@ function TicketsPage({ slug, showToast }) {
         />
       )}
 
-      {tickets === null ? <Spinner /> : tickets.length === 0 ? (
+      {tickets === null ? <TableSkeleton cols={6} rows={6} /> : tickets.length === 0 ? (
         <div style={{
           background: brand.white, borderRadius: 12, padding: 48,
           textAlign: "center", color: brand.muted, fontSize: 14,
@@ -670,7 +714,7 @@ function InvoicesPage({ slug, showToast }) {
     <div>
       <h1 style={{ fontSize: 22, fontWeight: 800, color: brand.text, marginBottom: 24 }}>My Invoices</h1>
 
-      {invoices === null ? <Spinner /> : invoices.length === 0 ? (
+      {invoices === null ? <TableSkeleton cols={5} rows={5} /> : invoices.length === 0 ? (
         <div style={{
           background: brand.white, borderRadius: 12, padding: 48,
           textAlign: "center", color: brand.muted, fontSize: 14,
