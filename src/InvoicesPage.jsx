@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   listInvoices, getInvoice, createInvoice, updateInvoice, deleteInvoice,
   listPayments, recordPayment, deletePayment, sendInvoiceEmail, invoicePdfUrl,
@@ -458,7 +459,7 @@ function NewInvoiceTicketPicker({ clientId, clientName, selected, onToggle }) {
 }
 
 // ─── Invoice editor (create / edit) ──────────────────────────────────────────
-function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, showToast, onRefresh }) {
+export function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, showToast, onRefresh }) {
   const isNew = !invoice;
   const [form, setForm] = useState(() => {
     if (prefill) return { ...EMPTY_INVOICE, ...prefill, _draft: undefined };
@@ -782,15 +783,59 @@ function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, showToast,
   );
 }
 
-// ─── Invoice list ─────────────────────────────────────────────────────────────
-export default function InvoicesPage({ showToast, initialDraft = null, onDraftConsumed }) {
+// ─── Invoice editor page (routed: /invoices/new and /invoices/:invoiceId) ─────
+export function InvoiceEditorRoute({ showToast, prefill = null, onDraftConsumed }) {
+  const { invoiceId } = useParams();
+  const navigate = useNavigate();
+  const isNew = !invoiceId;                       // /invoices/new has no :invoiceId
+  const [invoice, setInvoice] = useState(null);
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(!isNew);
+
+  useEffect(() => { listClients().then(setClients).catch(() => {}); }, []);
+
+  useEffect(() => {
+    if (isNew) { setLoading(false); return; }
+    setLoading(true);
+    getInvoice(invoiceId)
+      .then(setInvoice)
+      .catch(() => { showToast("Failed to load invoice.", "err"); navigate("/invoices", { replace: true }); })
+      .finally(() => setLoading(false));
+  }, [invoiceId, isNew]);
+
+  const handleSave = () => {
+    showToast(isNew ? "Invoice created." : "Invoice updated.", "ok");
+    if (isNew && onDraftConsumed) onDraftConsumed();
+    navigate("/invoices");
+  };
+
+  const handleCancel = () => {
+    if (isNew && onDraftConsumed) onDraftConsumed();
+    navigate("/invoices");
+  };
+
+  if (loading) return <div style={{ color: brand.muted, padding: "60px 0", textAlign: "center" }}>Loading…</div>;
+
+  return (
+    <InvoiceEditor
+      invoice={isNew ? null : invoice}
+      prefill={isNew ? prefill : null}
+      clients={clients}
+      onSave={handleSave}
+      onCancel={handleCancel}
+      showToast={showToast}
+    />
+  );
+}
+
+// ─── Invoice list (routed: /invoices) ─────────────────────────────────────────
+export default function InvoicesPage({ showToast }) {
+  const navigate = useNavigate();
   const [invoices, setInvoices] = useState([]);
   const [total,    setTotal]    = useState(0);
   const [page,     setPage]     = useState(1);
   const [loading,  setLoading]  = useState(true);
   const [statusFilter, setStatusFilter] = useState("All");
-  const [editing,  setEditing]  = useState(initialDraft ? { _draft: true, ...initialDraft } : null);
-  const [clients,  setClients]  = useState([]);
 
   const PAGE_SIZE = 25;
 
@@ -807,22 +852,8 @@ export default function InvoicesPage({ showToast, initialDraft = null, onDraftCo
   }, [page, statusFilter]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { listClients().then(setClients).catch(() => {}); }, []);
 
-  const handleSave = (saved) => {
-    const isNew = editing === "new" || editing?._draft;
-    showToast(isNew ? "Invoice created." : "Invoice updated.", "ok");
-    if (isNew && onDraftConsumed) onDraftConsumed();
-    setEditing(null);
-    load();
-  };
-
-  const handleEdit = async (inv) => {
-    try {
-      const full = await getInvoice(inv.id);
-      setEditing(full);
-    } catch { showToast("Failed to load invoice.", "err"); }
-  };
+  const handleEdit = (inv) => navigate(`/invoices/${inv.id}`);
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this invoice? This cannot be undone.")) return;
@@ -832,20 +863,6 @@ export default function InvoicesPage({ showToast, initialDraft = null, onDraftCo
       load();
     } catch { showToast("Failed to delete invoice.", "err"); }
   };
-
-  if (editing !== null) {
-    const isDraft = editing === "new" || editing?._draft;
-    return (
-      <InvoiceEditor
-        invoice={isDraft ? null : editing}
-        prefill={editing?._draft ? editing : null}
-        clients={clients}
-        onSave={handleSave}
-        onCancel={() => { if (editing?._draft && onDraftConsumed) onDraftConsumed(); setEditing(null); }}
-        showToast={showToast}
-      />
-    );
-  }
 
   const cell = { padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle" };
   const pages = Math.ceil(total / PAGE_SIZE);
@@ -858,7 +875,7 @@ export default function InvoicesPage({ showToast, initialDraft = null, onDraftCo
           <div style={{ fontWeight: 800, fontSize: 22, color: brand.text, marginBottom: 4 }}>Invoices</div>
           <div style={{ fontSize: 13, color: brand.muted }}>{total} invoice{total !== 1 ? "s" : ""}</div>
         </div>
-        <Btn variant="accent" onClick={() => setEditing("new")}>+ New Invoice</Btn>
+        <Btn variant="accent" onClick={() => navigate("/invoices/new")}>+ New Invoice</Btn>
       </div>
 
       {/* Status filter */}

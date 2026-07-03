@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.8.0] — 2026-07-02
+
+### Added — invoices now have their own pages (like tickets)
+- Each invoice is now a routed page with its own URL, matching how tickets work:
+  - `/invoices` — the list
+  - `/invoices/new` — create a new invoice
+  - `/invoices/:invoiceId` — view/edit a specific invoice
+- Clicking an invoice row (or **Edit**) navigates to that invoice's page; **+ New Invoice** goes to `/invoices/new`; saving or cancelling returns to the list. Invoice pages are now bookmarkable and browser back/forward works. "Create invoice from ticket" opens `/invoices/new` pre-filled.
+- The editor now loads its own data by URL (fetches the invoice for `:invoiceId`), so the list component is list-only.
+
+### Tests
+- New `src/__tests__/InvoicesPage.test.jsx` — list renders rows, `/invoices/new` shows the create form without fetching, `/invoices/:id` fetches and renders the invoice.
+
 ## [1.7.2] — 2026-07-02
 
 ### Fixed / Hardened

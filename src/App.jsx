@@ -19,7 +19,6 @@ import DocumentsPage from "./DocumentsPage.jsx";
 import ReportsPage from "./ReportsPage.jsx";
 import PortalPage from "./PortalPage.jsx";
 import ClientsPage from "./ClientsPage.jsx";
-import InvoicesPage from "./InvoicesPage.jsx";
 import SetupPage from "./SetupPage.jsx";
 import { getSetupStatus } from "./api/setup.js";
 import AppNew from "./AppNew.jsx";
@@ -2294,7 +2293,7 @@ export default function App() {
       tax_rate: 0,
       lines,
     });
-    navigate("/invoices");
+    navigate("/invoices/new");
   };
 
   if (needsSetup === null) return (

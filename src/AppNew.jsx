@@ -7,7 +7,7 @@ import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { useBranding } from "./branding.jsx";
 import DashboardPage from "./DashboardPage.jsx";
 import ClientsPage from "./ClientsPage.jsx";
-import InvoicesPage from "./InvoicesPage.jsx";
+import InvoicesPage, { InvoiceEditorRoute } from "./InvoicesPage.jsx";
 import SettingsPage from "./SettingsPage.jsx";
 import DocumentsPage from "./DocumentsPage.jsx";
 import ReportsPage from "./ReportsPage.jsx";
@@ -151,6 +151,7 @@ export default function AppNew({
     if (location.pathname.startsWith("/tickets/")) return "Ticket";
     if (location.pathname === "/tickets") return "Tickets";
     if (location.pathname === "/clients") return "Clients";
+    if (location.pathname.startsWith("/invoices/")) return "Invoice";
     if (location.pathname === "/invoices") return "Invoices";
     if (location.pathname === "/recurring") return "Recurring Tickets";
     if (location.pathname === "/documents") return "Documents";
@@ -283,7 +284,9 @@ export default function AppNew({
               />
             } />
             <Route path="/clients"   element={<ClientsPage showToast={showToast} />} />
-            <Route path="/invoices"  element={<InvoicesPage showToast={showToast} initialDraft={invoiceDraft} onDraftConsumed={() => setInvoiceDraft(null)} />} />
+            <Route path="/invoices"      element={<InvoicesPage showToast={showToast} />} />
+            <Route path="/invoices/new"  element={<InvoiceEditorRoute showToast={showToast} prefill={invoiceDraft} onDraftConsumed={() => setInvoiceDraft(null)} />} />
+            <Route path="/invoices/:invoiceId" element={<InvoiceEditorRoute showToast={showToast} />} />
             <Route path="/recurring" element={<RecurringPage showToast={showToast} clients={clients} />} />
             <Route path="/documents" element={<DocumentsPage showToast={showToast} user={user} />} />
             <Route path="/reports"   element={<ReportsPage />} />
