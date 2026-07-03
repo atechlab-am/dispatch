@@ -6,6 +6,7 @@ import {
   listMyInvoices, getMyInvoice, portalInvoicePdfUrl,
 } from "./api.js";
 import { setTokens, clearTokens, hasStoredSession, registerLogoutHandler, openPdfWithAuth } from "./client.js";
+import { isInvoicePayable } from "./helpers.js";
 
 // ─── Brand ───────────────────────────────────────────────────────────────────
 
@@ -803,6 +804,14 @@ function InvoiceDetailPage({ slug, showToast }) {
   if (loading) return <Spinner />;
   if (!invoice) return null;
 
+  const isPayable = isInvoicePayable(invoice);
+
+  // Placeholder for online payment. Later this will call the backend to create a
+  // Stripe Checkout Session and redirect the client to Stripe's hosted page.
+  const handlePayNow = () => {
+    showToast("Online card payment is coming soon. Please contact us to arrange payment.");
+  };
+
   return (
     <div>
       <button
@@ -827,6 +836,18 @@ function InvoiceDetailPage({ slug, showToast }) {
           </div>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <Badge label={invoice.status} colorMap={INVOICE_STATUS_COLORS} />
+            {isPayable && (
+              <button
+                onClick={handlePayNow}
+                style={{
+                  background: "#059669", color: brand.white, border: "none",
+                  padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 700,
+                  cursor: "pointer", fontFamily: "inherit",
+                }}
+              >
+                💳 Pay Now
+              </button>
+            )}
             <button
               onClick={() => openPdfWithAuth(portalInvoicePdfUrl(invoice.id))}
               style={{
@@ -896,6 +917,30 @@ function InvoiceDetailPage({ slug, showToast }) {
               </div>
             </>
           )}
+
+          {isPayable && (
+            <div style={{
+              marginTop: 24, display: "flex", justifyContent: "space-between", alignItems: "center",
+              flexWrap: "wrap", gap: 16,
+              background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 10, padding: "18px 22px",
+            }}>
+              <div>
+                <div style={{ fontSize: 12, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 700 }}>Balance Due</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: "#065f46", marginTop: 2 }}>${invoice.balance.toFixed(2)}</div>
+              </div>
+              <button
+                onClick={handlePayNow}
+                style={{
+                  background: "#059669", color: brand.white, border: "none",
+                  padding: "13px 32px", borderRadius: 9, fontSize: 15, fontWeight: 700,
+                  cursor: "pointer", fontFamily: "inherit",
+                }}
+              >
+                💳 Pay Now
+              </button>
+            </div>
+          )}
+
           {invoice.notes && (
             <div style={{
               marginTop: 24, background: "#f8fafc", borderRadius: 8, padding: 16,

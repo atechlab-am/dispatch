@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.8.1] — 2026-07-03
+
+### Added — client portal "Pay Now" (Stripe-ready placeholder)
+- Invoice detail pages in the client portal now show a **💲 Pay Now** button and a prominent **Balance Due** call-to-action whenever the invoice has an outstanding balance and isn't already Paid or Void. For now it shows a "coming soon — please contact us" message; the click handler is the single spot where Stripe Checkout will be wired in later (create a Checkout Session on the backend and redirect).
+- Extracted the payability rule into `src/portal/helpers.js` (`isInvoicePayable`) with unit tests.
+
+### Verified (already working, no change needed)
+- Clients can see their invoices (list with status, total, paid, and balance), open any invoice, and download its PDF.
+- Paid/unpaid state is clear from the status badge (Draft / Sent / Paid) plus the Paid and Balance Due amounts on both the list and detail views. Voided invoices are hidden from the portal entirely.
+
 ## [1.8.0] — 2026-07-02
 
 ### Added — invoices now have their own pages (like tickets)
