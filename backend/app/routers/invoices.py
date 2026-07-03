@@ -2,6 +2,7 @@ from datetime import datetime, date, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -143,6 +144,19 @@ def _compute_totals(lines: list[InvoiceLineIn], tax_rate: float):
     return round(subtotal, 2), tax_amount, total
 
 
+def _sync_ticket_billing(inv: Invoice, db: Session) -> None:
+    """Sync linked tickets' billing_status when the invoice status changes."""
+    if not inv.linked_tickets:
+        return
+    if inv.status == InvoiceStatus.paid:
+        for t in inv.linked_tickets:
+            t.billing_status = "paid"
+    elif inv.status in (InvoiceStatus.draft, InvoiceStatus.sent):
+        for t in inv.linked_tickets:
+            if t.billing_status != "paid":
+                t.billing_status = "invoiced"
+
+
 def _enrich(inv: Invoice) -> dict:
     """Return InvoiceOut dict with computed amount_paid, balance, and linked_tickets."""
     data = InvoiceOut.model_validate(inv).model_dump()
@@ -249,6 +263,7 @@ def update_invoice(
     db.flush()
     for l in body.lines:
         db.add(InvoiceLine(invoice_id=inv.id, description=l.description, qty=l.qty, unit_price=l.unit_price, amount=l.amount))
+    _sync_ticket_billing(inv, db)
     db.commit()
     db.refresh(inv)
     return _enrich(inv)
@@ -295,7 +310,7 @@ def list_unbilled_tickets_for_client(
     _: User = Depends(get_current_user),
 ):
     """Return unbilled tickets for a client before an invoice exists (used during new-invoice creation)."""
-    q = db.query(Ticket).filter(Ticket.billing_status == "unbilled")
+    q = db.query(Ticket).filter(or_(Ticket.billing_status == "unbilled", Ticket.billing_status == None))
     if client_id:
         ids = _client_id_set(db, client_id)
         q = q.filter(Ticket.client_id.in_(ids))
@@ -317,7 +332,7 @@ def list_unbilled_tickets(
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
-    q = db.query(Ticket).filter(Ticket.billing_status == "unbilled")
+    q = db.query(Ticket).filter(or_(Ticket.billing_status == "unbilled", Ticket.billing_status == None))
     if inv.client_id:
         ids = _client_id_set(db, inv.client_id)
         q = q.filter(Ticket.client_id.in_(ids))
@@ -387,6 +402,8 @@ def attach_tickets(
     inv.tax_amount = tax
     inv.total = round(subtotal + tax, 2)
     inv.updated_at = datetime.now(timezone.utc)
+    # Keep billing status consistent with the invoice (e.g. paid invoice → paid tickets)
+    _sync_ticket_billing(inv, db)
     db.commit()
     db.refresh(inv)
     return _enrich(inv)
@@ -399,13 +416,31 @@ def detach_ticket(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    """Remove a ticket from an invoice (does not delete the ticket or its lines from the invoice)."""
+    """Remove a ticket from an invoice, drop its imported lines, and recompute totals."""
     inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if ticket and ticket in inv.linked_tickets:
         inv.linked_tickets.remove(ticket)
+
+        # Drop the line items that were imported from this ticket so the invoice
+        # total no longer charges for a ticket that is no longer linked.
+        db.query(InvoiceLine).filter(
+            InvoiceLine.invoice_id == inv.id,
+            InvoiceLine.description.like(f"[{ticket_id}]%"),
+        ).delete(synchronize_session=False)
+        db.flush()
+
+        # Recompute totals from the remaining lines
+        remaining = db.query(InvoiceLine).filter(InvoiceLine.invoice_id == inv.id).all()
+        subtotal = round(sum(float(l.amount) for l in remaining), 2)
+        tax = round(subtotal * float(inv.tax_rate), 2)
+        inv.subtotal = subtotal
+        inv.tax_amount = tax
+        inv.total = round(subtotal + tax, 2)
+        inv.updated_at = datetime.now(timezone.utc)
+
         # Only revert to unbilled if not on another invoice
         from ..models.models import invoice_tickets
         still_linked = db.execute(
@@ -472,6 +507,7 @@ def record_payment(
     paid = float(sum(float(px.amount) for px in inv.payments)) + float(body.amount)
     if paid >= float(inv.total):
         inv.status = InvoiceStatus.paid
+        _sync_ticket_billing(inv, db)
     db.commit()
     db.refresh(p)
     return p

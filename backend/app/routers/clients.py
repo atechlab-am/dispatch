@@ -6,7 +6,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models.models import Client, ClientType, Invoice, InvoicePayment
+from ..models.models import Client, ClientType, Invoice, InvoicePayment, RecurringTicket
 from ..security import get_current_user
 
 router = APIRouter(prefix="/clients", tags=["clients"])
@@ -139,6 +139,12 @@ def delete_client(
     client = db.query(Client).filter(Client.id == client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
+    # Detach references that have no ORM cascade so the FK delete can't fail.
+    # Tickets are nulled automatically via the Client.tickets relationship, but
+    # recurring tickets have no relationship on Client, so null them explicitly.
+    db.query(RecurringTicket).filter(RecurringTicket.client_id == client_id).update(
+        {"client_id": None}, synchronize_session=False
+    )
     db.delete(client)
     db.commit()
 

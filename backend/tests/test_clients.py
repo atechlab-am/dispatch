@@ -73,6 +73,35 @@ def test_delete_client(client, admin_headers):
     assert r.status_code == 404
 
 
+def test_delete_client_with_ticket_nulls_reference(client, admin_headers):
+    r = client.post("/api/clients", json={**CLIENT_BASE, "name": "Has Ticket"}, headers=admin_headers)
+    cid = r.json()["id"]
+    r = client.post("/api/tickets", json={"status": "Open", "priority": "Low",
+        "client_type": "business", "client_id": cid, "client_name": "Has Ticket",
+        "client_email": "", "client_phone": "", "client_address": "", "title": "T",
+        "description": "", "internal_notes": "", "travel_fee": "travel_none",
+        "service_lines": [], "hour_logs": []}, headers=admin_headers)
+    tid = r.json()["id"]
+    r = client.delete(f"/api/clients/{cid}", headers=admin_headers)
+    assert r.status_code == 204
+    # Ticket survives with its client reference nulled
+    t = client.get(f"/api/tickets/{tid}", headers=admin_headers).json()
+    assert t["client_id"] is None
+    assert t["client_name"] == "Has Ticket"   # snapshot preserved
+
+
+def test_delete_client_with_recurring_ticket(client, admin_headers):
+    r = client.post("/api/clients", json={**CLIENT_BASE, "name": "Has Recurring"}, headers=admin_headers)
+    cid = r.json()["id"]
+    rr = client.post("/api/recurring", json={"name": "Monthly check", "interval": "monthly",
+        "ticket_type": "Incident", "client_type": "business", "priority": "Medium",
+        "client_id": cid, "title": "Monthly", "description": "", "active": True}, headers=admin_headers)
+    assert rr.status_code == 201
+    # Must not raise an FK error
+    r = client.delete(f"/api/clients/{cid}", headers=admin_headers)
+    assert r.status_code == 204
+
+
 def test_unauthenticated_cannot_list_clients(client):
     r = client.get("/api/clients")
     assert r.status_code in (401, 403)

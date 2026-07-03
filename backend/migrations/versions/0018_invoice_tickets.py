@@ -16,7 +16,10 @@ depends_on = None
 def upgrade():
     # 1. billing_status on tickets
     with op.batch_alter_table("tickets") as batch:
-        batch.add_column(sa.Column("billing_status", sa.String(20), nullable=False, server_default="unbilled"))
+        batch.add_column(sa.Column("billing_status", sa.String(20), nullable=True, server_default="unbilled"))
+
+    # Backfill any NULLs that slipped through (rows existing before column was added)
+    op.execute("UPDATE tickets SET billing_status = 'unbilled' WHERE billing_status IS NULL")
 
     # 2. join table  invoice_tickets
     op.create_table(

@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.6.6] — 2026-07-02
+
+Cross-domain integrity audit of the tickets ↔ clients ↔ invoices relationships. Verified all foreign keys, deletion behaviour, and billing-status sync; fixed three genuine issues found.
+
+### Fixed
+- **Deleting a client with a recurring ticket failed** — `recurring_tickets.client_id` has a foreign key but no ORM relationship on the Client model, so the reference was never nulled and PostgreSQL rejected the delete with a foreign-key violation (500 error). `delete_client` now explicitly nulls recurring-ticket references before deleting. (Regular tickets were already handled correctly — their `client_id` is nulled and the denormalised client-name snapshot is preserved.)
+- **Removing a ticket from an invoice left its charges behind** — detaching a ticket used to keep the imported `[TKT-…]` line items on the invoice while reverting the ticket to *unbilled*, so the invoice total still charged for it and the ticket could be billed again on another invoice (double-billing risk). Detach now deletes the ticket's imported lines and recomputes the invoice totals.
+- **Attaching a ticket to an already-paid invoice** now marks that ticket *paid* (matching the invoice) instead of *invoiced*.
+
+### Verified (no change needed)
+- Deleting a ticket that is linked to an invoice correctly removes the join row (invoice and its historical line items survive).
+- Deleting a client with invoices nulls `invoices.client_id` (SET NULL) and keeps the client-name snapshot.
+- New tickets always default to `unbilled`.
+
+## [1.6.5] — 2026-07-02
+
+### Added
+- **Billing status visible on tickets** — ticket list cards and the ticket editor header now show an "Invoiced" (blue) or "Paid" (green) badge when a ticket has been billed. Tickets still at *unbilled* show nothing (no badge clutter for the common case).
+
+### Changed
+- **Invoice → ticket status sync** — marking an invoice as **Paid** (manually via the Status field, or automatically when recorded payments cover the total) now immediately sets all linked tickets to *paid*. Changing an invoice back to Draft or Sent resets non-paid tickets to *invoiced*. This keeps ticket billing status always in sync with the invoice without requiring a manual "Mark All Paid" step.
+
+## [1.6.4] — 2026-07-02
+
+### Fixed
+- **Unbilled tickets not appearing** — tickets created before migration 0018 had `NULL` for `billing_status` instead of `"unbilled"` (the `server_default` only applies to new rows). Both unbilled-ticket endpoints now treat `NULL` the same as `"unbilled"`. Migration 0018 also backfills any remaining `NULL` values on upgrade.
+
+### Added
+- **Business name search on invoices** — the "Bill To" client picker is now a live search input instead of a plain dropdown. Type any part of a company or contact name to filter; click a result to select it. A "✕ Clear" link resets the selection back to manual entry.
+
 ## [1.6.3] — 2026-07-02
 
 ### Fixed

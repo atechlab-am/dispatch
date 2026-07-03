@@ -479,14 +479,34 @@ function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, showToast,
   const [liveInvoice, setLive]          = useState(invoice);
   const [ticketRefresh, setTicketRefresh] = useState(0);
   const [stagedTickets, setStagedTickets] = useState(new Set());
+  const [clientSearch, setClientSearch] = useState("");
 
   const up = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   const pickClient = (id) => {
     const c = clients.find(c => c.id === Number(id));
-    if (!c) { up("client_id", null); return; }
+    if (!c) { up("client_id", null); setClientSearch(""); return; }
+    setClientSearch(c.company || c.name);
     setForm(p => ({ ...p, client_id: c.id, client_name: c.name, client_email: c.email, client_address: c.address }));
   };
+
+  // Deduplicate by company for business clients; include all residential
+  const uniqueClients = (() => {
+    const seen = new Set();
+    return clients.filter(c => {
+      const key = c.company || `__res_${c.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  })();
+
+  const filteredClients = clientSearch.trim()
+    ? uniqueClients.filter(c => {
+        const term = clientSearch.toLowerCase();
+        return (c.company || c.name).toLowerCase().includes(term);
+      })
+    : uniqueClients;
 
   const upLine = (i, k, raw) => {
     setForm(p => {
@@ -581,11 +601,35 @@ function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, showToast,
           <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px" }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>Bill To</div>
             <div style={{ marginBottom: 10 }}>
-              <FieldLabel>Select Client</FieldLabel>
-              <select style={inp} value={form.client_id ?? ""} onChange={e => pickClient(e.target.value)}>
-                <option value="">— Manual entry —</option>
-                {clients.map(c => <option key={c.id} value={c.id}>{c.name}{c.company ? ` (${c.company})` : ""}</option>)}
-              </select>
+              <FieldLabel>Search Client</FieldLabel>
+              <input
+                style={inp}
+                value={clientSearch}
+                onChange={e => { setClientSearch(e.target.value); if (!e.target.value) { up("client_id", null); } }}
+                placeholder="Type to search business or name…"
+              />
+              {clientSearch.trim() && (
+                <div style={{ border: `1px solid ${brand.border}`, borderRadius: 6, marginTop: 4, maxHeight: 180, overflowY: "auto", background: "#fff", boxShadow: "0 4px 12px rgba(0,0,0,0.10)", zIndex: 10, position: "relative" }}>
+                  {filteredClients.length === 0 ? (
+                    <div style={{ padding: "10px 12px", fontSize: 13, color: brand.muted }}>No matches</div>
+                  ) : (
+                    filteredClients.map(c => (
+                      <div key={c.id}
+                        onMouseDown={e => { e.preventDefault(); pickClient(c.id); }}
+                        style={{ padding: "9px 12px", fontSize: 13, cursor: "pointer", borderBottom: `1px solid ${brand.border}`, background: form.client_id === c.id ? brand.bg : "#fff" }}>
+                        <span style={{ fontWeight: 600 }}>{c.company || c.name}</span>
+                        {c.company && c.name !== c.company && <span style={{ color: brand.muted, marginLeft: 6 }}>({c.name})</span>}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+              {form.client_id && (
+                <div style={{ marginTop: 6, fontSize: 12, color: brand.success, fontWeight: 600 }}>
+                  ✓ {form.client_name} selected
+                  &nbsp;<button type="button" onClick={() => { pickClient(""); setClientSearch(""); }} style={{ background: "none", border: "none", color: brand.danger, cursor: "pointer", fontSize: 12 }}>✕ Clear</button>
+                </div>
+              )}
             </div>
             <div style={{ marginBottom: 10 }}>
               <FieldLabel>Name</FieldLabel>

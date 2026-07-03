@@ -142,6 +142,7 @@ const apiToEditor = (t) => ({
   description:   t.description,
   internalNotes: t.internal_notes,
   travelFee:     t.travel_fee,
+  billingStatus: t.billing_status ?? "unbilled",
   services: (t.service_lines ?? []).map((sl) => ({
     _id:          sl.id,
     serviceId:    sl.service_id,
@@ -1019,6 +1020,9 @@ const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch
                 <Badge color={statusColor[t.status]||"gray"}>{t.status}</Badge>
                 <Badge color={priorityColor[t.priority]||"gray"}>{t.priority}</Badge>
                 <Badge color={t.client_type==="business"?"blue":"amber"}>{t.client_type==="business"?"🏢 Business":"🏠 Residential"}</Badge>
+                {t.billing_status && t.billing_status !== "unbilled" && (
+                  <Badge color={t.billing_status === "paid" ? "green" : "blue"}>{t.billing_status === "paid" ? "Paid" : "Invoiced"}</Badge>
+                )}
               </div>
               <div style={{ fontWeight:700, fontSize:15, color:brand.text }}>{t.title||"(No title)"}</div>
               <div style={{ fontSize:12, color:brand.muted, marginTop:3 }}>
@@ -1571,7 +1575,12 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
           <button onClick={onBack} style={{ background:"none", border:`1px solid ${brand.border}`, color:brand.blue, cursor:"pointer", fontSize:18, borderRadius:6, width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center" }}>←</button>
           <div>
-            <div style={{ fontWeight:800, fontSize:18, color:brand.text, fontFamily:"monospace" }}>{t.id}</div>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <div style={{ fontWeight:800, fontSize:18, color:brand.text, fontFamily:"monospace" }}>{t.id}</div>
+              {t.billingStatus && t.billingStatus !== "unbilled" && (
+                <Badge color={t.billingStatus === "paid" ? "green" : "blue"}>{t.billingStatus === "paid" ? "Paid" : "Invoiced"}</Badge>
+              )}
+            </div>
             <div style={{ fontSize:12, color:brand.muted }}>Created {t.createdAt}</div>
           </div>
         </div>

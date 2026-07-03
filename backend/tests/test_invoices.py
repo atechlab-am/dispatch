@@ -221,3 +221,86 @@ def test_client_statement(client, admin_headers):
 def test_client_statement_not_found(client, admin_headers):
     r = client.get("/api/clients/999999/statement", headers=admin_headers)
     assert r.status_code == 404
+
+
+# ─── Ticket linking & billing-status sync tests ───────────────────────────────
+
+def _make_ticket_with_client(client, admin_headers, name="Link Co", company="Link Co"):
+    r = client.post("/api/clients", json={"name": name, "email": "link@example.com",
+        "phone": "", "address": "", "client_type": "business", "company": company, "notes": ""}, headers=admin_headers)
+    cid = r.json()["id"]
+    r = client.post("/api/tickets", json={
+        "status": "Open", "priority": "High", "client_type": "business",
+        "client_id": cid, "client_name": name, "client_email": "link@example.com",
+        "client_phone": "", "client_address": "", "title": "Linked work",
+        "description": "", "internal_notes": "", "travel_fee": "travel_none",
+        "service_lines": [{"service_id": "svc", "name": "Setup", "type": "flat",
+            "rate": 200, "base": 0, "per_unit": 0, "per_unit_label": "",
+            "unit_label": "unit", "qty": 1, "extra_qty": 0}],
+        "hour_logs": [],
+    }, headers=admin_headers)
+    return cid, r.json()["id"]
+
+
+def test_attach_ticket_imports_lines_and_marks_invoiced(client, admin_headers):
+    cid, tid = _make_ticket_with_client(client, admin_headers)
+    inv = client.post("/api/invoices", json={**INVOICE_BASE, "client_id": cid, "tax_rate": 0, "lines": []}, headers=admin_headers).json()
+    r = client.post(f"/api/invoices/{inv['id']}/tickets", json={"ticket_ids": [tid]}, headers=admin_headers)
+    assert r.status_code == 200
+    data = r.json()
+    assert any(t["id"] == tid for t in data["linked_tickets"])
+    assert data["total"] == 200
+    # ticket now shows invoiced
+    t = client.get(f"/api/tickets/{tid}", headers=admin_headers).json()
+    assert t["billing_status"] == "invoiced"
+
+
+def test_detach_ticket_removes_lines_and_reverts_status(client, admin_headers):
+    cid, tid = _make_ticket_with_client(client, admin_headers)
+    inv = client.post("/api/invoices", json={**INVOICE_BASE, "client_id": cid, "tax_rate": 0, "lines": []}, headers=admin_headers).json()
+    client.post(f"/api/invoices/{inv['id']}/tickets", json={"ticket_ids": [tid]}, headers=admin_headers)
+    r = client.delete(f"/api/invoices/{inv['id']}/tickets/{tid}", headers=admin_headers)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["linked_tickets"] == []
+    assert data["total"] == 0            # imported line removed, total recomputed
+    t = client.get(f"/api/tickets/{tid}", headers=admin_headers).json()
+    assert t["billing_status"] == "unbilled"
+
+
+def test_marking_invoice_paid_syncs_linked_tickets(client, admin_headers):
+    cid, tid = _make_ticket_with_client(client, admin_headers)
+    inv = client.post("/api/invoices", json={**INVOICE_BASE, "client_id": cid, "tax_rate": 0, "lines": []}, headers=admin_headers).json()
+    client.post(f"/api/invoices/{inv['id']}/tickets", json={"ticket_ids": [tid]}, headers=admin_headers)
+    # Mark invoice Paid via update
+    full = client.get(f"/api/invoices/{inv['id']}", headers=admin_headers).json()
+    payload = {k: full[k] for k in ["client_id", "client_name", "client_email", "client_address",
+        "issue_date", "due_date", "notes", "tax_rate"]}
+    payload["status"] = "Paid"
+    payload["lines"] = [{"description": l["description"], "qty": l["qty"],
+        "unit_price": l["unit_price"], "amount": l["amount"]} for l in full["lines"]]
+    r = client.put(f"/api/invoices/{inv['id']}", json=payload, headers=admin_headers)
+    assert r.status_code == 200
+    t = client.get(f"/api/tickets/{tid}", headers=admin_headers).json()
+    assert t["billing_status"] == "paid"
+
+
+def test_unbilled_tickets_scoped_company_wide(client, admin_headers):
+    # Two contacts sharing one company; a ticket on each
+    r1 = client.post("/api/clients", json={"name": "Contact A", "email": "a@co.com", "phone": "",
+        "address": "", "client_type": "business", "company": "Shared Co", "notes": ""}, headers=admin_headers)
+    r2 = client.post("/api/clients", json={"name": "Contact B", "email": "b@co.com", "phone": "",
+        "address": "", "client_type": "business", "company": "Shared Co", "notes": ""}, headers=admin_headers)
+    a, b = r1.json()["id"], r2.json()["id"]
+    for cid, name in [(a, "Contact A"), (b, "Contact B")]:
+        client.post("/api/tickets", json={"status": "Open", "priority": "Low", "client_type": "business",
+            "client_id": cid, "client_name": name, "client_email": "", "client_phone": "",
+            "client_address": "", "title": f"Work for {name}", "description": "", "internal_notes": "",
+            "travel_fee": "travel_none", "service_lines": [], "hour_logs": []}, headers=admin_headers)
+    # Invoice billed to contact A should still see contact B's ticket (same company)
+    inv = client.post("/api/invoices", json={**INVOICE_BASE, "client_id": a, "tax_rate": 0, "lines": []}, headers=admin_headers).json()
+    r = client.get(f"/api/invoices/{inv['id']}/unbilled-tickets", headers=admin_headers)
+    assert r.status_code == 200
+    names = {t["title"] for t in r.json()}
+    assert "Work for Contact A" in names
+    assert "Work for Contact B" in names

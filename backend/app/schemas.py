@@ -104,6 +104,7 @@ class TicketOut(BaseModel):
     description: str
     internal_notes: str
     travel_fee: TravelFee
+    billing_status: Optional[str] = "unbilled"
     created_at: datetime
     updated_at: datetime
     created_by: int
@@ -124,6 +125,7 @@ class TicketListItem(BaseModel):
     client_type: ClientType
     client_name: str
     title: str
+    billing_status: Optional[str] = "unbilled"
     created_at: datetime
     updated_at: datetime
     created_by: int
