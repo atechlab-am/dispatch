@@ -283,6 +283,39 @@ def test_marking_invoice_paid_syncs_linked_tickets(client, admin_headers):
     assert r.status_code == 200
     t = client.get(f"/api/tickets/{tid}", headers=admin_headers).json()
     assert t["billing_status"] == "paid"
+    assert t["status"] == "Closed"   # paid work is fully done → Closed
+
+
+def test_only_resolved_tickets_are_invoiceable(client, admin_headers):
+    """The picker must exclude tickets that aren't Resolved."""
+    r = client.post("/api/clients", json={"name": "Res Co", "email": "r@co.com", "phone": "",
+        "address": "", "client_type": "business", "company": "Res Co", "notes": ""}, headers=admin_headers)
+    cid = r.json()["id"]
+    base = {"client_type": "business", "client_id": cid, "client_name": "Res Co",
+            "client_email": "", "client_phone": "", "client_address": "", "description": "",
+            "internal_notes": "", "travel_fee": "travel_none", "service_lines": [], "hour_logs": [],
+            "priority": "Low"}
+    client.post("/api/tickets", json={**base, "status": "Open", "title": "Still open"}, headers=admin_headers)
+    client.post("/api/tickets", json={**base, "status": "In Progress", "title": "WIP"}, headers=admin_headers)
+    client.post("/api/tickets", json={**base, "status": "Resolved", "title": "Ready to bill"}, headers=admin_headers)
+
+    r = client.get("/api/invoices/unbilled-tickets", params={"client_id": cid}, headers=admin_headers)
+    assert r.status_code == 200
+    titles = {t["title"] for t in r.json()}
+    assert "Ready to bill" in titles
+    assert "Still open" not in titles
+    assert "WIP" not in titles
+
+
+def test_bulk_mark_paid_closes_tickets(client, admin_headers):
+    cid, tid = _make_ticket_with_client(client, admin_headers)
+    inv = client.post("/api/invoices", json={**INVOICE_BASE, "client_id": cid, "tax_rate": 0, "lines": []}, headers=admin_headers).json()
+    client.post(f"/api/invoices/{inv['id']}/tickets", json={"ticket_ids": [tid]}, headers=admin_headers)
+    r = client.post("/api/invoices/tickets/mark-paid", json={"ticket_ids": [tid]}, headers=admin_headers)
+    assert r.status_code == 204
+    t = client.get(f"/api/tickets/{tid}", headers=admin_headers).json()
+    assert t["billing_status"] == "paid"
+    assert t["status"] == "Closed"
 
 
 def test_unbilled_tickets_scoped_company_wide(client, admin_headers):
@@ -293,7 +326,7 @@ def test_unbilled_tickets_scoped_company_wide(client, admin_headers):
         "address": "", "client_type": "business", "company": "Shared Co", "notes": ""}, headers=admin_headers)
     a, b = r1.json()["id"], r2.json()["id"]
     for cid, name in [(a, "Contact A"), (b, "Contact B")]:
-        client.post("/api/tickets", json={"status": "Open", "priority": "Low", "client_type": "business",
+        client.post("/api/tickets", json={"status": "Resolved", "priority": "Low", "client_type": "business",
             "client_id": cid, "client_name": name, "client_email": "", "client_phone": "",
             "client_address": "", "title": f"Work for {name}", "description": "", "internal_notes": "",
             "travel_fee": "travel_none", "service_lines": [], "hour_logs": []}, headers=admin_headers)
@@ -315,7 +348,7 @@ def test_unbilled_tickets_for_client_endpoint(client, admin_headers):
         "address": "", "client_type": "business", "company": "Preinv Co", "notes": ""}, headers=admin_headers)
     a, b = r1.json()["id"], r2.json()["id"]
     for cid, name in [(a, "Preinv A"), (b, "Preinv B")]:
-        client.post("/api/tickets", json={"status": "Open", "priority": "Low", "client_type": "business",
+        client.post("/api/tickets", json={"status": "Resolved", "priority": "Low", "client_type": "business",
             "client_id": cid, "client_name": name, "client_email": "", "client_phone": "",
             "client_address": "", "title": f"Pre work {name}", "description": "", "internal_notes": "",
             "travel_fee": "travel_none", "service_lines": [], "hour_logs": []}, headers=admin_headers)
@@ -329,9 +362,72 @@ def test_unbilled_tickets_for_client_endpoint(client, admin_headers):
     assert "Pre work Preinv B" in names
 
 
+def test_cannot_attach_already_invoiced_ticket_to_another_invoice(client, admin_headers):
+    """A ticket already on an invoice must not be billable on a second one."""
+    cid, tid = _make_ticket_with_client(client, admin_headers)
+    inv1 = client.post("/api/invoices", json={**INVOICE_BASE, "client_id": cid, "tax_rate": 0, "lines": []}, headers=admin_headers).json()
+    r = client.post(f"/api/invoices/{inv1['id']}/tickets", json={"ticket_ids": [tid]}, headers=admin_headers)
+    assert r.status_code == 200
+
+    inv2 = client.post("/api/invoices", json={**INVOICE_BASE, "client_id": cid, "tax_rate": 0, "lines": []}, headers=admin_headers).json()
+    r = client.post(f"/api/invoices/{inv2['id']}/tickets", json={"ticket_ids": [tid]}, headers=admin_headers)
+    assert r.status_code == 409
+    assert tid in r.json()["detail"]
+    # inv2 must not have picked it up or imported any lines
+    inv2_after = client.get(f"/api/invoices/{inv2['id']}", headers=admin_headers).json()
+    assert inv2_after["linked_tickets"] == []
+    assert float(inv2_after["total"]) == 0
+
+
+def test_cannot_attach_paid_ticket_again(client, admin_headers):
+    cid, tid = _make_ticket_with_client(client, admin_headers)
+    inv1 = client.post("/api/invoices", json={**INVOICE_BASE, "client_id": cid, "tax_rate": 0, "lines": []}, headers=admin_headers).json()
+    client.post(f"/api/invoices/{inv1['id']}/tickets", json={"ticket_ids": [tid]}, headers=admin_headers)
+    client.post("/api/invoices/tickets/mark-paid", json={"ticket_ids": [tid]}, headers=admin_headers)
+    inv2 = client.post("/api/invoices", json={**INVOICE_BASE, "client_id": cid, "tax_rate": 0, "lines": []}, headers=admin_headers).json()
+    r = client.post(f"/api/invoices/{inv2['id']}/tickets", json={"ticket_ids": [tid]}, headers=admin_headers)
+    assert r.status_code == 409
+
+
+def test_reattaching_same_ticket_to_same_invoice_is_noop(client, admin_headers):
+    """Re-sending a ticket already on this invoice must not error or duplicate lines."""
+    cid, tid = _make_ticket_with_client(client, admin_headers)
+    inv = client.post("/api/invoices", json={**INVOICE_BASE, "client_id": cid, "tax_rate": 0, "lines": []}, headers=admin_headers).json()
+    client.post(f"/api/invoices/{inv['id']}/tickets", json={"ticket_ids": [tid]}, headers=admin_headers)
+    r = client.post(f"/api/invoices/{inv['id']}/tickets", json={"ticket_ids": [tid]}, headers=admin_headers)
+    assert r.status_code == 200
+    data = r.json()
+    assert sum(1 for t in data["linked_tickets"] if t["id"] == tid) == 1
+    assert float(data["total"]) == 200   # not double-imported
+
+
+def test_deleting_invoice_reverts_ticket_billing_status(client, admin_headers):
+    """Deleting an invoice must not leave its tickets stuck showing 'invoiced'."""
+    cid, tid = _make_ticket_with_client(client, admin_headers)
+    inv = client.post("/api/invoices", json={**INVOICE_BASE, "client_id": cid, "tax_rate": 0, "lines": []}, headers=admin_headers).json()
+    client.post(f"/api/invoices/{inv['id']}/tickets", json={"ticket_ids": [tid]}, headers=admin_headers)
+    # Confirm it became invoiced
+    assert client.get(f"/api/tickets/{tid}", headers=admin_headers).json()["billing_status"] == "invoiced"
+    # Delete the invoice — ticket should return to unbilled
+    r = client.delete(f"/api/invoices/{inv['id']}", headers=admin_headers)
+    assert r.status_code == 204
+    assert client.get(f"/api/tickets/{tid}", headers=admin_headers).json()["billing_status"] == "unbilled"
+
+
+def test_deleting_paid_invoice_reverts_ticket_billing_status(client, admin_headers):
+    cid, tid = _make_ticket_with_client(client, admin_headers)
+    inv = client.post("/api/invoices", json={**INVOICE_BASE, "client_id": cid, "tax_rate": 0, "lines": []}, headers=admin_headers).json()
+    client.post(f"/api/invoices/{inv['id']}/tickets", json={"ticket_ids": [tid]}, headers=admin_headers)
+    client.post("/api/invoices/tickets/mark-paid", json={"ticket_ids": [tid]}, headers=admin_headers)
+    assert client.get(f"/api/tickets/{tid}", headers=admin_headers).json()["billing_status"] == "paid"
+    client.delete(f"/api/invoices/{inv['id']}", headers=admin_headers)
+    # No invoice behind it any more → unbilled
+    assert client.get(f"/api/tickets/{tid}", headers=admin_headers).json()["billing_status"] == "unbilled"
+
+
 def test_unbilled_tickets_for_client_by_name(client, admin_headers):
     # Manual-entry invoices have no client_id; picker falls back to client_name match
-    client.post("/api/tickets", json={"status": "Open", "priority": "Low", "client_type": "business",
+    client.post("/api/tickets", json={"status": "Resolved", "priority": "Low", "client_type": "business",
         "client_name": "Nameonly Corp", "client_email": "", "client_phone": "",
         "client_address": "", "title": "Nameonly work", "description": "", "internal_notes": "",
         "travel_fee": "travel_none", "service_lines": [], "hour_logs": []}, headers=admin_headers)

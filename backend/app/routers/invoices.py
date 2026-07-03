@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models.models import Invoice, InvoiceLine, InvoicePayment, InvoiceStatus, User, Ticket
+from ..models.models import Invoice, InvoiceLine, InvoicePayment, InvoiceStatus, User, Ticket, TicketStatus
 from ..security import get_current_user
 from .. import email as mail
 
@@ -145,12 +145,17 @@ def _compute_totals(lines: list[InvoiceLineIn], tax_rate: float):
 
 
 def _sync_ticket_billing(inv: Invoice, db: Session) -> None:
-    """Sync linked tickets' billing_status when the invoice status changes."""
+    """Sync linked tickets' billing (and workflow) status when the invoice changes.
+
+    Added to an invoice → billing_status "invoiced".
+    Invoice paid          → billing_status "paid" AND workflow status Closed.
+    """
     if not inv.linked_tickets:
         return
     if inv.status == InvoiceStatus.paid:
         for t in inv.linked_tickets:
             t.billing_status = "paid"
+            t.status = TicketStatus.closed
     elif inv.status in (InvoiceStatus.draft, InvoiceStatus.sent):
         for t in inv.linked_tickets:
             if t.billing_status != "paid":
@@ -251,8 +256,11 @@ def list_unbilled_tickets_for_client(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    """Return unbilled tickets for a client before an invoice exists (used during new-invoice creation)."""
-    q = db.query(Ticket).filter(or_(Ticket.billing_status == "unbilled", Ticket.billing_status == None))
+    """Return unbilled *resolved* tickets for a client before an invoice exists (new-invoice creation)."""
+    q = db.query(Ticket).filter(
+        or_(Ticket.billing_status == "unbilled", Ticket.billing_status == None),
+        Ticket.status == TicketStatus.resolved,
+    )
     if client_id:
         ids = _client_id_set(db, client_id)
         q = q.filter(Ticket.client_id.in_(ids))
@@ -310,10 +318,25 @@ def update_invoice(
 
 @router.delete("/{invoice_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_invoice(invoice_id: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+    from ..models.models import invoice_tickets
     inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
+
+    # Reset billing status on the tickets this invoice covered. Deleting the invoice
+    # removes the join rows via CASCADE but would otherwise leave the tickets stuck
+    # showing "invoiced"/"paid" with no invoice behind them.
+    linked_ids = [t.id for t in inv.linked_tickets]
     db.delete(inv)
+    db.flush()  # join rows are gone after flush, so "still linked elsewhere" is accurate
+    for tid in linked_ids:
+        still_linked = db.execute(
+            invoice_tickets.select().where(invoice_tickets.c.ticket_id == tid)
+        ).first()
+        if not still_linked:
+            ticket = db.query(Ticket).filter(Ticket.id == tid).first()
+            if ticket:
+                ticket.billing_status = "unbilled"
     db.commit()
 
 
@@ -329,12 +352,15 @@ def list_unbilled_tickets(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    """Return unbilled tickets that belong to the same company as this invoice's client."""
+    """Return unbilled *resolved* tickets in the same company as this invoice's client."""
     inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
-    q = db.query(Ticket).filter(or_(Ticket.billing_status == "unbilled", Ticket.billing_status == None))
+    q = db.query(Ticket).filter(
+        or_(Ticket.billing_status == "unbilled", Ticket.billing_status == None),
+        Ticket.status == TicketStatus.resolved,
+    )
     if inv.client_id:
         ids = _client_id_set(db, inv.client_id)
         q = q.filter(Ticket.client_id.in_(ids))
@@ -359,6 +385,22 @@ def attach_tickets(
     inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
+
+    # A ticket that is already invoiced or paid (on any invoice) must not be billed
+    # again. Validate up-front so the whole request is rejected atomically rather than
+    # partially attaching. Tickets already on *this* invoice are a harmless no-op.
+    on_this_invoice = {t.id for t in inv.linked_tickets}
+    already_billed = [
+        tid for tid in body.ticket_ids
+        if tid not in on_this_invoice
+        and (t := db.query(Ticket).filter(Ticket.id == tid).first()) is not None
+        and t.billing_status in ("invoiced", "paid")
+    ]
+    if already_billed:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Already invoiced and cannot be billed again: {', '.join(already_billed)}",
+        )
 
     for tid in body.ticket_ids:
         ticket = db.query(Ticket).filter(Ticket.id == tid).first()
@@ -465,9 +507,9 @@ def mark_tickets_paid(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    """Bulk-mark tickets as paid."""
+    """Bulk-mark tickets as paid and close them (paid work is fully done)."""
     db.query(Ticket).filter(Ticket.id.in_(body.ticket_ids)).update(
-        {"billing_status": "paid"}, synchronize_session=False
+        {"billing_status": "paid", "status": TicketStatus.closed}, synchronize_session=False
     )
     db.commit()
 

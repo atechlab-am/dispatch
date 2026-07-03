@@ -856,6 +856,20 @@ const BoardView = ({ tickets, onSelect, onStatusChange, users }) => {
                       </div>
                     )}
 
+                    {/* Billing status */}
+                    {t.billing_status && t.billing_status !== "unbilled" && (
+                      <div style={{ marginBottom: 8 }}>
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, borderRadius: 4, padding: "1px 6px",
+                          ...(t.billing_status === "paid"
+                            ? { background: "#d1fae5", color: "#065f46" }
+                            : { background: "#dbeafe", color: "#1d4ed8" }),
+                        }}>
+                          {t.billing_status === "paid" ? "💲 Paid" : "🧾 Invoiced"}
+                        </span>
+                      </div>
+                    )}
+
                     {/* Footer row */}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 5 }}>

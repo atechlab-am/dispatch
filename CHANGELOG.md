@@ -1,5 +1,40 @@
 # Changelog
 
+## [1.7.2] — 2026-07-02
+
+### Fixed / Hardened
+- **A ticket can no longer be invoiced twice** — the picker already hid invoiced/paid tickets, but the attach endpoint didn't enforce it, so a stale picker, a second browser tab, or a direct API call could add an already-billed ticket to a second invoice and double-bill it. `POST /invoices/{id}/tickets` now rejects the request with **409 Conflict** (listing the offending ticket IDs) if any ticket is already `invoiced` or `paid` on another invoice. Validation happens up-front so the request is atomic — nothing is partially attached. Re-sending a ticket already on the *same* invoice remains a harmless no-op.
+- Frontend surfaces the server's reason (e.g. "Already invoiced…") instead of a generic error, and refreshes the picker so the stale ticket disappears. During new-invoice creation, a ticket-attach failure no longer reports the whole invoice save as failed — the invoice still completes and only the ticket issue is shown.
+
+### Tests
+- Added coverage: attaching an already-invoiced ticket to a second invoice → 409; attaching a paid ticket again → 409; re-attaching to the same invoice is a no-op (no duplicate lines).
+
+## [1.7.1] — 2026-07-02
+
+### Changed — invoicing workflow tied to ticket status
+- **Only Resolved tickets can be invoiced** — the invoice ticket picker (both during creation and when editing an invoice) now lists only tickets whose workflow status is *Resolved*. Open / In Progress / Awaiting Client / On Hold tickets are no longer offered for billing.
+- **Invoice paid → ticket Closed** — when an invoice is marked Paid (via status change, auto-pay on full payment, or the "Mark All Tickets Paid" button), its linked tickets are now set to workflow status **Closed** in addition to billing status **Paid**. Paid work is fully done.
+- Picker labels updated to say "Resolved Tickets" / "No resolved, unbilled tickets for this client" so it's clear why non-resolved tickets don't appear.
+
+Full lifecycle: a ticket is worked to **Resolved** → appears in the invoice picker → added to an invoice becomes **Invoiced** → invoice paid becomes **Paid + Closed**. Removing it from an invoice (or deleting the invoice) returns it to **Unbilled**.
+
+### Tests
+- Added coverage: picker excludes non-Resolved tickets; marking an invoice paid closes its tickets; bulk mark-paid closes tickets.
+
+## [1.7.0] — 2026-07-02
+
+### Fixed
+- **Tickets stuck showing "invoiced"/"paid" after their invoice was deleted** — deleting an invoice removed the ticket↔invoice join rows (CASCADE) but never reset the ticket's `billing_status`, so tickets displayed as invoiced/paid with no invoice behind them. `delete_invoice` now reverts each affected ticket to `unbilled` (unless it's still linked to another invoice). Migration 0020 reconciles existing data by re-deriving every ticket's billing status from its real invoice links (no link → unbilled, linked → invoiced, on a Paid invoice → paid).
+
+### Added
+- **Billing status on the board (kanban) view** — ticket cards now show a "🧾 Invoiced" (blue) or "💲 Paid" (green) chip, matching the list view and ticket editor. Unbilled tickets show no chip.
+
+### Behaviour (already correct, now consistent everywhere)
+- A ticket becomes **Invoiced** when added to an invoice, and **Paid** when that invoice is marked Paid (or its tickets are bulk-marked paid). Removing a ticket from an invoice, or deleting the invoice, returns it to **Unbilled**.
+
+### Tests
+- Added coverage for invoice deletion reverting ticket billing status (both invoiced and paid cases).
+
 ## [1.6.9] — 2026-07-02
 
 ### Fixed

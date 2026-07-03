@@ -274,7 +274,10 @@ function TicketPickerPanel({ invoice, showToast, onInvoiceUpdated }) {
       onInvoiceUpdated(updated);
       await load();
       showToast(`${selected.size} ticket${selected.size > 1 ? "s" : ""} added.`, "ok");
-    } catch { showToast("Failed to attach tickets.", "err"); }
+    } catch (err) {
+      showToast(err?.response?.data?.detail || "Failed to attach tickets.", "err");
+      await load();  // refresh so a stale/already-billed ticket disappears from the picker
+    }
     finally { setAdding(false); }
   };
 
@@ -352,12 +355,12 @@ function TicketPickerPanel({ invoice, showToast, onInvoiceUpdated }) {
 
       {/* Unbilled ticket picker */}
       <div style={{ fontSize: 12, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
-        Add Unbilled Tickets from This Client
+        Add Resolved Tickets from This Client
       </div>
       {unbilled === null ? (
         <div style={{ color: brand.muted, fontSize: 13 }}>Loading…</div>
       ) : unbilled.length === 0 ? (
-        <div style={{ color: brand.muted, fontSize: 13 }}>No unbilled tickets for this client.</div>
+        <div style={{ color: brand.muted, fontSize: 13 }}>No resolved, unbilled tickets for this client.</div>
       ) : (
         <>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -415,12 +418,12 @@ function NewInvoiceTicketPicker({ clientId, clientName, selected, onToggle }) {
   return (
     <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px", marginTop: 20 }}>
       <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
-        Attach Unbilled Tickets
+        Attach Resolved Tickets
       </div>
       {unbilled === null ? (
         <div style={{ color: brand.muted, fontSize: 13 }}>Loading…</div>
       ) : unbilled.length === 0 ? (
-        <div style={{ color: brand.muted, fontSize: 13 }}>No unbilled tickets for this client.</div>
+        <div style={{ color: brand.muted, fontSize: 13 }}>No resolved, unbilled tickets for this client.</div>
       ) : (
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
@@ -540,9 +543,15 @@ function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, showToast,
         lines: form.lines.map(l => ({ ...l, qty: Number(l.qty), unit_price: Number(l.unit_price), amount: Number(l.amount) })),
       };
       let saved = isNew ? await createInvoice(payload) : await updateInvoice(invoice.id, payload);
-      // Attach any staged tickets selected during new-invoice creation
+      // Attach any staged tickets selected during new-invoice creation. The invoice
+      // already exists at this point, so a ticket failure must not report the whole
+      // save as failed — surface the ticket reason but still complete the save.
       if (isNew && stagedTickets.size > 0) {
-        saved = await attachTickets(saved.id, [...stagedTickets]);
+        try {
+          saved = await attachTickets(saved.id, [...stagedTickets]);
+        } catch (attachErr) {
+          showToast(attachErr?.response?.data?.detail || "Invoice saved, but some tickets could not be attached.", "err");
+        }
       }
       setLive(saved);
       onSave(saved);
