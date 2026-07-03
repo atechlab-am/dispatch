@@ -224,6 +224,45 @@ def create_invoice(
     return _enrich(inv)
 
 
+class UnbilledTicketOut(BaseModel):
+    id: str
+    title: str
+    status: str
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+def _client_id_set(db: Session, client_id: int) -> set[int]:
+    """Return all client IDs in the same company as client_id (company-wide scope)."""
+    from ..models.models import Client
+    anchor = db.query(Client).filter(Client.id == client_id).first()
+    if not anchor or not anchor.company:
+        return {client_id}
+    siblings = db.query(Client.id).filter(Client.company == anchor.company).all()
+    return {row[0] for row in siblings}
+
+
+# NOTE: this static route MUST be declared before the dynamic "/{invoice_id}" route
+# below, otherwise "/invoices/unbilled-tickets" is captured as invoice_id="unbilled-tickets".
+@router.get("/unbilled-tickets", response_model=list[UnbilledTicketOut])
+def list_unbilled_tickets_for_client(
+    client_id: Optional[int] = Query(None),
+    client_name: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Return unbilled tickets for a client before an invoice exists (used during new-invoice creation)."""
+    q = db.query(Ticket).filter(or_(Ticket.billing_status == "unbilled", Ticket.billing_status == None))
+    if client_id:
+        ids = _client_id_set(db, client_id)
+        q = q.filter(Ticket.client_id.in_(ids))
+    elif client_name:
+        q = q.filter(Ticket.client_name == client_name)
+    else:
+        return []
+    return q.order_by(Ticket.created_at.desc()).all()
+
+
 @router.get("/{invoice_id}", response_model=InvoiceOut)
 def get_invoice(invoice_id: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
@@ -282,43 +321,6 @@ def delete_invoice(invoice_id: str, db: Session = Depends(get_db), _: User = Dep
 
 class AttachTicketsIn(BaseModel):
     ticket_ids: list[str]
-
-
-class UnbilledTicketOut(BaseModel):
-    id: str
-    title: str
-    status: str
-    created_at: datetime
-    model_config = {"from_attributes": True}
-
-
-def _client_id_set(db: Session, client_id: int) -> set[int]:
-    """Return all client IDs in the same company as client_id (company-wide scope)."""
-    from ..models.models import Client
-    anchor = db.query(Client).filter(Client.id == client_id).first()
-    if not anchor or not anchor.company:
-        return {client_id}
-    siblings = db.query(Client.id).filter(Client.company == anchor.company).all()
-    return {row[0] for row in siblings}
-
-
-@router.get("/unbilled-tickets", response_model=list[UnbilledTicketOut])
-def list_unbilled_tickets_for_client(
-    client_id: Optional[int] = Query(None),
-    client_name: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
-):
-    """Return unbilled tickets for a client before an invoice exists (used during new-invoice creation)."""
-    q = db.query(Ticket).filter(or_(Ticket.billing_status == "unbilled", Ticket.billing_status == None))
-    if client_id:
-        ids = _client_id_set(db, client_id)
-        q = q.filter(Ticket.client_id.in_(ids))
-    elif client_name:
-        q = q.filter(Ticket.client_name == client_name)
-    else:
-        return []
-    return q.order_by(Ticket.created_at.desc()).all()
 
 
 @router.get("/{invoice_id}/unbilled-tickets", response_model=list[UnbilledTicketOut])

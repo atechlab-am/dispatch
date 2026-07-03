@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.9] — 2026-07-02
+
+### Fixed
+- **New-invoice ticket picker showed no unbilled tickets** — the `GET /invoices/unbilled-tickets` route (used while *creating* an invoice, before it has an ID) was registered *after* the dynamic `GET /invoices/{invoice_id}` route, so FastAPI matched the request as `invoice_id="unbilled-tickets"` and returned 404 "Invoice not found". The picker silently rendered "No unbilled tickets for this client." Moved the static route ahead of the dynamic one so it resolves correctly, and added a comment warning against reintroducing the ordering. (The edit-existing-invoice picker at `/invoices/{id}/unbilled-tickets` was never affected.)
+
+### Tests
+- Added direct coverage for `GET /invoices/unbilled-tickets` (by `client_id`, company-wide scope, and by `client_name`) — the endpoint previously had no tests, which is how the route-shadowing bug went unnoticed.
+
 ## [1.6.8] — 2026-07-02
 
 Hardened the client-deletion foreign keys at the database level (previously only worked around in application code).

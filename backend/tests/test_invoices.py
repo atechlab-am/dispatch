@@ -304,3 +304,37 @@ def test_unbilled_tickets_scoped_company_wide(client, admin_headers):
     names = {t["title"] for t in r.json()}
     assert "Work for Contact A" in names
     assert "Work for Contact B" in names
+
+
+def test_unbilled_tickets_for_client_endpoint(client, admin_headers):
+    """The pre-invoice picker (GET /invoices/unbilled-tickets?client_id=) must not be
+    shadowed by the /{invoice_id} route and must return the company's unbilled tickets."""
+    r1 = client.post("/api/clients", json={"name": "Preinv A", "email": "pa@co.com", "phone": "",
+        "address": "", "client_type": "business", "company": "Preinv Co", "notes": ""}, headers=admin_headers)
+    r2 = client.post("/api/clients", json={"name": "Preinv B", "email": "pb@co.com", "phone": "",
+        "address": "", "client_type": "business", "company": "Preinv Co", "notes": ""}, headers=admin_headers)
+    a, b = r1.json()["id"], r2.json()["id"]
+    for cid, name in [(a, "Preinv A"), (b, "Preinv B")]:
+        client.post("/api/tickets", json={"status": "Open", "priority": "Low", "client_type": "business",
+            "client_id": cid, "client_name": name, "client_email": "", "client_phone": "",
+            "client_address": "", "title": f"Pre work {name}", "description": "", "internal_notes": "",
+            "travel_fee": "travel_none", "service_lines": [], "hour_logs": []}, headers=admin_headers)
+
+    # No invoice exists yet — this is the exact request the new-invoice picker makes.
+    r = client.get("/api/invoices/unbilled-tickets", params={"client_id": a}, headers=admin_headers)
+    assert r.status_code == 200, f"route shadowed? got {r.status_code}: {r.text}"
+    names = {t["title"] for t in r.json()}
+    # Company-wide: billing to contact A still surfaces contact B's ticket
+    assert "Pre work Preinv A" in names
+    assert "Pre work Preinv B" in names
+
+
+def test_unbilled_tickets_for_client_by_name(client, admin_headers):
+    # Manual-entry invoices have no client_id; picker falls back to client_name match
+    client.post("/api/tickets", json={"status": "Open", "priority": "Low", "client_type": "business",
+        "client_name": "Nameonly Corp", "client_email": "", "client_phone": "",
+        "client_address": "", "title": "Nameonly work", "description": "", "internal_notes": "",
+        "travel_fee": "travel_none", "service_lines": [], "hour_logs": []}, headers=admin_headers)
+    r = client.get("/api/invoices/unbilled-tickets", params={"client_name": "Nameonly Corp"}, headers=admin_headers)
+    assert r.status_code == 200
+    assert any(t["title"] == "Nameonly work" for t in r.json())
