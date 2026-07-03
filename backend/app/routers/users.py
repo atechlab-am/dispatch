@@ -93,6 +93,19 @@ def update_user(
     except ValueError:
         raise HTTPException(status_code=422, detail=f"Invalid role: {body.role}")
 
+    # Reject an email that already belongs to a different user (would violate the
+    # unique constraint and surface as a 500 instead of a clean error).
+    clash = db.query(User).filter(User.email == body.email, User.id != user_id).first()
+    if clash:
+        raise HTTPException(status_code=409, detail="Email already registered")
+
+    # Prevent an admin from locking themselves out via the edit form.
+    if user_id == current_user.id:
+        if not body.active:
+            raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
+        if role != UserRole.admin:
+            raise HTTPException(status_code=400, detail="Cannot remove your own admin role")
+
     user.name = body.name
     user.email = body.email
     user.role = role

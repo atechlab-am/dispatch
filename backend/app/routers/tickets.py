@@ -154,7 +154,11 @@ def export_tickets(
     if date_from:
         q = q.filter(Ticket.created_at >= datetime(date_from.year, date_from.month, date_from.day, tzinfo=timezone.utc))
     if date_to:
-        q = q.filter(Ticket.created_at < datetime(date_to.year, date_to.month, date_to.day + 1, tzinfo=timezone.utc))
+        # Include the whole of date_to by using the start of the next day as an
+        # exclusive upper bound. Add via timedelta so month/year roll over correctly
+        # (date_to.day + 1 would crash on the last day of a month).
+        next_day = date_to + timedelta(days=1)
+        q = q.filter(Ticket.created_at < datetime(next_day.year, next_day.month, next_day.day, tzinfo=timezone.utc))
 
     tickets = q.order_by(Ticket.created_at.desc()).all()
 

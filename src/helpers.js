@@ -1,4 +1,4 @@
-export const fmt = (n) => `$${Number(n).toFixed(2)}`;
+export const fmt = (n) => `$${(Number(n) || 0).toFixed(2)}`;
 
 export const esc = (s) =>
   String(s ?? "")

@@ -52,6 +52,25 @@ def test_export_empty_result_still_returns_header(client, admin_headers):
     assert rows == []
 
 
+def test_export_date_to_end_of_month(client, admin_headers):
+    # date_to on the last day of a month used to crash (day + 1 → invalid date)
+    r = client.get("/api/tickets/export", params={"date_to": "2026-06-30"}, headers=admin_headers)
+    assert r.status_code == 200
+    assert "text/csv" in r.headers["content-type"]
+
+
+def test_export_date_to_end_of_year(client, admin_headers):
+    # Dec 31 forces both day and month rollover
+    r = client.get("/api/tickets/export", params={"date_to": "2026-12-31"}, headers=admin_headers)
+    assert r.status_code == 200
+
+
+def test_export_date_range(client, admin_headers):
+    r = client.get("/api/tickets/export",
+                   params={"date_from": "2026-01-01", "date_to": "2026-01-31"}, headers=admin_headers)
+    assert r.status_code == 200
+
+
 def test_export_requires_auth(client):
     r = client.get("/api/tickets/export")
     assert r.status_code in (401, 403)

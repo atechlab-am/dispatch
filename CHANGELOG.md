@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.6.8] — 2026-07-02
+
+Hardened the client-deletion foreign keys at the database level (previously only worked around in application code).
+
+### Changed
+- **`tickets.client_id` and `recurring_tickets.client_id` now use `ON DELETE SET NULL`** at the database level, matching the model definitions. Deleting a client now nulls these references automatically instead of relying solely on application code — the database enforces it directly (Alembic migration 0019). The models were updated to declare the same `ondelete` rule so `create_all` and the migrations stay in sync. The explicit nulling added in 1.6.6 is retained as defense-in-depth (covers the window before the migration runs).
+
+### Tests
+- Added `test_fk_constraints.py` — spins up an isolated SQLite engine with foreign-key enforcement **on** (the shared test DB has it off) and asserts, via a raw SQL delete that bypasses both the ORM and the application code, that deleting a client nulls the ticket/recurring-ticket references and preserves the denormalised client-name snapshot.
+
+## [1.6.7] — 2026-07-02
+
+Full bug sweep across the backend routers and frontend. Fixed three issues; verified auth, portal tenant-isolation, file uploads, reports, and money math are sound.
+
+### Fixed
+- **CSV ticket export crashed for month-end `date_to`** — the export built its exclusive upper bound with `date_to.day + 1`, which throws `ValueError` (and returns a 500) whenever `date_to` is the last day of a month (e.g. June 30 → "day 31"). It now advances the bound with a `timedelta`, so month and year roll over correctly.
+- **Editing a user onto an existing email returned a 500** — `PUT /users/{id}` had no uniqueness check (only user *creation* did), so setting a duplicate email hit the DB unique constraint and surfaced as a server error. It now returns a clean 409 Conflict.
+- **Admins could lock themselves out from the user edit form** — `PUT /users/{id}` now refuses to deactivate your own account or remove your own admin role (the delete endpoint already blocked self-deactivation; the edit path did not).
+
+### Hardened
+- Frontend `fmt()` money formatter now renders `$0.00` instead of `$NaN` when handed a missing/undefined value.
+
+### Verified (no change needed)
+- Portal endpoints enforce company-scoped tenant isolation on every ticket/invoice read.
+- Attachment and document uploads store files under server-generated UUID names (no path traversal) with type/size limits.
+- Recurring-ticket scheduling rolls over December → January correctly.
+- Revenue/SLA report divisions are all guarded against divide-by-zero.
+
 ## [1.6.6] — 2026-07-02
 
 Cross-domain integrity audit of the tickets ↔ clients ↔ invoices relationships. Verified all foreign keys, deletion behaviour, and billing-status sync; fixed three genuine issues found.

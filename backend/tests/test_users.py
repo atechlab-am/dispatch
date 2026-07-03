@@ -61,6 +61,41 @@ def test_user_out_includes_active_field(client, admin_headers):
         assert isinstance(u["active"], bool)
 
 
+def test_update_user_duplicate_email_rejected(client, admin_headers):
+    # Create two users, then try to rename the second onto the first's email
+    a = client.post("/api/users", json={"email": "dup_a@test.com", "name": "A",
+        "password": "validpass123", "role": "technician"}, headers=admin_headers).json()
+    b = client.post("/api/users", json={"email": "dup_b@test.com", "name": "B",
+        "password": "validpass123", "role": "technician"}, headers=admin_headers).json()
+    r = client.put(f"/api/users/{b['id']}", json={"name": "B", "email": "dup_a@test.com",
+        "role": "technician", "active": True, "password": ""}, headers=admin_headers)
+    assert r.status_code == 409
+
+
+def test_update_user_keep_own_email_ok(client, admin_headers):
+    u = client.post("/api/users", json={"email": "keep@test.com", "name": "Keep",
+        "password": "validpass123", "role": "technician"}, headers=admin_headers).json()
+    # Re-saving with the same email must not be treated as a clash
+    r = client.put(f"/api/users/{u['id']}", json={"name": "Keep Renamed", "email": "keep@test.com",
+        "role": "technician", "active": True, "password": ""}, headers=admin_headers)
+    assert r.status_code == 200
+    assert r.json()["name"] == "Keep Renamed"
+
+
+def test_admin_cannot_self_deactivate_via_update(client, admin_headers):
+    me = client.get("/api/auth/me", headers=admin_headers).json()
+    r = client.put(f"/api/users/{me['id']}", json={"name": me["name"], "email": me["email"],
+        "role": "admin", "active": False, "password": ""}, headers=admin_headers)
+    assert r.status_code == 400
+
+
+def test_admin_cannot_self_demote_via_update(client, admin_headers):
+    me = client.get("/api/auth/me", headers=admin_headers).json()
+    r = client.put(f"/api/users/{me['id']}", json={"name": me["name"], "email": me["email"],
+        "role": "technician", "active": True, "password": ""}, headers=admin_headers)
+    assert r.status_code == 400
+
+
 def test_change_own_password(client, tech_headers):
     r = client.put("/api/users/me/password", json={
         "current_password": "techpass",

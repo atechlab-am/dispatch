@@ -132,7 +132,7 @@ class Ticket(Base):
     sla_response_due = Column(DateTime, nullable=True)
     sla_resolution_due = Column(DateTime, nullable=True)
     sla_paused_at = Column(DateTime, nullable=True)  # set when Awaiting Client, cleared on resume
-    client_id = Column(Integer, ForeignKey("clients.id"), nullable=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
     billing_status = Column(String(20), nullable=False, default="unbilled")  # unbilled | invoiced | paid
@@ -275,7 +275,7 @@ class RecurringTicket(Base):
     ticket_type = Column(SAEnum(TicketType, values_callable=lambda e: [m.value for m in e]), nullable=False, default=TicketType.incident)
     client_type = Column(SAEnum(ClientType, values_callable=lambda e: [m.value for m in e]), nullable=False, default=ClientType.business)
     priority = Column(SAEnum(TicketPriority, values_callable=lambda e: [m.value for m in e]), nullable=False, default=TicketPriority.medium)
-    client_id = Column(Integer, ForeignKey("clients.id"), nullable=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True)
     client_name = Column(String(255), nullable=False, default="")
     client_email = Column(String(255), nullable=False, default="")
     client_phone = Column(String(50), nullable=False, default="")
