@@ -14,6 +14,7 @@ import ReportsPage from "./ReportsPage.jsx";
 import PortalPage from "./PortalPage.jsx";
 import BrandingSettingsPanel from "./BrandingSettingsPanel.jsx";
 import UpdateBanner from "./UpdateBanner.jsx";
+import NotificationBell from "./NotificationBell.jsx";
 
 // ─── Icon set (inline SVG helpers) ───────────────────────────────────────────
 const Icon = ({ d, size = 18, style = {} }) => (
@@ -239,7 +240,8 @@ export default function AppNew({
           <div>
             <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{pageTitle}</h1>
           </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+            <NotificationBell user={user} navigate={navigate} />
             {location.pathname === "/tickets" && (
               <button
                 onClick={handleNew}

@@ -5,6 +5,8 @@ import { setTokens, clearTokens, registerLogoutHandler, hasStoredSession, downlo
 import { me, logout as apiLogout } from "./api/auth.js";
 import { listTickets, getTicket, createTicket, updateTicket, deleteTicket } from "./api/tickets.js";
 import { listComments, addComment, deleteComment } from "./api/comments.js";
+import { listTicketAudit } from "./api/audit.js";
+import { startTimer, stopTimer, getActiveTimer } from "./api/timer.js";
 import { listTemplates, createTemplate, deleteTemplate } from "./api/templates.js";
 import { listAttachments, uploadAttachment, deleteAttachment, downloadUrl } from "./api/attachments.js";
 import { listRecurring, createRecurring, updateRecurring, deleteRecurring } from "./api/recurring.js";
@@ -161,6 +163,9 @@ const apiToEditor = (t) => ({
     hours:       String(hl.hours),
     rate:        Number(hl.rate),
     description: hl.description,
+    startedAt:   hl.started_at ?? null,
+    endedAt:     hl.ended_at ?? null,
+    isRunning:   !!hl.is_running,
   })),
 });
 
@@ -191,7 +196,10 @@ const editorToApi = (t) => ({
     qty:           s.qty ?? 1,
     extra_qty:     s.extraQty ?? 0,
   })),
-  hour_logs: t.hourLogs.filter((h) => h.hours).map((h) => ({
+  // Timer-originated rows (startedAt set) are owned by the timer endpoints, not
+  // the ticket editor — they must be excluded here or they'd be wiped by the
+  // server's delete/recreate of manual hour logs on every save.
+  hour_logs: t.hourLogs.filter((h) => h.hours && !h.startedAt).map((h) => ({
     date:        h.date,
     hours:       parseFloat(h.hours) || 0,
     rate:        parseFloat(h.rate) || 0,
@@ -518,6 +526,99 @@ const HourRow = ({ log, defaultRate, onChange, onRemove }) => {
           <button onClick={onRemove} style={{ background:"none", border:"none", color:brand.danger, cursor:"pointer", fontSize:20, lineHeight:1, padding:"2px 6px" }}>×</button>
         </div>
       </div>
+    </div>
+  );
+};
+
+// ─── Timer-derived hour log row (read-only) ───────────────────────────────────
+const TimerHourRow = ({ log }) => {
+  const sub = (parseFloat(log.hours)||0) * (parseFloat(log.rate)||0);
+  return (
+    <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
+      <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+        <div style={{ width:130 }}>
+          <FieldLabel>Date</FieldLabel>
+          <div style={{ fontSize:12, color:brand.text }}>{log.date}</div>
+        </div>
+        <div style={{ width:90 }}>
+          <FieldLabel>Hours</FieldLabel>
+          <div style={{ fontSize:12, color:brand.text }}>{log.hours}</div>
+        </div>
+        <div style={{ width:110 }}>
+          <FieldLabel>Rate ($/hr)</FieldLabel>
+          <div style={{ fontSize:12, color:brand.text }}>{log.rate}</div>
+        </div>
+        <div style={{ flex:1 }}>
+          <FieldLabel>Description</FieldLabel>
+          <div style={{ fontSize:12, color:brand.text }}>{log.description || "—"}</div>
+        </div>
+        <div style={{ width:90, textAlign:"right" }}>
+          <FieldLabel>Subtotal</FieldLabel>
+          <div style={{ fontWeight:700, fontSize:14, color:brand.blue }}>{fmt(sub)}</div>
+        </div>
+        <div style={{ width:60, textAlign:"right" }}>
+          <span style={{ fontSize:10, fontWeight:700, color:brand.muted, textTransform:"uppercase" }}>⏱ Timer</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Start/stop timer control ──────────────────────────────────────────────────
+const TimerControl = ({ ticketId, onStopped }) => {
+  const [active, setActive]   = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    getActiveTimer(ticketId).then(setActive).catch(() => {});
+  }, [ticketId]);
+
+  useEffect(() => {
+    if (!active) return;
+    const tick = () => setElapsed((Date.now() - new Date(active.started_at).getTime()) / 1000);
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [active]);
+
+  const handleStart = async () => {
+    setLoading(true);
+    try {
+      const log = await startTimer(ticketId, {});
+      setActive(log);
+    } catch (err) {
+      if (err?.response?.status === 409) {
+        const current = await getActiveTimer(ticketId).catch(() => null);
+        setActive(current);
+      }
+    } finally { setLoading(false); }
+  };
+
+  const handleStop = async () => {
+    setLoading(true);
+    try {
+      const log = await stopTimer(ticketId);
+      setActive(null);
+      onStopped?.(log);
+    } finally { setLoading(false); }
+  };
+
+  const fmtElapsed = (s) => {
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60);
+    return [h, m, sec].map(n => String(n).padStart(2, "0")).join(":");
+  };
+
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+      {active ? (
+        <>
+          <span style={{ fontFamily:"monospace", fontSize:16, fontWeight:700, color:brand.blue }}>{fmtElapsed(elapsed)}</span>
+          <Btn onClick={handleStop} variant="danger" small disabled={loading}>■ Stop Timer</Btn>
+        </>
+      ) : (
+        <Btn onClick={handleStart} variant="secondary" small disabled={loading}>▶ Start Timer</Btn>
+      )}
     </div>
   );
 };
@@ -1284,6 +1385,38 @@ const CommentsSection = ({ ticketId, currentUser }) => {
   );
 };
 
+// ─── Activity (audit log) section ──────────────────────────────────────────────
+const AUDIT_VERBS = {
+  created: () => "created this ticket",
+  status_changed: (a) => `changed status from "${a.old_value}" to "${a.new_value}"`,
+  assignee_changed: () => "changed the assignee",
+  price_changed: (a) => `changed the price from $${a.old_value} to $${a.new_value}`,
+  field_changed: (a) => `changed ${a.field}`,
+};
+
+const AuditSection = ({ ticketId }) => {
+  const [entries, setEntries] = useState([]);
+
+  useEffect(() => {
+    listTicketAudit(ticketId).then(setEntries).catch(() => {});
+  }, [ticketId]);
+
+  if (entries.length === 0) return null;
+
+  return (
+    <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "16px 18px", marginTop: 20 }}>
+      <SectionHeader>Activity</SectionHeader>
+      {entries.map(a => (
+        <div key={a.id} style={{ display: "flex", gap: 8, alignItems: "baseline", fontSize: 13, color: brand.text, padding: "6px 0", borderBottom: `1px solid ${brand.border}` }}>
+          <span style={{ fontWeight: 700 }}>{a.actor_label}</span>
+          <span style={{ color: brand.muted }}>{(AUDIT_VERBS[a.action] || AUDIT_VERBS.field_changed)(a)}</span>
+          <span style={{ marginLeft: "auto", fontSize: 11, color: brand.muted, whiteSpace: "nowrap" }}>{new Date(a.created_at).toLocaleString()}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 // ─── Attachments section ───────────────────────────────────────────────────────
 const ALLOWED_EXTS = ".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.doc,.docx,.xls,.xlsx,.zip";
 const AttachmentsSection = ({ ticketId, currentUser }) => {
@@ -1735,7 +1868,14 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
               <SectionHeader>Hours Log</SectionHeader>
               {totalHours > 0 && <span style={{ fontSize:12, color:brand.muted, fontWeight:600 }}>{totalHours.toFixed(2)} hrs total</span>}
             </div>
-            {t.hourLogs.map((l,i) => (
+            {t.id && <TimerControl ticketId={t.id} onStopped={(log) => setT(p => ({ ...p, hourLogs: [...p.hourLogs, {
+              _id: log.id, date: log.date, hours: String(log.hours), rate: Number(log.rate),
+              description: log.description, startedAt: log.started_at, endedAt: log.ended_at, isRunning: false,
+            }] }))} />}
+            {t.hourLogs.filter(l => l.startedAt).map((l,i) => (
+              <TimerHourRow key={l._id||i} log={l} />
+            ))}
+            {t.hourLogs.map((l,i) => !l.startedAt && (
               <HourRow key={l._id||i} log={l} defaultRate={defaultRate} onChange={v=>updHour(i,v)} onRemove={()=>remHour(i)} />
             ))}
             <Btn onClick={addHour} variant="secondary" small>+ Log Hours</Btn>
@@ -1848,6 +1988,7 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
       )}
       {t.id && <CommentsSection ticketId={t.id} currentUser={currentUser} />}
       {t.id && <AttachmentsSection ticketId={t.id} currentUser={currentUser} />}
+      {t.id && <AuditSection ticketId={t.id} />}
     </div>
   );
 };

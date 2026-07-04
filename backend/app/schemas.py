@@ -63,6 +63,9 @@ class HourLogIn(BaseModel):
 
 class HourLogOut(HourLogIn):
     id: int
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
+    is_running: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -157,6 +160,34 @@ class CommentOut(BaseModel):
     author_name: str
     body: str
     is_internal: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ─── Audit log ────────────────────────────────────────────────────────────────
+
+class AuditLogOut(BaseModel):
+    id: int
+    ticket_id: Optional[str] = None
+    actor_label: str
+    action: str
+    field: Optional[str] = None
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ─── Notifications ────────────────────────────────────────────────────────────
+
+class NotificationOut(BaseModel):
+    id: int
+    ticket_id: Optional[str] = None
+    kind: str
+    message: str
+    read: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}

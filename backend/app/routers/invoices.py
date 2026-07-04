@@ -11,6 +11,7 @@ from ..database import get_db
 from ..models.models import Invoice, InvoiceLine, InvoicePayment, InvoiceStatus, User, Ticket, TicketStatus
 from ..security import get_current_user
 from .. import email as mail
+from ..audit import write_audit
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
@@ -94,7 +95,7 @@ class PaymentOut(BaseModel):
     method: str
     note: str
     payment_date: date
-    recorded_by: int
+    recorded_by: Optional[int] = None
     created_at: datetime
     model_config = {"from_attributes": True}
 
@@ -144,22 +145,48 @@ def _compute_totals(lines: list[InvoiceLineIn], tax_rate: float):
     return round(subtotal, 2), tax_amount, total
 
 
-def _sync_ticket_billing(inv: Invoice, db: Session) -> None:
+def _sync_ticket_billing(inv: Invoice, db: Session, *, actor_id: Optional[int] = None, actor_label: str = "System") -> None:
     """Sync linked tickets' billing (and workflow) status when the invoice changes.
 
     Added to an invoice → billing_status "invoiced".
     Invoice paid          → billing_status "paid" AND workflow status Closed.
+
+    `actor_id`/`actor_label` identify the human who triggered this (e.g. whoever
+    recorded the payment) so the resulting ticket audit entries aren't misattributed
+    to an anonymous "System" actor.
     """
     if not inv.linked_tickets:
         return
     if inv.status == InvoiceStatus.paid:
         for t in inv.linked_tickets:
+            if t.billing_status != "paid":
+                write_audit(db, ticket_id=t.id, actor_id=actor_id, actor_label=actor_label,
+                            action="status_changed", field="status",
+                            old_value=str(t.status.value if hasattr(t.status, "value") else t.status),
+                            new_value=str(TicketStatus.closed.value))
             t.billing_status = "paid"
             t.status = TicketStatus.closed
     elif inv.status in (InvoiceStatus.draft, InvoiceStatus.sent):
         for t in inv.linked_tickets:
             if t.billing_status != "paid":
                 t.billing_status = "invoiced"
+
+
+def _apply_payment_and_maybe_mark_paid(
+    inv: Invoice, payment: InvoicePayment, db: Session, *, actor_id: Optional[int] = None, actor_label: str = "System",
+) -> None:
+    """Insert a payment and, if it brings the balance to zero, mark the invoice
+    Paid (which in turn closes its linked tickets via _sync_ticket_billing).
+
+    Shared by the manual "record payment" endpoint and the Stripe webhook so the
+    auto-mark-paid business rule lives in exactly one place.
+    """
+    db.add(payment)
+    db.flush()
+    paid = float(sum(float(px.amount) for px in inv.payments))
+    if paid >= float(inv.total):
+        inv.status = InvoiceStatus.paid
+        _sync_ticket_billing(inv, db, actor_id=actor_id, actor_label=actor_label)
 
 
 def _enrich(inv: Invoice) -> dict:
@@ -284,7 +311,7 @@ def update_invoice(
     invoice_id: str,
     body: InvoiceIn,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     if not inv:
@@ -310,7 +337,7 @@ def update_invoice(
     db.flush()
     for l in body.lines:
         db.add(InvoiceLine(invoice_id=inv.id, description=l.description, qty=l.qty, unit_price=l.unit_price, amount=l.amount))
-    _sync_ticket_billing(inv, db)
+    _sync_ticket_billing(inv, db, actor_id=current_user.id, actor_label=current_user.name)
     db.commit()
     db.refresh(inv)
     return _enrich(inv)
@@ -379,7 +406,7 @@ def attach_tickets(
     invoice_id: str,
     body: AttachTicketsIn,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Attach tickets to an invoice and import their service lines + hour logs as invoice lines."""
     inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
@@ -447,7 +474,7 @@ def attach_tickets(
     inv.total = round(subtotal + tax, 2)
     inv.updated_at = datetime.now(timezone.utc)
     # Keep billing status consistent with the invoice (e.g. paid invoice → paid tickets)
-    _sync_ticket_billing(inv, db)
+    _sync_ticket_billing(inv, db, actor_id=current_user.id, actor_label=current_user.name)
     db.commit()
     db.refresh(inv)
     return _enrich(inv)
@@ -545,13 +572,7 @@ def record_payment(
         recorded_by=current_user.id,
         created_at=datetime.now(timezone.utc),
     )
-    db.add(p)
-    db.flush()
-    # auto-mark paid when balance reaches zero
-    paid = float(sum(float(px.amount) for px in inv.payments)) + float(body.amount)
-    if paid >= float(inv.total):
-        inv.status = InvoiceStatus.paid
-        _sync_ticket_billing(inv, db)
+    _apply_payment_and_maybe_mark_paid(inv, p, db, actor_id=current_user.id, actor_label=current_user.name)
     db.commit()
     db.refresh(p)
     return p

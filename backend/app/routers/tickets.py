@@ -13,6 +13,8 @@ from ..models.models import User, Ticket, ServiceLine, HourLog, TicketStatus
 from ..schemas import TicketIn, TicketOut, TicketsPage, TicketListItem
 from ..security import get_current_user, require_admin
 from .. import email as mailer
+from ..audit import write_audit, actor_of
+from ..notifications import create_notification
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
 
@@ -280,6 +282,15 @@ def create_ticket(
 
     _apply_service_lines(ticket, body.service_lines, db)
     _apply_hour_logs(ticket, body.hour_logs, db)
+
+    actor_id, actor_label = actor_of(current_user)
+    write_audit(db, ticket_id=ticket.id, actor_id=actor_id, actor_label=actor_label, action="created")
+    if body.assigned_to:
+        create_notification(
+            db, user_id=body.assigned_to, ticket_id=ticket.id, kind="assigned",
+            message=f"You were assigned ticket {ticket.id}: {body.title}",
+        )
+
     db.commit()
     db.refresh(ticket)
 
@@ -316,7 +327,7 @@ def update_ticket(
     ticket_id: str,
     body: TicketIn,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not ticket:
@@ -326,6 +337,19 @@ def update_ticket(
     new_status = body.status.value if hasattr(body.status, "value") else body.status
     priority_changed = ticket.priority != body.priority
     now = datetime.now(timezone.utc)
+
+    # Snapshot auditable fields before they're overwritten below.
+    audit_old = {
+        "status": prev_status,
+        "priority": ticket.priority.value if hasattr(ticket.priority, "value") else ticket.priority,
+        "assigned_to": ticket.assigned_to,
+        "client_id": ticket.client_id,
+        "title": ticket.title,
+        "description": ticket.description,
+        "internal_notes": ticket.internal_notes,
+        "travel_fee": ticket.travel_fee.value if hasattr(ticket.travel_fee, "value") else ticket.travel_fee,
+    }
+    audit_old_total = _ticket_total(ticket)
 
     # SLA pause/resume on Awaiting Client or On Hold
     paused_statuses = {"Awaiting Client", "On Hold"}
@@ -365,13 +389,64 @@ def update_ticket(
         ticket.sla_response_due, ticket.sla_resolution_due = _sla_deadlines(body.priority.value, base)
         ticket.sla_paused_at = None
 
-    # Replace child rows
+    # Replace child rows. Hour logs are only deleted/recreated for manual entries
+    # (started_at is null) — timer-originated rows are owned by the timer endpoints
+    # and must survive a ticket save, otherwise a running/completed timer would be
+    # silently wiped out by the next autosave.
     db.query(ServiceLine).filter(ServiceLine.ticket_id == ticket_id).delete()
-    db.query(HourLog).filter(HourLog.ticket_id == ticket_id).delete()
+    db.query(HourLog).filter(
+        HourLog.ticket_id == ticket_id,
+        HourLog.started_at.is_(None),
+    ).delete()
     db.flush()
 
     _apply_service_lines(ticket, body.service_lines, db)
     _apply_hour_logs(ticket, body.hour_logs, db)
+    db.flush()
+    db.expire(ticket, ["service_lines", "hour_logs"])
+
+    actor_id, actor_label = actor_of(current_user)
+    audit_new = {
+        "status": ticket.status.value if hasattr(ticket.status, "value") else ticket.status,
+        "priority": ticket.priority.value if hasattr(ticket.priority, "value") else ticket.priority,
+        "assigned_to": ticket.assigned_to,
+        "client_id": ticket.client_id,
+        "title": ticket.title,
+        "description": ticket.description,
+        "internal_notes": ticket.internal_notes,
+        "travel_fee": ticket.travel_fee.value if hasattr(ticket.travel_fee, "value") else ticket.travel_fee,
+    }
+    dedicated_actions = {"status": "status_changed", "assigned_to": "assignee_changed"}
+    for field_name, old_value in audit_old.items():
+        new_value = audit_new[field_name]
+        if old_value != new_value:
+            write_audit(
+                db, ticket_id=ticket.id, actor_id=actor_id, actor_label=actor_label,
+                action=dedicated_actions.get(field_name, "field_changed"),
+                field=field_name, old_value=str(old_value), new_value=str(new_value),
+            )
+    audit_new_total = _ticket_total(ticket)
+    if audit_new_total != audit_old_total:
+        write_audit(
+            db, ticket_id=ticket.id, actor_id=actor_id, actor_label=actor_label,
+            action="price_changed", field="price",
+            old_value=str(audit_old_total), new_value=str(audit_new_total),
+        )
+
+    # In-app notifications — independent of the email path above, which only fires
+    # on status change. Reassignment notifies regardless of whether status also
+    # changed, closing a gap the email flow has always had.
+    if audit_old["assigned_to"] != ticket.assigned_to and ticket.assigned_to:
+        create_notification(
+            db, user_id=ticket.assigned_to, ticket_id=ticket.id, kind="reassigned",
+            message=f"Ticket {ticket.id} was reassigned to you: {ticket.title}",
+        )
+    if audit_old["status"] != audit_new["status"] and ticket.assigned_to:
+        create_notification(
+            db, user_id=ticket.assigned_to, ticket_id=ticket.id, kind="status_changed",
+            message=f"Ticket {ticket.id} status changed to {audit_new['status']}: {ticket.title}",
+        )
+
     db.commit()
     db.refresh(ticket)
 

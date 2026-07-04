@@ -44,6 +44,7 @@ def _fire_due_recurring():
     from .database import SessionLocal
     from .models.models import RecurringTicket, Ticket
     from .routers.tickets import _make_ticket_id, _sla_deadlines
+    from .audit import write_audit
 
     now = datetime.now(timezone.utc)
     with SessionLocal() as db:
@@ -77,6 +78,7 @@ def _fire_due_recurring():
             )
             db.add(ticket)
             db.flush()
+            write_audit(db, ticket_id=ticket_id, actor_id=None, actor_label="System (recurring)", action="created")
 
             r.last_ticket_id = ticket_id
             r.next_run = next_run_after(

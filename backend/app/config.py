@@ -29,3 +29,13 @@ UPLOAD_DIR: str = os.environ.get("UPLOAD_DIR", "/app/uploads")
 GITHUB_REPO: str = os.environ.get("GITHUB_REPO", "")
 GITHUB_TOKEN: str = os.environ.get("GITHUB_TOKEN", "")
 
+# Stripe — optional; leave all three blank to disable online payments entirely.
+# Keys come from the Stripe dashboard: Developers > API keys / Developers > Webhooks.
+STRIPE_SECRET_KEY: str = os.environ.get("STRIPE_SECRET_KEY", "")
+STRIPE_PUBLISHABLE_KEY: str = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
+STRIPE_WEBHOOK_SECRET: str = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+
+# Public base URL of the client portal (no trailing slash) — used to build the
+# Stripe Checkout success/cancel redirect URLs. Only needed if Stripe is configured.
+PORTAL_URL: str = os.environ.get("PORTAL_URL", "http://localhost").rstrip("/")
+

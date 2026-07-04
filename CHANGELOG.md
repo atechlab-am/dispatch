@@ -1,5 +1,67 @@
 # Changelog
 
+## [1.13.0] — 2026-07-03
+
+### Added — in-app notification center
+- New **bell icon** in the topbar (staff app) shows an unread-count badge, polling every 30 seconds. Clicking it opens a dropdown of recent notifications; clicking a notification marks it read and navigates to the ticket. "Mark all read" clears the badge.
+- Notifications fire on: being assigned a ticket (on create), being **reassigned** to a ticket (independent of whether its status also changed — this closes a real gap in the existing email notifications, which only ever fire on status change), a status change on a ticket assigned to you, and an internal comment posted on a ticket assigned to you by someone else (you're never notified of your own comments). This is intentionally simpler than @mention parsing — no `@name` syntax, just "internal comment on your ticket" — full mention parsing is deferred.
+- In-app notifications are a separate system from email notifications, not a replacement — the two now have independent, appropriately different noise thresholds.
+- **Retention**: a new hourly background task purges read notifications older than 90 days (unread notifications are never purged, regardless of age), mirroring the existing refresh-token purge loop.
+- New table `notifications` (migration `0024`), new endpoints `GET /api/notifications`, `GET /api/notifications/unread-count`, `POST /api/notifications/{id}/read`, `POST /api/notifications/read-all`.
+
+### Tests
+- New `backend/tests/test_notifications.py` (10 tests): assignment/reassignment/status-change/comment triggers, self-notification guard, per-user scoping, mark-read ownership check, mark-all-read, unread-count, purge-deletes-old-read-only.
+- New `src/__tests__/NotificationBell.test.jsx` — badge count, dropdown rendering, click-marks-read-and-navigates.
+
+## [1.12.0] — 2026-07-03
+
+### Added — online payments via Stripe
+- The portal's **Pay Now** button (shipped as a placeholder in v1.8.1) now creates a real Stripe Checkout Session and redirects the client to Stripe's hosted payment page for the invoice's outstanding balance. On success, a Stripe webhook records the payment automatically and the invoice auto-marks Paid (reusing the same auto-mark-paid rule as manual payments), which in turn closes its linked tickets exactly as a manual full payment does.
+- **New `STRIPE_SECRET_KEY` / `STRIPE_PUBLISHABLE_KEY` / `STRIPE_WEBHOOK_SECRET` env vars** (all optional — leave blank and the feature no-ops with a "coming soon" message, same as before). New `PORTAL_URL` env var for building the Stripe redirect URLs.
+- `nginx.portal.conf` gained a new `/api/payments/webhook` location block, since Stripe's webhook has to reach the app from the public internet and the portal's nginx is the only internet-facing one in this deployment (the staff app intentionally stays off the public network). Picked up automatically by `./upgrade.sh` (rebuilds the image from source) — no manual server config edit needed.
+- `InvoicePayment.recorded_by` is now nullable — Stripe-recorded payments have no human recorder (`method="stripe"`, `recorded_by=NULL`). Any code displaying "recorded by" must handle null (shown as "Stripe" going forward).
+- New `stripe_payment_intent_id` (unique) on `invoice_payments` for webhook idempotency — Stripe retries webhook delivery, and a replayed event no longer double-records the payment. New `stripe_checkout_session_id` on `invoices` for reliable invoice lookup from the webhook. Migration `0023`.
+- New backend endpoints: `POST /api/portal/invoices/{id}/checkout` (creates the Checkout Session, portal-tenant-scoped, re-validates payability server-side — never trusts the frontend gate as the authorization boundary) and `POST /api/payments/webhook` (Stripe signature-verified, the only unauthenticated endpoint in the app; refuses to accept anything if `STRIPE_WEBHOOK_SECRET` isn't configured, rather than accepting unverified payloads).
+- Scope: full invoice balance only — no partial payments or fee pass-through via Stripe in this release.
+
+### Tests
+- New `backend/tests/test_payments.py` (8 tests): checkout session creation, cross-tenant rejection, already-paid rejection, missing-config 503, invalid webhook signature, successful webhook payment recording with null `recorded_by`, webhook idempotency on replay. Stripe's SDK is mocked throughout — no real Stripe calls.
+- New `src/__tests__/PortalApp.test.jsx` — first component-level test for the portal SPA; verifies Pay Now creates a checkout session and redirects to Stripe.
+
+## [1.11.0] — 2026-07-03
+
+### Added — AR aging report
+- New **AR Aging** tab on the Reports page (admin only): outstanding receivables bucketed into Current / 1-30 / 31-60 / 61-90 / 90+ days overdue, as of a chosen date (defaults to today). Shows bucket totals with counts, a grand total outstanding, and a detail table of every overdue invoice with days overdue and balance. CSV export included, matching the existing report pattern.
+- Paid and Void invoices are excluded; invoices with a zero balance (fully covered by partial payments but not yet marked Paid) are also excluded to avoid noise.
+- New endpoints `GET /api/reports/ar-aging` and `GET /api/reports/ar-aging/csv` in the existing `reports.py` router.
+
+### Tests
+- New AR aging tests in `backend/tests/test_reports.py`: bucket-boundary correctness at 30/31/60/61/90/91 days overdue, Paid/Void/zero-balance exclusion, admin-only gate, CSV smoke test.
+- New `src/__tests__/ReportsPage.test.jsx` — first test coverage for the Reports page; covers the AR Aging tab rendering bucket and invoice data from the API.
+
+## [1.10.0] — 2026-07-03
+
+### Added — live time tracking
+- Tickets now support a **start/stop timer** in the Hours Log section as an alternative to manual hour entry. Starting a timer creates a running `hour_logs` row; stopping it computes elapsed hours automatically. One running timer per ticket (not per technician) in this release.
+- Timer-originated rows are shown read-only in a separate list from manually-entered rows, and both are summed into the ticket's total hours/price. A running timer contributes $0 to the total until stopped — you're not billed for a timer still ticking.
+- **Fixed a latent bug this feature would otherwise have hit**: `PUT /tickets/{id}` used to unconditionally delete and recreate every `hour_logs` row for a ticket on every save (including autosave), driven entirely by the frontend's manual-entry payload. A timer running in the background — invisible to that payload — would have been silently deleted by the next autosave. The update endpoint now only replaces manually-entered rows (`started_at IS NULL`); timer rows are owned exclusively by the new timer endpoints.
+- New endpoints: `POST /api/tickets/{id}/timer` (start), `POST /api/tickets/{id}/timer/stop`, `GET /api/tickets/{id}/timer/active`. New columns on `hour_logs`: `started_at`, `ended_at`, `is_running` (migration `0022`).
+
+### Tests
+- New `backend/tests/test_timer.py` (8 tests), including a regression test that starts a timer, then simulates a full ticket autosave, and asserts the running timer row survives untouched.
+
+## [1.9.0] — 2026-07-03
+
+### Added — immutable ticket audit log
+- Every ticket now keeps an **Activity** trail: who created it, who changed its status, assignee, or any other tracked field, and who changed its price (via service lines, hour logs, or travel fee) — with old/new values and a timestamp. Visible to all authenticated staff at the bottom of the ticket editor, below Comments.
+- The audit log is **write-once** — there is no update or delete endpoint for it, by design. It complements Comments rather than replacing them.
+- Billing-driven ticket changes (e.g. marking an invoice Paid, which auto-closes its linked tickets) are attributed to the staff member who triggered the invoice action, not to an anonymous "System" actor. Recurring-ticket auto-creation is attributed to `System (recurring)` since no human is in the loop there.
+- New table `audit_logs` (migration `0021`), new endpoint `GET /api/tickets/{id}/audit`, new shared `backend/app/audit.py` helper used by the tickets and invoices routers.
+
+### Tests
+- New `backend/tests/test_audit.py` (8 tests): created/status/assignee/price entries, assignee changes never also emit a generic field-changed entry, no write endpoints exist, technicians can view, 404 on missing ticket, 401/403 unauthenticated.
+- Extended `backend/tests/test_invoices.py`: marking an invoice Paid attributes the resulting ticket status-change audit entry to the recording user.
+
 ## [1.8.1] — 2026-07-03
 
 ### Added — client portal "Pay Now" (Stripe-ready placeholder)

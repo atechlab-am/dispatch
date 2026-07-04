@@ -40,6 +40,8 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Countdown badges on ticket list; dual progress bar in ticket editor
 - SLA pauses automatically when status is set to Awaiting Client or On Hold; resumes and extends deadlines when work restarts
 - Playbook section in ticket editor surfaces matched documents by ticket type
+- **Activity/audit log** — immutable trail of who changed status, assignee, price, or other fields, and when; separate from Comments, no edit/delete
+- **Live time tracking** — start/stop timer in the Hours Log section as an alternative to manual entry; one running timer per ticket
 
 ### Clients
 - Business and residential client directory with add, edit, delete, and search
@@ -53,6 +55,7 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 
 ### Client Portal
 - Per-client portal at `/p/<slug>` — clients log in to view their tickets and invoices
+- **Online payments** — Pay Now button creates a Stripe Checkout session for the invoice balance; a webhook auto-records the payment and marks the invoice Paid on success (optional — requires `STRIPE_*` env vars; safely disabled if unset)
 - Business clients: all contacts in the company share one portal (same slug); each contact sees all company tickets but new tickets are attributed to the submitter
 - Portal users are managed per-client from the Portal admin page (admin only)
 - Forced password change on first login or after admin reset
@@ -84,7 +87,13 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Revenue by month and client
 - Technician performance: tickets resolved, hours logged, labour revenue
 - SLA compliance % by priority
-- All reports have date-range filters and CSV export
+- AR aging — outstanding receivables bucketed 30/60/90 days overdue, as of a chosen date
+- All reports have CSV export; revenue/technician/SLA also support date-range filters
+
+### Notifications
+- Bell icon in the topbar with unread badge (polls every 30s); dropdown of recent notifications, click to jump to the ticket and mark read
+- Fires on: ticket assignment, reassignment (independent of status change), status change, and internal comments on tickets assigned to you
+- Read notifications older than 90 days are purged automatically; unread notifications are never purged
 
 ### Users
 - Admin user management (create, edit, deactivate)

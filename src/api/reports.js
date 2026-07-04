@@ -9,6 +9,9 @@ export const getTechnicianReport = (params = {}) =>
 export const getSLAReport = (params = {}) =>
   client.get("/reports/sla", { params }).then(r => r.data);
 
+export const getARAgingReport = (params = {}) =>
+  client.get("/reports/ar-aging", { params }).then(r => r.data);
+
 export const revenueCsvUrl = (params = {}) => {
   const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v));
   return `/reports/revenue/csv${q.toString() ? "?" + q : ""}`;
@@ -22,4 +25,9 @@ export const technicianCsvUrl = (params = {}) => {
 export const slaCsvUrl = (params = {}) => {
   const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v));
   return `/reports/sla/csv${q.toString() ? "?" + q : ""}`;
+};
+
+export const arAgingCsvUrl = (params = {}) => {
+  const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v));
+  return `/reports/ar-aging/csv${q.toString() ? "?" + q : ""}`;
 };

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getRevenueReport, getTechnicianReport, getSLAReport, revenueCsvUrl, technicianCsvUrl, slaCsvUrl } from "./api/reports.js";
+import { getRevenueReport, getTechnicianReport, getSLAReport, getARAgingReport, revenueCsvUrl, technicianCsvUrl, slaCsvUrl, arAgingCsvUrl } from "./api/reports.js";
 import { downloadWithAuth } from "./api/client.js";
 
 const brand = {
@@ -317,12 +317,105 @@ function SLATab() {
   );
 }
 
+// ─── AR aging tab ─────────────────────────────────────────────────────────────
+
+const AGING_COLORS = { "Current": brand.success, "1-30": "#d97706", "31-60": brand.amber, "61-90": "#c0392b", "90+": brand.danger };
+
+function ARAgingTab() {
+  const [asOf, setAsOf] = useState("");
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const params = asOf ? { as_of: asOf } : {};
+
+  useEffect(() => {
+    setLoading(true);
+    getARAgingReport(params)
+      .then(setData)
+      .finally(() => setLoading(false));
+  }, [asOf]);
+
+  const maxBucketTotal = data ? Math.max(1, ...data.buckets.map(b => b.total)) : 1;
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 24 }}>
+        <div>
+          <FieldLabel>As of</FieldLabel>
+          <input type="date" style={inp} value={asOf} onChange={e => setAsOf(e.target.value)} />
+        </div>
+        <div style={{ marginLeft: "auto" }}>
+          <Btn onClick={() => downloadWithAuth(arAgingCsvUrl(params), "ar-aging-report.csv")} variant="secondary" small>↓ Export CSV</Btn>
+        </div>
+      </div>
+
+      {loading && <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>Loading…</div>}
+
+      {!loading && data && (
+        <>
+          <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px", marginBottom: 24, display: "inline-block" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>Total Outstanding</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: data.grand_total_outstanding > 0 ? brand.amber : brand.success }}>${fmt(data.grand_total_outstanding)}</div>
+          </div>
+
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: brand.text, marginBottom: 10 }}>By Bucket</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
+              {data.buckets.map(b => (
+                <div key={b.label} style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "14px 16px" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", marginBottom: 6 }}>{b.label}</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: AGING_COLORS[b.label] || brand.text, marginBottom: 8 }}>${fmt(b.total)}</div>
+                  <div style={{ fontSize: 11, color: brand.muted, marginBottom: 6 }}>{b.count} invoice{b.count === 1 ? "" : "s"}</div>
+                  <div style={{ height: 8, borderRadius: 4, background: brand.bg, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${(b.total / maxBucketTotal) * 100}%`, background: AGING_COLORS[b.label] || brand.muted }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: brand.text, marginBottom: 10 }}>Overdue Invoices</div>
+            {data.invoices.length === 0
+              ? <div style={{ color: brand.muted, fontSize: 13 }}>No outstanding invoices.</div>
+              : (
+                <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr>{["Invoice", "Client", "Due Date", "Days Overdue", "Balance", "Bucket"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {data.invoices.map(row => (
+                        <tr key={row.invoice_id} style={{ background: brand.surface }}>
+                          <td style={{ ...cellStyle, fontWeight: 600 }}>{row.invoice_id}</td>
+                          <td style={cellStyle}>{row.client_name || "—"}</td>
+                          <td style={cellStyle}>{row.due_date || "—"}</td>
+                          <td style={cellStyle}>{row.days_overdue}</td>
+                          <td style={cellStyle}>${fmt(row.balance)}</td>
+                          <td style={cellStyle}>
+                            <span style={{ background: AGING_COLORS[row.bucket] || brand.muted, color: "#fff", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{row.bucket}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            }
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Page shell ───────────────────────────────────────────────────────────────
 
 const TABS = [
   { id: "revenue",    label: "Revenue" },
   { id: "technician", label: "Technician" },
   { id: "sla",        label: "SLA Compliance" },
+  { id: "ar-aging",   label: "AR Aging" },
 ];
 
 export default function ReportsPage() {
@@ -347,6 +440,7 @@ export default function ReportsPage() {
       {tab === "revenue"    && <RevenueTab />}
       {tab === "technician" && <TechnicianTab />}
       {tab === "sla"        && <SLATab />}
+      {tab === "ar-aging"   && <ARAgingTab />}
     </div>
   );
 }

@@ -438,6 +438,67 @@ def portal_invoice_pdf(
     return HTMLResponse(content=_build_invoice_html(inv))
 
 
+class CheckoutSessionOut(BaseModel):
+    checkout_url: str
+
+
+@router.post("/invoices/{invoice_id}/checkout", response_model=CheckoutSessionOut)
+def portal_create_checkout_session(
+    invoice_id: str,
+    pu: ClientPortalUser = Depends(get_portal_user),
+    db: Session = Depends(get_db),
+):
+    from .. import config
+    import stripe
+
+    if not config.STRIPE_SECRET_KEY:
+        raise HTTPException(status_code=503, detail="Online payments are not configured")
+
+    client_ids = _company_client_ids(db, pu)
+    inv = db.query(Invoice).filter(
+        Invoice.id == invoice_id,
+        Invoice.client_id.in_(client_ids),
+    ).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if inv.status in (InvoiceStatus.paid, InvoiceStatus.void):
+        raise HTTPException(status_code=400, detail="This invoice cannot be paid online")
+
+    paid = float(sum(p.amount for p in inv.payments))
+    balance = round(float(inv.total) - paid, 2)
+    if balance <= 0:
+        raise HTTPException(status_code=400, detail="This invoice has no outstanding balance")
+
+    # The slug lives on whichever client record in the company actually has one set
+    # (usually the primary/lowest-id record) — pu.client_id may be a secondary contact.
+    slug = (
+        db.query(Client.slug)
+        .filter(Client.id.in_(client_ids), Client.slug.isnot(None))
+        .scalar()
+        or ""
+    )
+    return_url = f"{config.PORTAL_URL}/p/{slug}/invoices/{inv.id}"
+
+    stripe.api_key = config.STRIPE_SECRET_KEY
+    session = stripe.checkout.Session.create(
+        mode="payment",
+        line_items=[{
+            "price_data": {
+                "currency": "cad",
+                "product_data": {"name": f"Invoice {inv.id} balance due"},
+                "unit_amount": round(balance * 100),
+            },
+            "quantity": 1,
+        }],
+        success_url=f"{return_url}?payment=success",
+        cancel_url=f"{return_url}?payment=cancelled",
+        metadata={"invoice_id": inv.id},
+    )
+    inv.stripe_checkout_session_id = session.id
+    db.commit()
+    return CheckoutSessionOut(checkout_url=session.url)
+
+
 # ─── Admin: portal account management ────────────────────────────────────────
 
 @router.get("/accounts", response_model=list[PortalUserOut])

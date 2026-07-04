@@ -144,6 +144,7 @@ class Ticket(Base):
     hour_logs = relationship("HourLog", back_populates="ticket", cascade="all, delete-orphan")
     comments = relationship("TicketComment", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketComment.created_at")
     attachments = relationship("TicketAttachment", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketAttachment.created_at")
+    audit_logs = relationship("AuditLog", back_populates="ticket", cascade="all, delete-orphan", order_by="AuditLog.created_at")
 
 
 class InvoiceStatus(str, enum.Enum):
@@ -175,12 +176,14 @@ class Invoice(Base):
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    stripe_checkout_session_id = Column(String(255), nullable=True)
 
     ticket = relationship("Ticket")
     client = relationship("Client")
     lines = relationship("InvoiceLine", back_populates="invoice", cascade="all, delete-orphan")
     payments = relationship("InvoicePayment", back_populates="invoice", cascade="all, delete-orphan")
     linked_tickets = relationship("Ticket", secondary="invoice_tickets", lazy="joined")
+    audit_logs = relationship("AuditLog", back_populates="invoice", cascade="all, delete-orphan", order_by="AuditLog.created_at")
 
 
 class InvoiceLine(Base):
@@ -224,6 +227,9 @@ class HourLog(Base):
     hours = Column(Numeric(6, 2), nullable=False, default=0)
     rate = Column(Numeric(10, 2), nullable=False, default=0)
     description = Column(Text, nullable=False, default="")
+    started_at = Column(DateTime, nullable=True)
+    ended_at = Column(DateTime, nullable=True)
+    is_running = Column(Boolean, nullable=False, default=False)
 
     ticket = relationship("Ticket", back_populates="hour_logs")
 
@@ -240,6 +246,48 @@ class TicketComment(Base):
 
     ticket = relationship("Ticket", back_populates="comments")
     author = relationship("User", back_populates="comments")
+
+
+class AuditLog(Base):
+    """Immutable record of who changed what on a ticket or invoice, and when.
+
+    No update/delete endpoint is ever exposed for this table — that is what
+    makes it an audit trail rather than just another editable log.
+    """
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_id = Column(String(32), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=True, index=True)
+    invoice_id = Column(String(32), ForeignKey("invoices.id", ondelete="CASCADE"), nullable=True, index=True)
+    actor_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # null = system-generated
+    actor_label = Column(String(255), nullable=False, default="")
+    action = Column(String(50), nullable=False)
+    field = Column(String(100), nullable=True)
+    old_value = Column(Text, nullable=True)
+    new_value = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), index=True)
+
+    ticket = relationship("Ticket", back_populates="audit_logs")
+    invoice = relationship("Invoice", back_populates="audit_logs")
+    actor = relationship("User")
+
+
+class Notification(Base):
+    """In-app notification for staff — assignments, reassignments, status
+    changes, and internal comments on tickets they're assigned to. Staff-only;
+    no portal/client equivalent."""
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    ticket_id = Column(String(32), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=True)
+    kind = Column(String(50), nullable=False)
+    message = Column(String(500), nullable=False)
+    read = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), index=True)
+
+    user = relationship("User")
+    ticket = relationship("Ticket")
 
 
 class TicketAttachment(Base):
@@ -300,7 +348,8 @@ class InvoicePayment(Base):
     method = Column(String(50), nullable=False, default="")   # cash, cheque, e-transfer, card, other
     note = Column(String(500), nullable=False, default="")
     payment_date = Column(Date, nullable=False, default=date.today)
-    recorded_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    recorded_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # null = automated (e.g. Stripe)
+    stripe_payment_intent_id = Column(String(255), nullable=True, unique=True)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     invoice = relationship("Invoice", back_populates="payments")

@@ -14,3 +14,4 @@ export const submitTicket       = (data)  => client.post("/portal/tickets", data
 export const listMyInvoices     = ()      => client.get("/portal/invoices").then(r => r.data);
 export const getMyInvoice       = (id)    => client.get(`/portal/invoices/${id}`).then(r => r.data);
 export const portalInvoicePdfUrl = (id)  => `/portal/invoices/${id}/pdf`;
+export const createCheckoutSession = (id) => client.post(`/portal/invoices/${id}/checkout`).then(r => r.data);

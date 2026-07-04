@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useNavigate, useParams, useLocation } from "re
 import {
   getClientBySlug, portalLogin, portalLogout, portalMe, portalChangePassword,
   listMyTickets, getMyTicket, submitTicket,
-  listMyInvoices, getMyInvoice, portalInvoicePdfUrl,
+  listMyInvoices, getMyInvoice, portalInvoicePdfUrl, createCheckoutSession,
 } from "./api.js";
 import { setTokens, clearTokens, hasStoredSession, registerLogoutHandler, openPdfWithAuth } from "./client.js";
 import { isInvoicePayable } from "./helpers.js";
@@ -781,7 +781,7 @@ function InvoicesPage({ slug, showToast }) {
 
 // ─── Invoice Detail ───────────────────────────────────────────────────────────
 
-function InvoiceDetailPage({ slug, showToast }) {
+export function InvoiceDetailPage({ slug, showToast }) {
   const { invoiceId } = useParams();
   const navigate = useNavigate();
   const [invoice, setInvoice] = useState(null);
@@ -806,10 +806,17 @@ function InvoiceDetailPage({ slug, showToast }) {
 
   const isPayable = isInvoicePayable(invoice);
 
-  // Placeholder for online payment. Later this will call the backend to create a
-  // Stripe Checkout Session and redirect the client to Stripe's hosted page.
-  const handlePayNow = () => {
-    showToast("Online card payment is coming soon. Please contact us to arrange payment.");
+  const handlePayNow = async () => {
+    try {
+      const { checkout_url } = await createCheckoutSession(invoiceId);
+      window.location.href = checkout_url;
+    } catch (err) {
+      if (err?.response?.status === 503) {
+        showToast("Online card payment is coming soon. Please contact us to arrange payment.", "error");
+      } else {
+        showToast("Unable to start payment. Please contact us.", "error");
+      }
+    }
   };
 
   return (

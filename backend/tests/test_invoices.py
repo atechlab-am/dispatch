@@ -286,6 +286,24 @@ def test_marking_invoice_paid_syncs_linked_tickets(client, admin_headers):
     assert t["status"] == "Closed"   # paid work is fully done → Closed
 
 
+def test_marking_invoice_paid_attributes_ticket_audit_to_recording_user(client, admin_headers):
+    cid, tid = _make_ticket_with_client(client, admin_headers)
+    inv = client.post("/api/invoices", json={**INVOICE_BASE, "client_id": cid, "tax_rate": 0, "lines": []}, headers=admin_headers).json()
+    client.post(f"/api/invoices/{inv['id']}/tickets", json={"ticket_ids": [tid]}, headers=admin_headers)
+    full = client.get(f"/api/invoices/{inv['id']}", headers=admin_headers).json()
+    payload = {k: full[k] for k in ["client_id", "client_name", "client_email", "client_address",
+        "issue_date", "due_date", "notes", "tax_rate"]}
+    payload["status"] = "Paid"
+    payload["lines"] = [{"description": l["description"], "qty": l["qty"],
+        "unit_price": l["unit_price"], "amount": l["amount"]} for l in full["lines"]]
+    client.put(f"/api/invoices/{inv['id']}", json=payload, headers=admin_headers)
+
+    audit = client.get(f"/api/tickets/{tid}/audit", headers=admin_headers).json()
+    status_entries = [e for e in audit if e["action"] == "status_changed" and e["new_value"] == "Closed"]
+    assert len(status_entries) == 1
+    assert status_entries[0]["actor_label"] == "Test Admin"
+
+
 def test_only_resolved_tickets_are_invoiceable(client, admin_headers):
     """The picker must exclude tickets that aren't Resolved."""
     r = client.post("/api/clients", json={"name": "Res Co", "email": "r@co.com", "phone": "",

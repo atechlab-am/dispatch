@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,8 +13,8 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy.exc import SQLAlchemyError
 
 from . import database as _db
-from .models.models import RefreshToken, PortalRefreshToken
-from .routers import auth, tickets, users, setup, clients, invoices, dashboard, comments, templates, attachments, recurring, documents, reports, form_templates, version, ticket_documents, portal
+from .models.models import RefreshToken, PortalRefreshToken, Notification
+from .routers import auth, tickets, users, setup, clients, invoices, dashboard, comments, templates, attachments, recurring, documents, reports, form_templates, version, ticket_documents, portal, audit, timer, payments, notifications
 from .tasks import recurring_ticket_loop
 from . import config
 
@@ -76,16 +76,43 @@ async def _purge_expired_tokens_loop():
         await asyncio.sleep(3600)
 
 
+def _purge_old_notifications_once(db) -> int:
+    """Delete read notifications older than 90 days. Unread notifications are
+    never purged regardless of age. Returns the number of rows deleted."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=90)
+    deleted = (
+        db.query(Notification)
+        .filter(Notification.read == True, Notification.created_at < cutoff)
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return deleted
+
+
+async def _purge_old_notifications_loop():
+    while True:
+        try:
+            with _db.SessionLocal() as db:
+                deleted = _purge_old_notifications_once(db)
+                if deleted:
+                    logger.info("Purged %d read notifications older than 90 days", deleted)
+        except Exception:
+            logger.exception("Failed to purge old notifications")
+        await asyncio.sleep(3600)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _configure_logging()
     _validate_secret_key()
     task = asyncio.create_task(_purge_expired_tokens_loop())
     task2 = asyncio.create_task(recurring_ticket_loop())
+    task3 = asyncio.create_task(_purge_old_notifications_loop())
     yield
     task.cancel()
     task2.cancel()
-    for t in (task, task2):
+    task3.cancel()
+    for t in (task, task2, task3):
         try:
             await t
         except asyncio.CancelledError:
@@ -114,6 +141,10 @@ app.include_router(clients.router, prefix="/api")
 app.include_router(invoices.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(comments.router, prefix="/api")
+app.include_router(audit.router, prefix="/api")
+app.include_router(timer.router, prefix="/api")
+app.include_router(payments.router, prefix="/api")
+app.include_router(notifications.router, prefix="/api")
 app.include_router(templates.router, prefix="/api")
 app.include_router(attachments.router, prefix="/api")
 app.include_router(recurring.router, prefix="/api")

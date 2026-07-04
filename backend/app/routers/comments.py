@@ -6,6 +6,7 @@ from ..models.models import Ticket, TicketComment, User
 from ..schemas import CommentIn, CommentOut
 from ..security import get_current_user
 from .. import email as mailer
+from ..notifications import create_notification
 
 router = APIRouter(prefix="/tickets/{ticket_id}/comments", tags=["comments"])
 
@@ -71,6 +72,13 @@ def add_comment(
             author_name=current_user.name,
             client_email=ticket.client_email,
         )
+
+    if body.is_internal and ticket.assigned_to and ticket.assigned_to != current_user.id:
+        create_notification(
+            db, user_id=ticket.assigned_to, ticket_id=ticket_id, kind="comment_added",
+            message=f"{current_user.name} commented on ticket {ticket_id}: {ticket.title}",
+        )
+        db.commit()
 
     return CommentOut(
         id=comment.id,
