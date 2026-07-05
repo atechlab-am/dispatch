@@ -733,17 +733,10 @@ class SendInvoiceIn(BaseModel):
     message: str = Field("", max_length=2000)
 
 
-@router.post("/{invoice_id}/send", status_code=status.HTTP_204_NO_CONTENT)
-def send_invoice(
-    invoice_id: str,
-    body: SendInvoiceIn,
-    db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
-):
-    inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
-    if not inv:
-        raise HTTPException(status_code=404, detail="Invoice not found")
-
+def _send_invoice_email(inv: Invoice, to: str, message: str, db: Session) -> None:
+    """Build and send the invoice HTML email, then mark Sent if still Draft.
+    Shared by the manual send-invoice endpoint and the recurring-invoice
+    auto-send path so the template/status-flip logic lives in one place."""
     paid = round(float(sum(p.amount for p in inv.payments)), 2)
     balance = round(float(inv.total) - paid, 2)
     tax_pct = round(float(inv.tax_rate) * 100, 3)
@@ -755,7 +748,7 @@ def send_invoice(
         for l in inv.lines
     )
 
-    note_block = f"<div style='background:#f8fafc;border-left:3px solid #1A5CBA;padding:12px;border-radius:0 6px 6px 0;margin:16px 0;font-size:13px;white-space:pre-wrap'>{body.message}</div>" if body.message else ""
+    note_block = f"<div style='background:#f8fafc;border-left:3px solid #1A5CBA;padding:12px;border-radius:0 6px 6px 0;margin:16px 0;font-size:13px;white-space:pre-wrap'>{message}</div>" if message else ""
     due_line = f"<p style='margin:4px 0'><strong>Due:</strong> {inv.due_date}</p>" if inv.due_date else ""
 
     html = f"""<!DOCTYPE html><html><head><style>
@@ -770,7 +763,7 @@ def send_invoice(
       <div class="header"><div class="logo">ATech<span>Solutions</span></div></div>
       <div class="body">
         <p style="font-size:16px;font-weight:700;margin:0 0 8px">Invoice {inv.id}</p>
-        <p style="margin:4px 0"><strong>To:</strong> {inv.client_name or body.to}</p>
+        <p style="margin:4px 0"><strong>To:</strong> {inv.client_name or to}</p>
         <p style="margin:4px 0"><strong>Issued:</strong> {inv.issue_date}</p>
         {due_line}
         {note_block}
@@ -795,8 +788,21 @@ def send_invoice(
       <div class="footer">ATechSolutions &nbsp;|&nbsp; atechsolutions.org</div>
     </div></body></html>"""
 
-    mail._send(body.to, f"Invoice {inv.id} from ATechSolutions", html)
+    mail._send(to, f"Invoice {inv.id} from ATechSolutions", html)
     # mark as Sent if still Draft
     if inv.status == InvoiceStatus.draft:
         inv.status = InvoiceStatus.sent
         db.commit()
+
+
+@router.post("/{invoice_id}/send", status_code=status.HTTP_204_NO_CONTENT)
+def send_invoice(
+    invoice_id: str,
+    body: SendInvoiceIn,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    _send_invoice_email(inv, body.to, body.message, db)

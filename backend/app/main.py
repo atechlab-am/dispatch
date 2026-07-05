@@ -14,8 +14,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from . import database as _db
 from .models.models import RefreshToken, PortalRefreshToken, Notification
-from .routers import auth, tickets, users, setup, clients, invoices, dashboard, comments, templates, attachments, recurring, documents, reports, form_templates, version, ticket_documents, portal, audit, timer, payments, notifications
-from .tasks import recurring_ticket_loop
+from .routers import auth, tickets, users, setup, clients, invoices, dashboard, comments, templates, attachments, recurring, documents, reports, form_templates, version, ticket_documents, portal, audit, timer, payments, notifications, inbound_email, recurring_invoices, appointments
+from .tasks import recurring_ticket_loop, recurring_invoice_loop
 from . import config
 
 
@@ -105,14 +105,18 @@ async def _purge_old_notifications_loop():
 async def lifespan(app: FastAPI):
     _configure_logging()
     _validate_secret_key()
-    task = asyncio.create_task(_purge_expired_tokens_loop())
-    task2 = asyncio.create_task(recurring_ticket_loop())
-    task3 = asyncio.create_task(_purge_old_notifications_loop())
+    tasks = [
+        asyncio.create_task(_purge_expired_tokens_loop()),
+        asyncio.create_task(recurring_ticket_loop()),
+    ]
+    if config.FEATURE_NOTIFICATIONS:
+        tasks.append(asyncio.create_task(_purge_old_notifications_loop()))
+    if config.FEATURE_RECURRING_INVOICING:
+        tasks.append(asyncio.create_task(recurring_invoice_loop()))
     yield
-    task.cancel()
-    task2.cancel()
-    task3.cancel()
-    for t in (task, task2, task3):
+    for t in tasks:
+        t.cancel()
+    for t in tasks:
         try:
             await t
         except asyncio.CancelledError:
@@ -145,13 +149,17 @@ app.include_router(audit.router, prefix="/api")
 app.include_router(timer.router, prefix="/api")
 app.include_router(payments.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
+app.include_router(inbound_email.router, prefix="/api")
 app.include_router(templates.router, prefix="/api")
 app.include_router(attachments.router, prefix="/api")
 app.include_router(recurring.router, prefix="/api")
+app.include_router(recurring_invoices.router, prefix="/api")
+app.include_router(appointments.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 app.include_router(form_templates.router, prefix="/api")
 app.include_router(version.router, prefix="/api")
+app.include_router(version.config_router, prefix="/api")
 app.include_router(ticket_documents.router, prefix="/api")
 app.include_router(portal.router, prefix="/api")
 

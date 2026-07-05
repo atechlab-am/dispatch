@@ -2,6 +2,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
+from . import config
 from .models.models import AuditLog, User
 
 
@@ -23,6 +24,11 @@ def write_audit(
     old_value: Optional[str] = None,
     new_value: Optional[str] = None,
 ):
+    # No-op regardless of caller when the feature is disabled — every write
+    # site across tickets.py/invoices.py/appointments.py/inbound_email.py/
+    # tasks.py funnels through here, so this is the single gate.
+    if not config.FEATURE_AUDIT_LOG:
+        return
     db.add(AuditLog(
         ticket_id=ticket_id,
         invoice_id=invoice_id,

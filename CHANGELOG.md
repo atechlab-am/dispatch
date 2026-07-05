@@ -1,5 +1,59 @@
 # Changelog
 
+## [1.17.0] — 2026-07-05
+
+### Added — feature toggles for Phase 12/13 additions
+- Six new `FEATURE_*` env vars let you turn off any of the audit log, live time tracking, AR aging report, in-app notifications, recurring/retainer invoicing, and scheduling/dispatch calendar features independently, without touching code. All default `true` — upgrading changes nothing until you explicitly set one to `false`.
+- Disabling a feature returns `503` from its API endpoints (matching the existing Stripe/email-to-ticket "exists but refuses" pattern) and hides its nav item/tab/section in the UI, rather than leaving dead UI that errors on every click.
+- `write_audit()` and `create_notification()` are now centrally gated — when `FEATURE_AUDIT_LOG`/`FEATURE_NOTIFICATIONS` is off, every caller across the app (tickets, invoices, comments, appointments, inbound email, and the recurring-ticket/recurring-invoice background loops) silently no-ops, rather than needing a check at each of the ~15 call sites.
+- Disabling notifications or recurring invoicing also stops their background loops (notification purge, recurring-invoice generation) from starting — no wasted cycles polling for a disabled feature.
+- New `GET /api/config` endpoint exposes the six toggles (no secrets) so the frontend can render its nav/tabs to match; fetched once at login alongside the user profile.
+- The timer feature's historical-data safeguard (a running/completed timer's `hour_logs` row surviving a ticket's autosave) is preserved even when the timer feature is later disabled — old timer data is never at risk from a toggle flip.
+
+### Tests
+- New `backend/tests/test_config_toggles.py` (13 tests): `/config` endpoint shape and auth, each of the six features' endpoints returning 503 when disabled, `write_audit`/`create_notification` no-op verification via a real call site, and confirmation that unrelated features (e.g. the other three reports) are unaffected by a neighboring toggle.
+- Extended `ReportsPage.test.jsx`/`InvoicesPage.test.jsx`: AR Aging / Recurring tabs disappear when their feature flag is off.
+
+## [1.16.0] — 2026-07-05
+
+### Added — scheduling/dispatch calendar
+- New **Schedule** page (staff nav): a day/week calendar for assigning technicians to on-site appointments. Drag a ticket from the "Unscheduled Tickets" sidebar onto a time slot to create a one-hour appointment; drag an existing appointment block to a new slot/technician to reschedule; cancel from the appointment block directly. Built with plain HTML5 drag-and-drop (matching the existing ticket board view's pattern) — no new frontend dependency.
+- **Appointments are independent of ticket assignment** — a ticket can have zero, one, or many scheduled appointments (e.g. an initial visit plus a follow-up), tracked in a new `Appointment` model rather than reusing `Ticket.assigned_to`.
+- Scheduling/rescheduling/cancelling an appointment notifies the assigned technician and writes an entry to the ticket's existing Activity/audit log (`appointment_scheduled` / `appointment_rescheduled` / `appointment_cancelled`) — no new UI needed for that, it surfaces through the audit trail already built in a previous release.
+- **Known v1 limitations, deliberately deferred**: no double-booking validation (two overlapping appointments for the same technician are both allowed) and no technician availability/working-hours/PTO modeling.
+- New table `appointments` (migration `0027`), new `/api/appointments` CRUD endpoints, and a new `has_appointment` filter on `GET /api/tickets` (used to populate the "Unscheduled Tickets" sidebar without a separate endpoint).
+
+### Tests
+- New `backend/tests/test_appointments.py` (9 tests): CRUD, range-query filtering, technician notification on create, audit log entries for create/reschedule/cancel with correct old/new values, validation (end before start, missing ticket).
+- Extended `backend/tests/test_tickets.py`: `has_appointment` filter correctly separates scheduled from unscheduled tickets.
+- New `src/__tests__/SchedulePage.test.jsx`: renders the unscheduled sidebar; simulates a drag-and-drop onto a time slot and asserts the appointment is created with the correct ticket/technician.
+
+## [1.15.0] — 2026-07-05
+
+### Added — recurring/retainer invoicing
+- New **Recurring** tab on the Invoices page (admin only): schedule an invoice to auto-generate on a daily/weekly/monthly/quarterly interval, for managed-services retainers. Each schedule has a full line-item template (same shape as a normal invoice's lines), reused verbatim (or with an optional `{month}` token interpolated, e.g. "Retainer — {month}" → "Retainer — July 2026") on every invoice it generates.
+- **`auto_send` toggle** per schedule (default off): off generates the invoice as a Draft for review; on emails it to the client immediately, using the exact same send logic as the manual "Send Invoice" button (extracted into a shared `_send_invoice_email` helper so the template/status-flip logic lives in one place, not duplicated).
+- Recurring invoice schedules are **admin-only** to create/edit/delete — stricter than the existing recurring-ticket schedules (any staff can create those), since this feature touches client billing and can auto-email clients unattended.
+- Generated invoices are attributed to `System (recurring)` in the audit trail, same convention as recurring tickets.
+- New tables `recurring_invoices`/`recurring_invoice_lines` (migration `0026`), new `/api/recurring-invoices` CRUD endpoints, and a new background loop (`recurring_invoice_loop`, every 5 minutes) alongside the existing recurring-ticket loop.
+
+### Tests
+- New `backend/tests/test_recurring_invoices.py` (12 tests): CRUD with admin-only enforcement on all five endpoints, `_fire_due_recurring_invoices()` invoked directly — creates invoice + lines, advances `next_run`, writes the audit row; `auto_send` off/on behavior (mocking `mail._send`, never a real SMTP call); `{month}` interpolation; regression test confirming manual "Send Invoice" still works after the shared-helper extraction.
+- Extended `src/__tests__/InvoicesPage.test.jsx`: Recurring tab renders schedules from the API.
+
+## [1.14.0] — 2026-07-04
+
+### Added — email-to-ticket (inbound intake)
+- Clients can now reply directly to any ticket notification email and have their reply threaded onto the same ticket — the inbound webhook matches the `[TKT-YYYY-NNNNN]` tag already present in every outbound notification's subject line. Emails with no matching tag (or a tag that no longer resolves to a real ticket) automatically create a brand-new ticket instead of erroring.
+- Client-authored comments (from inbound email) render with a **Client** badge in the ticket's comment thread and can only be deleted by an admin, never by an arbitrary technician.
+- New `POST /api/inbound-email/{secret}` webhook, compatible with Postmark's inbound-parse payload shape. Zero-auth by design (like the Stripe webhook) — a shared secret in the URL path is the sole gate, since Postmark's inbound webhooks don't support signature verification the way Stripe does. Wrong or missing secret returns 404 (not 401/403) so the endpoint's existence is never confirmable. Idempotent on webhook retries via the email's `Message-ID`.
+- **Trust tradeoff, documented in code**: a reply is threaded onto its ticket regardless of whether the sender's address matches the ticket's `client_email` — CCed staff, forwarded threads, and client staff turnover are all legitimate reasons for a different address to reply, and rejecting risks silently dropping a real client reply. Since these comments are always non-internal and never touch billing/internal notes, the residual risk is client-visible-comment noise, not data exposure.
+- Schema: `TicketComment.author_id` is now nullable (null = non-staff author), plus new `author_label` (display name/email) and `external_message_id` (webhook idempotency) columns. `Ticket.created_by` is also now nullable, for tickets auto-created from an unmatched inbound email. New `INBOUND_EMAIL_SECRET` env var (optional — leave blank to disable the feature, matching every other optional-integration pattern in this app). Migration `0025`.
+
+### Tests
+- New `backend/tests/test_inbound_email.py` (8 tests): secret gate, threading onto an existing ticket, new-ticket fallback (both "no tag" and "tag not found" cases), sender-mismatch-still-threads, webhook idempotency, malformed-payload 400.
+- Extended `backend/tests/test_comments.py`: outer-join regression (client-authored comments appear in the list), non-admin cannot delete a client-authored comment, admin can.
+
 ## [1.13.0] — 2026-07-03
 
 ### Added — in-app notification center

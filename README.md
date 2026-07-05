@@ -42,6 +42,13 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Playbook section in ticket editor surfaces matched documents by ticket type
 - **Activity/audit log** — immutable trail of who changed status, assignee, price, or other fields, and when; separate from Comments, no edit/delete
 - **Live time tracking** — start/stop timer in the Hours Log section as an alternative to manual entry; one running timer per ticket
+- **Email-to-ticket** — clients replying to a ticket notification email have their reply threaded onto the ticket automatically; unmatched inbound emails create a new ticket (optional — requires `INBOUND_EMAIL_SECRET`, safely disabled if unset)
+
+### Scheduling
+- Day/week dispatch calendar — drag a ticket onto a technician's time slot to schedule an on-site appointment
+- A ticket can have zero, one, or many appointments, independent of its assignee
+- Scheduling/rescheduling/cancelling notifies the technician and logs to the ticket's Activity trail
+- No double-booking validation or technician availability modeling yet (planned as a future refinement)
 
 ### Clients
 - Business and residential client directory with add, edit, delete, and search
@@ -52,6 +59,7 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Create invoices manually or directly from a ticket
 - Line items, tax presets, status tracking (Draft / Sent / Paid / Void)
 - PDF generation per invoice
+- **Recurring/retainer invoicing** — schedule an invoice to auto-generate on a daily/weekly/monthly/quarterly interval, with an optional auto-send toggle (admin only)
 
 ### Client Portal
 - Per-client portal at `/p/<slug>` — clients log in to view their tickets and invoices
@@ -108,6 +116,15 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Slug format validated server-side; CORS locked to required methods and headers
 - Ticket CSV export restricted to admin role
 - All queries use SQLAlchemy ORM (no raw SQL)
+
+### Feature Toggles
+Six features can be turned off independently via env vars, all defaulting to enabled — set any to `false` to disable it. A disabled feature's API returns 503 and its nav item/tab/section disappears from the UI:
+- `FEATURE_AUDIT_LOG` — ticket Activity/audit trail
+- `FEATURE_TIMER` — live start/stop time tracking
+- `FEATURE_AR_AGING` — the AR Aging report tab
+- `FEATURE_NOTIFICATIONS` — the in-app notification bell (also stops its purge background loop)
+- `FEATURE_RECURRING_INVOICING` — the Recurring tab on Invoices (also stops its generation background loop)
+- `FEATURE_SCHEDULING` — the Schedule/dispatch calendar page
 
 ### Setup Wizard
 - First-boot admin account creation

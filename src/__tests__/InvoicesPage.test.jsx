@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { vi } from "vitest";
 import InvoicesPage, { InvoiceEditorRoute } from "../InvoicesPage.jsx";
@@ -25,8 +25,17 @@ vi.mock("../api/invoices.js", () => ({
 }));
 vi.mock("../api/clients.js", () => ({ listClients: vi.fn().mockResolvedValue([]) }));
 vi.mock("../api/client.js", () => ({ openPdfWithAuth: vi.fn() }));
+vi.mock("../api/recurringInvoices.js", () => ({
+  listRecurringInvoices: vi.fn().mockResolvedValue([
+    { id: 1, name: "Acme Retainer", active: true, interval: "monthly", client_name: "Acme Corp",
+      auto_send: false, next_run: "2026-08-01T00:00:00Z", lines: [] },
+  ]),
+  getRecurringInvoice: vi.fn(), createRecurringInvoice: vi.fn(),
+  updateRecurringInvoice: vi.fn(), deleteRecurringInvoice: vi.fn(),
+}));
 
 import { getInvoice } from "../api/invoices.js";
+import { listRecurringInvoices } from "../api/recurringInvoices.js";
 
 const noop = () => {};
 
@@ -63,4 +72,26 @@ test("/invoices/:id fetches and renders the invoice", async () => {
   );
   expect(await screen.findByText("Invoice INV-2026-00042")).toBeInTheDocument();
   expect(getInvoice).toHaveBeenCalledWith("INV-2026-00042");
+});
+
+test("Recurring tab renders schedules from the API", async () => {
+  render(
+    <MemoryRouter initialEntries={["/invoices"]}>
+      <InvoicesPage showToast={noop} />
+    </MemoryRouter>
+  );
+  fireEvent.click(screen.getByText("Recurring"));
+
+  expect(await screen.findByText("Acme Retainer")).toBeInTheDocument();
+  expect(listRecurringInvoices).toHaveBeenCalled();
+});
+
+test("Recurring tab is hidden when the recurring_invoicing feature is disabled", async () => {
+  render(
+    <MemoryRouter initialEntries={["/invoices"]}>
+      <InvoicesPage showToast={noop} features={{ recurring_invoicing: false }} />
+    </MemoryRouter>
+  );
+  expect(await screen.findByText("INV-2026-00001")).toBeInTheDocument();
+  expect(screen.queryByText("Recurring")).not.toBeInTheDocument();
 });

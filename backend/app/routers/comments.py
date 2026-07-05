@@ -27,7 +27,7 @@ def list_comments(
     _get_ticket_or_404(ticket_id, db)
     rows = (
         db.query(TicketComment, User.name.label("author_name"))
-        .join(User, TicketComment.author_id == User.id)
+        .outerjoin(User, TicketComment.author_id == User.id)
         .filter(TicketComment.ticket_id == ticket_id)
         .order_by(TicketComment.created_at)
         .all()
@@ -38,7 +38,8 @@ def list_comments(
             id=c.id,
             ticket_id=c.ticket_id,
             author_id=c.author_id,
-            author_name=author_name,
+            author_name=author_name or c.author_label or "Client",
+            author_label=c.author_label,
             body=c.body,
             is_internal=c.is_internal,
             created_at=c.created_at,
@@ -85,6 +86,7 @@ def add_comment(
         ticket_id=comment.ticket_id,
         author_id=comment.author_id,
         author_name=current_user.name,
+        author_label=None,
         body=comment.body,
         is_internal=comment.is_internal,
         created_at=comment.created_at,
@@ -105,6 +107,9 @@ def delete_comment(
     ).first()
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
+    # comment.author_id is None for inbound-email (client-authored) comments;
+    # None != <int> is always True, so this already correctly requires admin to
+    # delete those — verified intentional, not an incidental side effect.
     if comment.author_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not allowed")
     db.delete(comment)

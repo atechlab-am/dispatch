@@ -7,6 +7,10 @@ import {
 } from "./api/invoices.js";
 import { listClients } from "./api/clients.js";
 import { openPdfWithAuth } from "./api/client.js";
+import {
+  listRecurringInvoices, getRecurringInvoice, createRecurringInvoice,
+  updateRecurringInvoice, deleteRecurringInvoice,
+} from "./api/recurringInvoices.js";
 
 const brand = {
   blue: "#1A5CBA", accent: "#E8A020", bg: "#F4F7FC", surface: "#FFFFFF",
@@ -829,7 +833,7 @@ export function InvoiceEditorRoute({ showToast, prefill = null, onDraftConsumed 
 }
 
 // ─── Invoice list (routed: /invoices) ─────────────────────────────────────────
-export default function InvoicesPage({ showToast }) {
+function InvoiceListTab({ showToast }) {
   const navigate = useNavigate();
   const [invoices, setInvoices] = useState([]);
   const [total,    setTotal]    = useState(0);
@@ -942,6 +946,223 @@ export default function InvoicesPage({ showToast }) {
           <Btn small variant="ghost" disabled={page === pages} onClick={() => setPage(p => p + 1)}>Next →</Btn>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Recurring invoices tab ────────────────────────────────────────────────────
+
+const INTERVALS = ["daily", "weekly", "monthly", "quarterly"];
+
+const RECURRING_INVOICE_DEFAULTS = {
+  name: "", active: true, interval: "monthly",
+  client_id: null, client_name: "", client_email: "", client_address: "",
+  tax_rate: 0, notes: "", auto_send: false,
+  lines: [{ description: "", qty: 1, unit_price: 0 }],
+};
+
+function RecurringInvoicesTab({ showToast, clients = [] }) {
+  const [items, setItems]     = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null); // null | {} | existing row
+  const [saving, setSaving]   = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setItems(await listRecurringInvoices()); } catch {}
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const payload = { ...editing, lines: editing.lines.filter(l => l.description.trim()) };
+      if (editing.id) {
+        await updateRecurringInvoice(editing.id, payload);
+      } else {
+        await createRecurringInvoice(payload);
+      }
+      showToast("Saved.", "ok");
+      setEditing(null);
+      load();
+    } catch (err) {
+      showToast(err?.response?.data?.detail || "Save failed.", "err");
+    } finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this recurring invoice schedule? This cannot be undone.")) return;
+    try {
+      await deleteRecurringInvoice(id);
+      showToast("Deleted.", "ok");
+      load();
+    } catch { showToast("Delete failed.", "err"); }
+  };
+
+  const up = (field, val) => setEditing(prev => ({ ...prev, [field]: val }));
+
+  const handleClientSelect = (clientId) => {
+    const c = clients.find(cl => cl.id === parseInt(clientId));
+    setEditing(prev => ({
+      ...prev,
+      client_id:      c ? c.id      : null,
+      client_name:    c ? c.name    : "",
+      client_email:   c ? c.email   : "",
+      client_address: c ? c.address : "",
+    }));
+  };
+
+  const updLine = (i, field, val) => setEditing(prev => {
+    const lines = [...prev.lines];
+    lines[i] = { ...lines[i], [field]: val };
+    return { ...prev, lines };
+  });
+  const addLine = () => setEditing(prev => ({ ...prev, lines: [...prev.lines, { description: "", qty: 1, unit_price: 0 }] }));
+  const remLine = (i) => setEditing(prev => ({ ...prev, lines: prev.lines.filter((_, idx) => idx !== i) }));
+
+  const nextRunLabel = (dt) => new Date(dt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+
+  if (editing !== null) {
+    return (
+      <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+          <Btn onClick={() => setEditing(null)} variant="ghost" small>← Back</Btn>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: brand.text }}>{editing.id ? "Edit Recurring Invoice" : "New Recurring Invoice"}</h2>
+        </div>
+        <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 12, padding: 24, maxWidth: 720 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+            <div style={{ gridColumn: "1/-1" }}>
+              <FieldLabel>Schedule Name *</FieldLabel>
+              <input value={editing.name} onChange={e => up("name", e.target.value)} style={inp} placeholder="e.g. Acme Monthly Retainer" />
+            </div>
+            <div>
+              <FieldLabel>Interval</FieldLabel>
+              <select value={editing.interval} onChange={e => up("interval", e.target.value)} style={inp}>
+                {INTERVALS.map(i => <option key={i} value={i}>{i.charAt(0).toUpperCase() + i.slice(1)}</option>)}
+              </select>
+            </div>
+            <div>
+              <FieldLabel>Active</FieldLabel>
+              <select value={editing.active ? "true" : "false"} onChange={e => up("active", e.target.value === "true")} style={inp}>
+                <option value="true">Yes</option>
+                <option value="false">Paused</option>
+              </select>
+            </div>
+            <div style={{ gridColumn: "1/-1" }}>
+              <FieldLabel>Client</FieldLabel>
+              <select value={editing.client_id || ""} onChange={e => handleClientSelect(e.target.value)} style={inp}>
+                <option value="">— Select client —</option>
+                {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <FieldLabel>Tax Rate</FieldLabel>
+              <select value={editing.tax_rate} onChange={e => up("tax_rate", parseFloat(e.target.value))} style={inp}>
+                {TAX_PRESETS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <FieldLabel>Auto-send to client</FieldLabel>
+              <select value={editing.auto_send ? "true" : "false"} onChange={e => up("auto_send", e.target.value === "true")} style={inp}>
+                <option value="false">No — save as Draft</option>
+                <option value="true">Yes — email immediately</option>
+              </select>
+            </div>
+          </div>
+
+          <FieldLabel>Line Items</FieldLabel>
+          <div style={{ fontSize: 11, color: brand.muted, marginBottom: 8 }}>Use <code>{"{month}"}</code> in a description to interpolate the generation month (e.g. "Retainer — {"{month}"}" → "Retainer — July 2026").</div>
+          {editing.lines.map((l, i) => (
+            <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "flex-start" }}>
+              <input value={l.description} onChange={e => updLine(i, "description", e.target.value)} style={{ ...inp, flex: 1 }} placeholder="Description" />
+              <input type="number" value={l.qty} onChange={e => updLine(i, "qty", parseFloat(e.target.value) || 0)} style={{ ...inp, width: 80 }} placeholder="Qty" />
+              <input type="number" value={l.unit_price} onChange={e => updLine(i, "unit_price", parseFloat(e.target.value) || 0)} style={{ ...inp, width: 110 }} placeholder="Unit price" />
+              <button onClick={() => remLine(i)} style={{ background: "none", border: "none", color: brand.danger, cursor: "pointer", fontSize: 18, padding: "6px 4px" }}>×</button>
+            </div>
+          ))}
+          <Btn small variant="secondary" onClick={addLine}>+ Add Line</Btn>
+
+          <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
+            <Btn onClick={handleSave} disabled={saving || !editing.name.trim() || !editing.client_email}>{saving ? "Saving…" : "Save"}</Btn>
+            <Btn variant="ghost" onClick={() => setEditing(null)}>Cancel</Btn>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 22, color: brand.text, marginBottom: 4 }}>Recurring Invoices</div>
+          <div style={{ fontSize: 13, color: brand.muted }}>{items.length} schedule{items.length !== 1 ? "s" : ""}</div>
+        </div>
+        <Btn variant="accent" onClick={() => setEditing({ ...RECURRING_INVOICE_DEFAULTS })}>+ New Schedule</Btn>
+      </div>
+
+      {loading ? (
+        <div style={{ color: brand.muted, padding: "60px 0", textAlign: "center" }}>Loading…</div>
+      ) : items.length === 0 ? (
+        <div style={{ color: brand.muted, padding: "60px 0", textAlign: "center" }}>No recurring invoice schedules yet.</div>
+      ) : (
+        <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden", background: "#fff" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: brand.bg }}>
+                {["Name", "Client", "Interval", "Auto-send", "Next Run", ""].map((h, i) => (
+                  <th key={i} style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {items.map(r => (
+                <tr key={r.id}>
+                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, fontWeight: 600 }}>{r.name}{!r.active && <span style={{ marginLeft: 8, fontSize: 11, color: brand.muted }}>(paused)</span>}</td>
+                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}` }}>{r.client_name || "—"}</td>
+                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, textTransform: "capitalize" }}>{r.interval}</td>
+                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}` }}>{r.auto_send ? "Yes" : "No"}</td>
+                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, color: brand.muted, fontSize: 13 }}>{nextRunLabel(r.next_run)}</td>
+                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, whiteSpace: "nowrap" }}>
+                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                      <Btn small variant="secondary" onClick={() => setEditing(r)}>Edit</Btn>
+                      <Btn small variant="danger" onClick={() => handleDelete(r.id)}>Delete</Btn>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Page shell (tabs) ──────────────────────────────────────────────────────────
+
+export default function InvoicesPage({ showToast, features }) {
+  const [tab, setTab] = useState("invoices");
+  const [clients, setClients] = useState([]);
+  const showRecurring = features?.recurring_invoicing !== false;
+  const tabs = [{ id: "invoices", label: "Invoices" }, ...(showRecurring ? [{ id: "recurring", label: "Recurring" }] : [])];
+
+  useEffect(() => { listClients().then(setClients).catch(() => {}); }, []);
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 4, borderBottom: `2px solid ${brand.border}`, marginBottom: 24 }}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            style={{ padding: "8px 20px", background: "none", border: "none", borderBottom: `3px solid ${tab === t.id ? brand.blue : "transparent"}`, marginBottom: -2, fontWeight: 700, fontSize: 13, color: tab === t.id ? brand.blue : brand.muted, cursor: "pointer", fontFamily: "inherit" }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {tab === "invoices" && <InvoiceListTab showToast={showToast} />}
+      {tab === "recurring" && showRecurring && <RecurringInvoicesTab showToast={showToast} clients={clients} />}
     </div>
   );
 }

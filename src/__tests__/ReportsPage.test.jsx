@@ -37,3 +37,9 @@ test("AR Aging tab renders bucket and invoice data from the API", async () => {
   expect(screen.getByText("Acme Corp")).toBeInTheDocument();
   expect(getARAgingReport).toHaveBeenCalled();
 });
+
+test("AR Aging tab is hidden when the ar_aging feature is disabled", async () => {
+  render(<ReportsPage features={{ ar_aging: false }} />);
+  expect(await screen.findByText("Revenue")).toBeInTheDocument();
+  expect(screen.queryByText("AR Aging")).not.toBeInTheDocument();
+});

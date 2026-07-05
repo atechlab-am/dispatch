@@ -411,15 +411,16 @@ function ARAgingTab() {
 
 // ─── Page shell ───────────────────────────────────────────────────────────────
 
-const TABS = [
+const ALL_TABS = [
   { id: "revenue",    label: "Revenue" },
   { id: "technician", label: "Technician" },
   { id: "sla",        label: "SLA Compliance" },
   { id: "ar-aging",   label: "AR Aging" },
 ];
 
-export default function ReportsPage() {
+export default function ReportsPage({ features }) {
   const [tab, setTab] = useState("revenue");
+  const TABS = ALL_TABS.filter(t => t.id !== "ar-aging" || features?.ar_aging !== false);
 
   return (
     <div>
@@ -440,7 +441,7 @@ export default function ReportsPage() {
       {tab === "revenue"    && <RevenueTab />}
       {tab === "technician" && <TechnicianTab />}
       {tab === "sla"        && <SLATab />}
-      {tab === "ar-aging"   && <ARAgingTab />}
+      {tab === "ar-aging"   && features?.ar_aging !== false && <ARAgingTab />}
     </div>
   );
 }

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from .. import config
 from ..database import get_db
 from ..models.models import Ticket, HourLog, User, ClientType
 from ..security import get_current_user
@@ -46,6 +47,8 @@ def start_timer(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
+    if not config.FEATURE_TIMER:
+        raise HTTPException(status_code=503, detail="This feature is disabled")
     ticket = _get_ticket_or_404(ticket_id, db)
     existing = db.query(HourLog).filter(HourLog.ticket_id == ticket_id, HourLog.is_running == True).first()
     if existing:
@@ -74,6 +77,8 @@ def stop_timer(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
+    if not config.FEATURE_TIMER:
+        raise HTTPException(status_code=503, detail="This feature is disabled")
     _get_ticket_or_404(ticket_id, db)
     log = db.query(HourLog).filter(HourLog.ticket_id == ticket_id, HourLog.is_running == True).first()
     if not log:
@@ -96,5 +101,7 @@ def get_active_timer(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
+    if not config.FEATURE_TIMER:
+        raise HTTPException(status_code=503, detail="This feature is disabled")
     _get_ticket_or_404(ticket_id, db)
     return db.query(HourLog).filter(HourLog.ticket_id == ticket_id, HourLog.is_running == True).first()

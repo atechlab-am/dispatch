@@ -133,7 +133,7 @@ class Ticket(Base):
     sla_resolution_due = Column(DateTime, nullable=True)
     sla_paused_at = Column(DateTime, nullable=True)  # set when Awaiting Client, cleared on resume
     client_id = Column(Integer, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True)
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # null = auto-created (e.g. inbound email)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
     billing_status = Column(String(20), nullable=False, default="unbilled")  # unbilled | invoiced | paid
 
@@ -145,6 +145,7 @@ class Ticket(Base):
     comments = relationship("TicketComment", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketComment.created_at")
     attachments = relationship("TicketAttachment", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketAttachment.created_at")
     audit_logs = relationship("AuditLog", back_populates="ticket", cascade="all, delete-orphan", order_by="AuditLog.created_at")
+    appointments = relationship("Appointment", back_populates="ticket", cascade="all, delete-orphan", order_by="Appointment.start_at")
 
 
 class InvoiceStatus(str, enum.Enum):
@@ -239,7 +240,9 @@ class TicketComment(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     ticket_id = Column(String(32), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False)
-    author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # null = non-staff author (e.g. inbound email)
+    author_label = Column(String(255), nullable=True)  # denormalized display name/email when author_id is null
+    external_message_id = Column(String(255), nullable=True, unique=True)  # inbound email Message-ID, for idempotency
     body = Column(Text, nullable=False)
     is_internal = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
@@ -290,6 +293,25 @@ class Notification(Base):
     ticket = relationship("Ticket")
 
 
+class Appointment(Base):
+    """A scheduled on-site visit or technician appointment for a ticket.
+    Independent of Ticket.assigned_to — a ticket can have zero, one, or many
+    appointments (e.g. an initial visit plus a follow-up)."""
+    __tablename__ = "appointments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_id = Column(String(32), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False, index=True)
+    technician_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    start_at = Column(DateTime, nullable=False, index=True)
+    end_at = Column(DateTime, nullable=False)
+    notes = Column(Text, nullable=False, default="")
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    ticket = relationship("Ticket", back_populates="appointments")
+    technician = relationship("User", foreign_keys=[technician_id])
+
+
 class TicketAttachment(Base):
     __tablename__ = "ticket_attachments"
 
@@ -337,6 +359,45 @@ class RecurringTicket(Base):
     last_ticket_id = Column(String(32), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class RecurringInvoice(Base):
+    """Schedule that generates an invoice (e.g. a monthly managed-services
+    retainer) on a recurring interval. Mirrors RecurringTicket's shape."""
+    __tablename__ = "recurring_invoices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+    interval = Column(SAEnum(RecurringInterval, values_callable=lambda e: [m.value for m in e]), nullable=False)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True)
+    client_name = Column(String(255), nullable=False, default="")
+    client_email = Column(String(255), nullable=False, default="")
+    client_address = Column(Text, nullable=False, default="")
+    tax_rate = Column(Numeric(5, 4), nullable=False, default=0)
+    notes = Column(Text, nullable=False, default="")
+    auto_send = Column(Boolean, nullable=False, default=False)
+    next_run = Column(DateTime, nullable=False)
+    last_invoice_id = Column(String(32), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    lines = relationship("RecurringInvoiceLine", back_populates="recurring_invoice", cascade="all, delete-orphan")
+
+
+class RecurringInvoiceLine(Base):
+    """Template line item copied onto each invoice this schedule generates.
+    description may contain a literal '{month}' token, interpolated to e.g.
+    'July 2026' at generation time."""
+    __tablename__ = "recurring_invoice_lines"
+
+    id = Column(Integer, primary_key=True, index=True)
+    recurring_invoice_id = Column(Integer, ForeignKey("recurring_invoices.id", ondelete="CASCADE"), nullable=False)
+    description = Column(String(500), nullable=False, default="")
+    qty = Column(Numeric(10, 2), nullable=False, default=1)
+    unit_price = Column(Numeric(12, 2), nullable=False, default=0)
+
+    recurring_invoice = relationship("RecurringInvoice", back_populates="lines")
 
 
 class InvoicePayment(Base):

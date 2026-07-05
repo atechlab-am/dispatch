@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from .. import config
 from ..database import get_db
 from ..models.models import Notification, User
 from ..schemas import NotificationOut
@@ -15,6 +16,8 @@ def list_notifications(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if not config.FEATURE_NOTIFICATIONS:
+        raise HTTPException(status_code=503, detail="This feature is disabled")
     q = db.query(Notification).filter(Notification.user_id == current_user.id)
     if unread_only:
         q = q.filter(Notification.read == False)
@@ -26,6 +29,8 @@ def unread_count(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if not config.FEATURE_NOTIFICATIONS:
+        raise HTTPException(status_code=503, detail="This feature is disabled")
     count = db.query(Notification).filter(
         Notification.user_id == current_user.id,
         Notification.read == False,
@@ -39,6 +44,8 @@ def mark_read(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if not config.FEATURE_NOTIFICATIONS:
+        raise HTTPException(status_code=503, detail="This feature is disabled")
     n = db.query(Notification).filter(
         Notification.id == notification_id,
         Notification.user_id == current_user.id,
@@ -56,6 +63,8 @@ def mark_all_read(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if not config.FEATURE_NOTIFICATIONS:
+        raise HTTPException(status_code=503, detail="This feature is disabled")
     db.query(Notification).filter(
         Notification.user_id == current_user.id,
         Notification.read == False,

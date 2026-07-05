@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from .. import config
 from ..database import get_db
 from ..models.models import User, Ticket, ServiceLine, HourLog, TicketStatus
 from ..schemas import TicketIn, TicketOut, TicketsPage, TicketListItem
@@ -216,6 +217,7 @@ def list_tickets(
     search: Optional[str] = Query(None),
     status_filter: Optional[str] = Query(None, alias="status"),
     assigned_to: Optional[int] = Query(None),
+    has_appointment: Optional[bool] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -236,6 +238,16 @@ def list_tickets(
             Ticket.title.ilike(term),
             Ticket.id.ilike(term),
         ))
+
+    # Ignored (not a hard error) when scheduling is disabled, since ticket listing
+    # itself must keep working regardless of this unrelated optional param.
+    if has_appointment is not None and config.FEATURE_SCHEDULING:
+        from ..models.models import Appointment
+        appt_ticket_ids = db.query(Appointment.ticket_id).distinct()
+        if has_appointment:
+            q = q.filter(Ticket.id.in_(appt_ticket_ids))
+        else:
+            q = q.filter(Ticket.id.notin_(appt_ticket_ids))
 
     total = q.count()
     items = (

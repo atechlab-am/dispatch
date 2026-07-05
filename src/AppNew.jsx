@@ -11,6 +11,7 @@ import InvoicesPage, { InvoiceEditorRoute } from "./InvoicesPage.jsx";
 import SettingsPage from "./SettingsPage.jsx";
 import DocumentsPage from "./DocumentsPage.jsx";
 import ReportsPage from "./ReportsPage.jsx";
+import SchedulePage from "./SchedulePage.jsx";
 import PortalPage from "./PortalPage.jsx";
 import BrandingSettingsPanel from "./BrandingSettingsPanel.jsx";
 import UpdateBanner from "./UpdateBanner.jsx";
@@ -32,6 +33,7 @@ const ICONS = {
   invoices:  "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8",
   recurring: "M1 4v6h6 M23 20v-6h-6 M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15",
   documents: "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M12 18v-6 M9 15h6",
+  schedule:  "M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z",
   reports:   "M18 20V10 M12 20V4 M6 20v-6",
   settings:  "M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z",
   portal:    "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z",
@@ -109,6 +111,7 @@ export default function AppNew({
   handleCreateInvoiceFromTicket, handleDashboardNav, handleBoardStatusChange,
   loadList, loadClients, loadTemplates,
   user,
+  features,
   navigate,
   // child components forwarded as render props
   TicketList, TicketEditor, TicketEditorRoute, NewTicketModal, RecurringPage,
@@ -136,6 +139,7 @@ export default function AppNew({
     { path: "/clients",   label: "Clients",    icon: ICONS.clients },
     { path: "/invoices",  label: "Invoices",   icon: ICONS.invoices },
     { path: "/recurring", label: "Recurring",  icon: ICONS.recurring },
+    ...(features?.scheduling !== false ? [{ path: "/schedule", label: "Schedule", icon: ICONS.schedule }] : []),
     { path: "/documents", label: "Documents",  icon: ICONS.documents },
     { path: "/reports",   label: "Reports",    icon: ICONS.reports },
     ...(isAdmin ? [{ path: "/portal", label: "Portal",    icon: ICONS.portal }] : []),
@@ -155,6 +159,7 @@ export default function AppNew({
     if (location.pathname.startsWith("/invoices/")) return "Invoice";
     if (location.pathname === "/invoices") return "Invoices";
     if (location.pathname === "/recurring") return "Recurring Tickets";
+    if (location.pathname === "/schedule") return "Schedule";
     if (location.pathname === "/documents") return "Documents";
     if (location.pathname === "/reports") return "Reports";
     if (location.pathname === "/portal") return "Client Portal";
@@ -241,7 +246,7 @@ export default function AppNew({
             <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{pageTitle}</h1>
           </div>
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-            <NotificationBell user={user} navigate={navigate} />
+            {features?.notifications !== false && <NotificationBell user={user} navigate={navigate} />}
             {location.pathname === "/tickets" && (
               <button
                 onClick={handleNew}
@@ -283,15 +288,17 @@ export default function AppNew({
                 showToast={showToast}
                 clients={clients}
                 onClientUpdated={loadClients}
+                features={features}
               />
             } />
             <Route path="/clients"   element={<ClientsPage showToast={showToast} />} />
-            <Route path="/invoices"      element={<InvoicesPage showToast={showToast} />} />
+            <Route path="/invoices"      element={<InvoicesPage showToast={showToast} features={features} />} />
             <Route path="/invoices/new"  element={<InvoiceEditorRoute showToast={showToast} prefill={invoiceDraft} onDraftConsumed={() => setInvoiceDraft(null)} />} />
             <Route path="/invoices/:invoiceId" element={<InvoiceEditorRoute showToast={showToast} />} />
             <Route path="/recurring" element={<RecurringPage showToast={showToast} clients={clients} />} />
+            {features?.scheduling !== false && <Route path="/schedule" element={<SchedulePage showToast={showToast} users={users} />} />}
             <Route path="/documents" element={<DocumentsPage showToast={showToast} user={user} />} />
-            <Route path="/reports"   element={<ReportsPage />} />
+            <Route path="/reports"   element={<ReportsPage features={features} />} />
             {isAdmin && <Route path="/portal" element={<PortalPage showToast={showToast} />} />}
             <Route path="/settings"  element={
               <div>

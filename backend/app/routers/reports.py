@@ -13,11 +13,12 @@ The CSV is streamed directly via GET /reports/<type>/csv with identical params.
 from datetime import date, datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from .. import config
 from ..database import get_db
 from ..models.models import (
     HourLog, Invoice, InvoicePayment, InvoiceLine, Ticket,
@@ -370,6 +371,8 @@ def ar_aging_report(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
+    if not config.FEATURE_AR_AGING:
+        raise HTTPException(status_code=503, detail="This feature is disabled")
     as_of_date = _parse_date(as_of) or datetime.now(timezone.utc).date()
 
     invoices = db.query(Invoice).filter(Invoice.status.notin_(["Paid", "Void"])).all()

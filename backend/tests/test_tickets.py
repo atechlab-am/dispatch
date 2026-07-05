@@ -122,3 +122,26 @@ def test_technician_can_create_ticket(client, tech_headers):
 def test_unauthenticated_cannot_list(client):
     r = client.get("/api/tickets")
     assert r.status_code in (401, 403)
+
+
+def test_has_appointment_filter(client, admin_headers, tech_headers):
+    r = client.post("/api/tickets", json={**TICKET_BASE, "title": "Scheduled ticket"}, headers=admin_headers)
+    scheduled_id = r.json()["id"]
+    r2 = client.post("/api/tickets", json={**TICKET_BASE, "title": "Unscheduled ticket"}, headers=admin_headers)
+    unscheduled_id = r2.json()["id"]
+
+    tech_id = client.get("/api/auth/me", headers=tech_headers).json()["id"]
+    client.post("/api/appointments", json={
+        "ticket_id": scheduled_id, "technician_id": tech_id,
+        "start_at": "2026-08-10T09:00:00Z", "end_at": "2026-08-10T10:00:00Z",
+    }, headers=admin_headers)
+
+    r_unsched = client.get("/api/tickets", params={"has_appointment": "false", "page_size": 100}, headers=admin_headers)
+    unsched_ids = {t["id"] for t in r_unsched.json()["items"]}
+    assert unscheduled_id in unsched_ids
+    assert scheduled_id not in unsched_ids
+
+    r_sched = client.get("/api/tickets", params={"has_appointment": "true", "page_size": 100}, headers=admin_headers)
+    sched_ids = {t["id"] for t in r_sched.json()["items"]}
+    assert scheduled_id in sched_ids
+    assert unscheduled_id not in sched_ids

@@ -22,6 +22,11 @@ from .. import config
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/version", tags=["version"])
 
+# Separate, unprefixed router for GET /api/config — exposes non-secret feature
+# toggles so the frontend can hide nav/tabs/sections for disabled features
+# rather than showing dead UI that 503s on every action.
+config_router = APIRouter(tags=["config"])
+
 def _find_version_file() -> Path:
     """Walk up from this file until we find VERSION, or fall back to /app/VERSION."""
     p = Path(__file__).resolve()
@@ -130,4 +135,25 @@ def check_version(_: User = Depends(get_current_user)):
         release_url=release.get("html_url"),
         release_name=release.get("name") or latest_tag,
         configured=True,
+    )
+
+
+class FeatureConfigOut(BaseModel):
+    audit_log: bool
+    timer: bool
+    ar_aging: bool
+    notifications: bool
+    recurring_invoicing: bool
+    scheduling: bool
+
+
+@config_router.get("/config", response_model=FeatureConfigOut)
+def get_feature_config(_: User = Depends(get_current_user)):
+    return FeatureConfigOut(
+        audit_log=config.FEATURE_AUDIT_LOG,
+        timer=config.FEATURE_TIMER,
+        ar_aging=config.FEATURE_AR_AGING,
+        notifications=config.FEATURE_NOTIFICATIONS,
+        recurring_invoicing=config.FEATURE_RECURRING_INVOICING,
+        scheduling=config.FEATURE_SCHEDULING,
     )

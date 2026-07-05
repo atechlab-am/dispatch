@@ -110,7 +110,7 @@ class TicketOut(BaseModel):
     billing_status: Optional[str] = "unbilled"
     created_at: datetime
     updated_at: datetime
-    created_by: int
+    created_by: Optional[int] = None
     sla_response_due: Optional[datetime] = None
     sla_resolution_due: Optional[datetime] = None
     sla_paused_at: Optional[datetime] = None
@@ -131,7 +131,7 @@ class TicketListItem(BaseModel):
     billing_status: Optional[str] = "unbilled"
     created_at: datetime
     updated_at: datetime
-    created_by: int
+    created_by: Optional[int] = None
     assigned_to: Optional[int] = None
     sla_response_due: Optional[datetime] = None
     sla_resolution_due: Optional[datetime] = None
@@ -156,8 +156,9 @@ class CommentIn(BaseModel):
 class CommentOut(BaseModel):
     id: int
     ticket_id: str
-    author_id: int
+    author_id: Optional[int] = None
     author_name: str
+    author_label: Optional[str] = None
     body: str
     is_internal: bool
     created_at: datetime
@@ -256,5 +257,79 @@ class RecurringOut(RecurringIn):
     last_ticket_id: Optional[str] = None
     created_by: int
     created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ─── Recurring invoices ───────────────────────────────────────────────────────
+
+class RecurringInvoiceLineIn(BaseModel):
+    description: str = Field("", max_length=500)
+    qty: float = 1
+    unit_price: float = 0
+
+
+class RecurringInvoiceLineOut(RecurringInvoiceLineIn):
+    id: int
+
+    model_config = {"from_attributes": True}
+
+
+class RecurringInvoiceIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    active: bool = True
+    interval: RecurringInterval
+    client_id: Optional[int] = None
+    client_name: str = Field("", max_length=255)
+    client_email: str = Field("", max_length=255)
+    client_address: str = Field("", max_length=1000)
+    tax_rate: float = 0
+    notes: str = Field("", max_length=5000)
+    auto_send: bool = False
+    lines: list[RecurringInvoiceLineIn] = Field(default=[], max_length=200)
+
+
+class RecurringInvoiceOut(BaseModel):
+    id: int
+    name: str
+    active: bool
+    interval: RecurringInterval
+    client_id: Optional[int] = None
+    client_name: str
+    client_email: str
+    client_address: str
+    tax_rate: float
+    notes: str
+    auto_send: bool
+    next_run: datetime
+    last_invoice_id: Optional[str] = None
+    created_by: int
+    created_at: datetime
+    lines: list[RecurringInvoiceLineOut] = []
+
+    model_config = {"from_attributes": True}
+
+
+# ─── Appointments ─────────────────────────────────────────────────────────────
+
+class AppointmentIn(BaseModel):
+    ticket_id: str
+    technician_id: int
+    start_at: datetime
+    end_at: datetime
+    notes: str = Field("", max_length=2000)
+
+
+class AppointmentOut(BaseModel):
+    id: int
+    ticket_id: str
+    technician_id: int
+    start_at: datetime
+    end_at: datetime
+    notes: str
+    created_by: int
+    created_at: datetime
+    ticket_title: str = ""
+    technician_name: str = ""
 
     model_config = {"from_attributes": True}

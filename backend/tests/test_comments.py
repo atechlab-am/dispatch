@@ -112,3 +112,49 @@ def test_technician_cannot_delete_others_comment(client, admin_headers, tech_hea
 def test_unauthenticated_cannot_list_comments(client, ticket_id):
     r = client.get(f"/api/tickets/{ticket_id}/comments")
     assert r.status_code in (401, 403)
+
+
+def _inbound_client_comment(client, ticket_id, body_text, message_id, monkeypatch):
+    """Create a null-author (client-authored) comment via the inbound email
+    webhook, to exercise list/delete against a real such row."""
+    from app import config
+    monkeypatch.setattr(config, "INBOUND_EMAIL_SECRET", "test-inbound-secret")
+    r = client.post(
+        "/api/inbound-email/test-inbound-secret",
+        json={
+            "From": "Jane Client <jane@client.com>",
+            "FromFull": {"Email": "jane@client.com", "Name": "Jane Client"},
+            "Subject": f"Re: [{ticket_id}] reply",
+            "TextBody": body_text,
+            "HtmlBody": f"<p>{body_text}</p>",
+            "MessageID": message_id,
+        },
+    )
+    assert r.status_code == 200
+
+
+def test_list_comments_includes_client_authored_comment(client, admin_headers, ticket_id, monkeypatch):
+    _inbound_client_comment(client, ticket_id, "outerjoin regression test", "msg-comments-1", monkeypatch)
+    comments = client.get(f"/api/tickets/{ticket_id}/comments", headers=admin_headers).json()
+    matching = [c for c in comments if c["body"] == "outerjoin regression test"]
+    assert len(matching) == 1
+    assert matching[0]["author_id"] is None
+    assert matching[0]["author_name"] == "Jane Client"
+
+
+def test_technician_cannot_delete_client_authored_comment(client, admin_headers, tech_headers, ticket_id, monkeypatch):
+    _inbound_client_comment(client, ticket_id, "tech cannot delete this", "msg-comments-2", monkeypatch)
+    comments = client.get(f"/api/tickets/{ticket_id}/comments", headers=admin_headers).json()
+    cid = next(c["id"] for c in comments if c["body"] == "tech cannot delete this")
+
+    r = client.delete(f"/api/tickets/{ticket_id}/comments/{cid}", headers=tech_headers)
+    assert r.status_code == 403
+
+
+def test_admin_can_delete_client_authored_comment(client, admin_headers, ticket_id, monkeypatch):
+    _inbound_client_comment(client, ticket_id, "admin can delete this", "msg-comments-3", monkeypatch)
+    comments = client.get(f"/api/tickets/{ticket_id}/comments", headers=admin_headers).json()
+    cid = next(c["id"] for c in comments if c["body"] == "admin can delete this")
+
+    r = client.delete(f"/api/tickets/{ticket_id}/comments/{cid}", headers=admin_headers)
+    assert r.status_code == 204

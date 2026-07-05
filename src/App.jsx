@@ -6,6 +6,7 @@ import { me, logout as apiLogout } from "./api/auth.js";
 import { listTickets, getTicket, createTicket, updateTicket, deleteTicket } from "./api/tickets.js";
 import { listComments, addComment, deleteComment } from "./api/comments.js";
 import { listTicketAudit } from "./api/audit.js";
+import { getFeatureConfig } from "./api/config.js";
 import { startTimer, stopTimer, getActiveTimer } from "./api/timer.js";
 import { listTemplates, createTemplate, deleteTemplate } from "./api/templates.js";
 import { listAttachments, uploadAttachment, deleteAttachment, downloadUrl } from "./api/attachments.js";
@@ -1359,9 +1360,12 @@ const CommentsSection = ({ ticketId, currentUser }) => {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <span style={{ fontWeight: 700, fontSize: 13, color: brand.text }}>{c.author_name}</span>
+              {!c.author_id && <span style={{ fontSize: 10, fontWeight: 700, background: "#64748b", color: "#fff", borderRadius: 20, padding: "1px 8px", textTransform: "uppercase" }}>Client</span>}
               {c.is_internal && <span style={{ fontSize: 10, fontWeight: 700, background: brand.accent, color: "#fff", borderRadius: 20, padding: "1px 8px", textTransform: "uppercase" }}>Internal</span>}
               <span style={{ fontSize: 11, color: brand.muted }}>{new Date(c.created_at).toLocaleString()}</span>
             </div>
+            {/* currentUser?.id === c.author_id is always false when author_id is null
+                (a client-authored comment), so the × naturally hides for non-admins. */}
             {(currentUser?.id === c.author_id || currentUser?.role === "admin") && (
               <button onClick={() => handleDelete(c.id)} style={{ background: "none", border: "none", color: brand.muted, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>×</button>
             )}
@@ -1490,7 +1494,7 @@ const AttachmentsSection = ({ ticketId, currentUser }) => {
 };
 
 // ─── Ticket editor ────────────────────────────────────────────────────────────
-const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoice, users, currentUser, onTemplateSaved, showToast, clients = [], onClientUpdated }) => {
+const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoice, users, currentUser, onTemplateSaved, showToast, clients = [], onClientUpdated, features }) => {
   const [t, setT] = useState(ticket);
   const [savingTpl, setSavingTpl] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState(null); // null | "saving" | "saved"
@@ -1868,7 +1872,7 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
               <SectionHeader>Hours Log</SectionHeader>
               {totalHours > 0 && <span style={{ fontSize:12, color:brand.muted, fontWeight:600 }}>{totalHours.toFixed(2)} hrs total</span>}
             </div>
-            {t.id && <TimerControl ticketId={t.id} onStopped={(log) => setT(p => ({ ...p, hourLogs: [...p.hourLogs, {
+            {t.id && features?.timer !== false && <TimerControl ticketId={t.id} onStopped={(log) => setT(p => ({ ...p, hourLogs: [...p.hourLogs, {
               _id: log.id, date: log.date, hours: String(log.hours), rate: Number(log.rate),
               description: log.description, startedAt: log.started_at, endedAt: log.ended_at, isRunning: false,
             }] }))} />}
@@ -1988,7 +1992,7 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
       )}
       {t.id && <CommentsSection ticketId={t.id} currentUser={currentUser} />}
       {t.id && <AttachmentsSection ticketId={t.id} currentUser={currentUser} />}
-      {t.id && <AuditSection ticketId={t.id} />}
+      {t.id && features?.audit_log !== false && <AuditSection ticketId={t.id} />}
     </div>
   );
 };
@@ -2181,7 +2185,7 @@ const RecurringPage = ({ showToast, clients = [] }) => {
 };
 
 // ─── Ticket editor route wrapper ──────────────────────────────────────────────
-const TicketEditorRoute = ({ saving, onSave, onDelete, onCreateInvoice, users, currentUser, onTemplateSaved, showToast, onBack, clients, onClientUpdated }) => {
+const TicketEditorRoute = ({ saving, onSave, onDelete, onCreateInvoice, users, currentUser, onTemplateSaved, showToast, onBack, clients, onClientUpdated, features }) => {
   const { ticketId } = useParams();
   const navigate = useNavigate();
   const [ticket, setTicket] = useState(null);
@@ -2212,6 +2216,7 @@ const TicketEditorRoute = ({ saving, onSave, onDelete, onCreateInvoice, users, c
       showToast={showToast}
       clients={clients}
       onClientUpdated={onClientUpdated}
+      features={features}
     />
   );
 };
@@ -2235,6 +2240,10 @@ export default function App() {
   const [assigneeFilter, setAssigneeFilter] = useState(null);
   const [toast, setToast]           = useState(null);
   const [invoiceDraft, setInvoiceDraft] = useState(null);
+  const [features, setFeatures]     = useState({
+    audit_log: true, timer: true, ar_aging: true,
+    notifications: true, recurring_invoicing: true, scheduling: true,
+  });
 
   const navigate = useNavigate();
 
@@ -2300,6 +2309,7 @@ export default function App() {
       listClients().then(setClients).catch(() => {});
       listUsers().then(setUsers).catch(() => {});
       listTemplates().then(setTemplates).catch(() => {});
+      getFeatureConfig().then(setFeatures).catch(() => {});
     } catch {
       clearTokens();
       showToast("Could not load user profile. Please try again.", "err");
@@ -2469,6 +2479,7 @@ export default function App() {
         handleBoardStatusChange={handleBoardStatusChange}
         loadList={loadList} loadClients={loadClients} loadTemplates={loadTemplates}
         user={user}
+        features={features}
         navigate={navigate}
         TicketList={TicketList} TicketEditor={TicketEditor}
         TicketEditorRoute={TicketEditorRoute} NewTicketModal={NewTicketModal}

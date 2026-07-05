@@ -39,3 +39,19 @@ STRIPE_WEBHOOK_SECRET: str = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 # Stripe Checkout success/cancel redirect URLs. Only needed if Stripe is configured.
 PORTAL_URL: str = os.environ.get("PORTAL_URL", "http://localhost").rstrip("/")
 
+# Inbound email (email-to-ticket) — optional; if unset, the inbound webhook
+# always rejects with 404. Set to a long random value and put it in the
+# webhook URL configured in your inbound email provider (e.g. Postmark).
+INBOUND_EMAIL_SECRET: str = os.environ.get("INBOUND_EMAIL_SECRET", "")
+
+# Feature toggles — all optional, default enabled ("true"). Set to "false" to
+# disable. Disabled endpoints return 503; disabled background loops don't
+# start; write_audit()/create_notification() silently no-op regardless of
+# which feature calls them when their own toggle is off.
+FEATURE_AUDIT_LOG: bool = os.environ.get("FEATURE_AUDIT_LOG", "true").lower() == "true"
+FEATURE_TIMER: bool = os.environ.get("FEATURE_TIMER", "true").lower() == "true"
+FEATURE_AR_AGING: bool = os.environ.get("FEATURE_AR_AGING", "true").lower() == "true"
+FEATURE_NOTIFICATIONS: bool = os.environ.get("FEATURE_NOTIFICATIONS", "true").lower() == "true"
+FEATURE_RECURRING_INVOICING: bool = os.environ.get("FEATURE_RECURRING_INVOICING", "true").lower() == "true"
+FEATURE_SCHEDULING: bool = os.environ.get("FEATURE_SCHEDULING", "true").lower() == "true"
+
