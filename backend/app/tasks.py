@@ -43,7 +43,7 @@ async def recurring_ticket_loop():
 def _fire_due_recurring():
     from .database import SessionLocal
     from .models.models import RecurringTicket, Ticket
-    from .routers.tickets import _make_ticket_id, _sla_deadlines
+    from .routers.tickets import _make_ticket_id, _sla_deadlines, _client_sla_tier
     from .audit import write_audit
 
     now = datetime.now(timezone.utc)
@@ -55,7 +55,8 @@ def _fire_due_recurring():
 
         for r in due:
             ticket_id = _make_ticket_id(db)
-            sla_r, sla_res = _sla_deadlines(r.priority.value if hasattr(r.priority, "value") else r.priority, now)
+            tier = _client_sla_tier(db, r.client_id)
+            sla_r, sla_res = _sla_deadlines(r.priority.value if hasattr(r.priority, "value") else r.priority, now, tier)
             ticket = Ticket(
                 id=ticket_id,
                 client_id=r.client_id,
@@ -161,3 +162,56 @@ def _fire_due_recurring_invoices():
                 _send_invoice_email(invoice, r.client_email, "", db)
                 db.commit()
             logger.info("Recurring invoice fired: %s → %s (auto_send=%s)", r.name, invoice_id, r.auto_send)
+
+
+async def sla_escalation_loop():
+    """Run every 5 minutes, notify on tickets that have breached their SLA."""
+    while True:
+        await asyncio.sleep(300)
+        try:
+            _check_sla_breaches()
+        except Exception:
+            logger.exception("Error in SLA escalation loop")
+
+
+def _check_sla_breaches():
+    """Notify the assignee (or all admins, if unassigned) once per breach.
+
+    A ticket is a candidate if it isn't paused (Awaiting Client/On Hold) and
+    isn't already Resolved/Closed. `sla_breach_notified_at` guards against
+    re-notifying every 5-minute cycle for the same still-breached ticket; it
+    is cleared whenever a ticket's SLA deadlines are recomputed (status change,
+    resume from pause) so a ticket can be re-notified after being reopened.
+    """
+    from .database import SessionLocal
+    from .models.models import Ticket, TicketStatus, User, UserRole
+    from .notifications import create_notification
+
+    now = datetime.now(timezone.utc)
+    TERMINAL = (TicketStatus.resolved, TicketStatus.closed)
+
+    with SessionLocal() as db:
+        candidates = db.query(Ticket).filter(
+            Ticket.sla_paused_at.is_(None),
+            Ticket.sla_breach_notified_at.is_(None),
+            Ticket.status.notin_(TERMINAL),
+        ).all()
+
+        breached = [
+            t for t in candidates
+            if (t.sla_response_due and t.sla_response_due.replace(tzinfo=timezone.utc) < now)
+            or (t.sla_resolution_due and t.sla_resolution_due.replace(tzinfo=timezone.utc) < now)
+        ]
+        if not breached:
+            return
+
+        admin_ids = [u.id for u in db.query(User.id).filter(User.role == UserRole.admin, User.active == True).all()]
+
+        for t in breached:
+            message = f"SLA breached on ticket {t.id}: {t.title}"
+            recipients = [t.assigned_to] if t.assigned_to else admin_ids
+            for uid in recipients:
+                create_notification(db, user_id=uid, ticket_id=t.id, kind="sla_breach", message=message)
+            t.sla_breach_notified_at = now
+        db.commit()
+        logger.info("SLA escalation: notified on %d breached ticket(s)", len(breached))

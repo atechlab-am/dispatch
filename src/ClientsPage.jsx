@@ -178,7 +178,7 @@ function AddBusinessForm({ onAdd, onCancel }) {
 
 // ─── Edit Business form (inline inside group header) ──────────────────────────
 
-function EditBusinessForm({ primary, onSaved, onCancel, showToast }) {
+function EditBusinessForm({ primary, onSaved, onCancel, showToast, showSlaTiers }) {
   const [form, setForm] = useState({
     company: primary.company,
     email: primary.email,
@@ -186,6 +186,7 @@ function EditBusinessForm({ primary, onSaved, onCancel, showToast }) {
     address: primary.address,
     notes: primary.notes,
     slug: primary.slug || "",
+    sla_tier: primary.sla_tier || "",
   });
   const [saving, setSaving] = useState(false);
   const up = (k, v) => setForm(p => ({ ...p, [k]: v }));
@@ -204,6 +205,7 @@ function EditBusinessForm({ primary, onSaved, onCancel, showToast }) {
         client_type: "business",
         company: form.company.trim(),
         slug: form.slug || null,
+        sla_tier: form.sla_tier || null,
       });
       onSaved(updated);
       showToast("Business updated.", "ok");
@@ -223,6 +225,17 @@ function EditBusinessForm({ primary, onSaved, onCancel, showToast }) {
           <div><FieldLabel>Portal Slug</FieldLabel><input style={inp} value={form.slug} onChange={e => up("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="acme-corp" /></div>
           <div><FieldLabel>Business Email</FieldLabel><input style={inp} type="email" value={form.email} onChange={e => up("email", e.target.value)} /></div>
           <div><FieldLabel>Business Phone</FieldLabel><input style={inp} value={form.phone} onChange={e => up("phone", e.target.value)} /></div>
+          {showSlaTiers && (
+            <div>
+              <FieldLabel>SLA Tier</FieldLabel>
+              <select style={inp} value={form.sla_tier} onChange={e => up("sla_tier", e.target.value)}>
+                <option value="">— Global default —</option>
+                <option value="gold">Gold (faster SLA)</option>
+                <option value="silver">Silver (standard)</option>
+                <option value="bronze">Bronze (relaxed)</option>
+              </select>
+            </div>
+          )}
         </div>
         <div style={{ marginBottom: 12 }}><FieldLabel>Address</FieldLabel><input style={inp} value={form.address} onChange={e => up("address", e.target.value)} /></div>
         <div style={{ marginBottom: 14 }}><FieldLabel>Notes</FieldLabel><textarea style={{ ...inp, minHeight: 54, resize: "vertical" }} value={form.notes} onChange={e => up("notes", e.target.value)} /></div>
@@ -462,7 +475,7 @@ function ResidentialRow({ c, onUpdated, onDeleted, onStatement, showToast, compa
 
 // ─── Business company group ───────────────────────────────────────────────────
 
-function CompanyGroup({ primary, contacts, company, showToast, onPrimaryUpdated, onContactUpdated, onContactDeleted, onContactAdded, onBusinessDeleted, companies }) {
+function CompanyGroup({ primary, contacts, company, showToast, onPrimaryUpdated, onContactUpdated, onContactDeleted, onContactAdded, onBusinessDeleted, companies, showSlaTiers }) {
   const [expanded, setExpanded] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
@@ -519,14 +532,18 @@ function CompanyGroup({ primary, contacts, company, showToast, onPrimaryUpdated,
           onSaved={updated => { onPrimaryUpdated(updated); setEditingBusiness(false); }}
           onCancel={handleCancelEdit}
           showToast={showToast}
+          showSlaTiers={showSlaTiers}
         />
       )}
 
       {/* Business detail (read-only, when expanded and not editing) */}
-      {expanded && !editingBusiness && (primary.address || primary.notes) && (
+      {expanded && !editingBusiness && (primary.address || primary.notes || (showSlaTiers && primary.sla_tier)) && (
         <div style={{ padding: "10px 18px", background: "#fafcff", borderBottom: `1px solid ${brand.border}`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           {primary.address && <div><FieldLabel>Address</FieldLabel><div style={{ fontSize: 13 }}>{primary.address}</div></div>}
           {primary.notes && <div><FieldLabel>Notes</FieldLabel><div style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>{primary.notes}</div></div>}
+          {showSlaTiers && primary.sla_tier && (
+            <div><FieldLabel>SLA Tier</FieldLabel><div style={{ fontSize: 13, textTransform: "capitalize" }}>{primary.sla_tier}</div></div>
+          )}
         </div>
       )}
 
@@ -596,7 +613,8 @@ function SectionHeader({ label, count }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function ClientsPage({ showToast }) {
+export default function ClientsPage({ showToast, features }) {
+  const showSlaTiers = features?.sla_tiers !== false;
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -709,6 +727,7 @@ export default function ClientsPage({ showToast }) {
                   onContactDeleted={(id, name) => handleDelete(id, name)}
                   onContactAdded={c => { setClients(p => [...p, c]); showToast("Contact added.", "ok"); }}
                   onBusinessDeleted={(id, name) => handleDelete(id, name)}
+                  showSlaTiers={showSlaTiers}
                 />
               ))}
             </>

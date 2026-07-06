@@ -6,8 +6,9 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models.models import Client, ClientType, Invoice, InvoicePayment, RecurringTicket
+from ..models.models import Client, ClientType, ClientSlaTier, Invoice, InvoicePayment, RecurringTicket
 from ..security import get_current_user
+from .. import config
 
 router = APIRouter(prefix="/clients", tags=["clients"])
 
@@ -26,6 +27,7 @@ class ClientIn(BaseModel):
     company: str = Field("", max_length=255)
     notes: str = Field("", max_length=5000)
     slug: Optional[str] = Field(None, max_length=100)
+    sla_tier: Optional[str] = None
 
     @field_validator("slug", mode="before")
     @classmethod
@@ -45,8 +47,20 @@ class ClientOut(BaseModel):
     company: str
     notes: str
     slug: Optional[str] = None
+    sla_tier: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+def _validate_tier(sla_tier: Optional[str]) -> Optional[str]:
+    """Validate an incoming sla_tier value. Ignored (returns None) when the
+    feature is disabled, so the column never holds a tier that has no effect."""
+    if not sla_tier or not config.FEATURE_SLA_TIERS:
+        return None
+    try:
+        return ClientSlaTier(sla_tier).value
+    except ValueError:
+        raise HTTPException(status_code=422, detail=f"Invalid sla_tier: {sla_tier}")
 
 
 @router.get("", response_model=list[ClientOut])
@@ -68,6 +82,8 @@ def create_client(
     except ValueError:
         raise HTTPException(status_code=422, detail=f"Invalid client_type: {body.client_type}")
 
+    tier = _validate_tier(body.sla_tier)
+
     if body.slug:
         existing = db.query(Client).filter(Client.slug == body.slug).first()
         if existing:
@@ -76,7 +92,7 @@ def create_client(
     client = Client(
         name=body.name, email=body.email, phone=body.phone,
         address=body.address, client_type=ct, company=body.company,
-        notes=body.notes, slug=body.slug,
+        notes=body.notes, slug=body.slug, sla_tier=tier,
     )
     db.add(client)
     db.commit()
@@ -112,6 +128,8 @@ def update_client(
     except ValueError:
         raise HTTPException(status_code=422, detail=f"Invalid client_type: {body.client_type}")
 
+    tier = _validate_tier(body.sla_tier)
+
     if body.slug:
         existing = db.query(Client).filter(Client.slug == body.slug, Client.id != client_id).first()
         if existing:
@@ -125,6 +143,7 @@ def update_client(
     client.company = body.company
     client.notes = body.notes
     client.slug = body.slug
+    client.sla_tier = tier
     db.commit()
     db.refresh(client)
     return client

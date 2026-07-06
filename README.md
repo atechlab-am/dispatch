@@ -30,6 +30,9 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 
 ## Features
 
+### Global Search
+- Topbar search box (staff app) — type to search tickets, clients, invoices, and quotes at once; click a result to jump straight to it
+
 ### Tickets
 - Create, edit, delete tickets with status, priority, client, and technician assignment
 - Search and filter by status, priority, assigned technician
@@ -39,10 +42,12 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
   - High: 4h / 8h · Medium: 8h / 24h · Low: 24h / 72h (business hours Mon–Fri, weekends skipped)
 - Countdown badges on ticket list; dual progress bar in ticket editor
 - SLA pauses automatically when status is set to Awaiting Client or On Hold; resumes and extends deadlines when work restarts
+- **SLA-breach escalation** — a background check notifies the assignee (or all admins, if unassigned) once a ticket breaches its response or resolution deadline; never re-notifies for the same still-open breach
 - Playbook section in ticket editor surfaces matched documents by ticket type
 - **Activity/audit log** — immutable trail of who changed status, assignee, price, or other fields, and when; separate from Comments, no edit/delete
 - **Live time tracking** — start/stop timer in the Hours Log section as an alternative to manual entry; one running timer per ticket
 - **Email-to-ticket** — clients replying to a ticket notification email have their reply threaded onto the ticket automatically; unmatched inbound emails create a new ticket (optional — requires `INBOUND_EMAIL_SECRET`, safely disabled if unset)
+- **Canned responses** — insert a reusable snippet into the comment box; the library is managed by admins from Settings
 
 ### Scheduling
 - Day/week dispatch calendar — drag a ticket onto a technician's time slot to schedule an on-site appointment
@@ -54,12 +59,18 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Business and residential client directory with add, edit, delete, and search
 - Business model: a company is a group of client records sharing the same company name; the primary record (lowest ID) holds company-level info; additional records are contacts
 - New Ticket modal picks company first, then contact within that company
+- **Per-client SLA tiers** — optionally assign a business Gold/Silver/Bronze tier that tightens or relaxes its tickets' SLA deadlines relative to the global per-priority table (no tier = global default)
 
 ### Invoices
 - Create invoices manually or directly from a ticket
 - Line items, tax presets, status tracking (Draft / Sent / Paid / Void)
 - PDF generation per invoice
 - **Recurring/retainer invoicing** — schedule an invoice to auto-generate on a daily/weekly/monthly/quarterly interval, with an optional auto-send toggle (admin only)
+
+### Quotes/Estimates
+- Send a quote (Draft → Sent → Approved/Rejected/Expired) with the same line-item/tax/PDF/email shape as invoices
+- One-click **Convert to Invoice** on an Approved quote — copies client, line items, and totals into a new Draft invoice
+- Draft is the only editable state; Sent/Approved/Rejected/Expired are locked to preserve what the client actually saw
 
 ### Client Portal
 - Per-client portal at `/p/<slug>` — clients log in to view their tickets and invoices
@@ -116,15 +127,22 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Slug format validated server-side; CORS locked to required methods and headers
 - Ticket CSV export restricted to admin role
 - All queries use SQLAlchemy ORM (no raw SQL)
+- **Two-factor authentication (2FA)** — optional TOTP-based 2FA per staff account (Settings → Security): QR-code enrollment, 10 one-time backup codes, password-confirmed disable. Off by default (`FEATURE_2FA=false`) — must be explicitly turned on
 
 ### Feature Toggles
-Six features can be turned off independently via env vars, all defaulting to enabled — set any to `false` to disable it. A disabled feature's API returns 503 and its nav item/tab/section disappears from the UI:
-- `FEATURE_AUDIT_LOG` — ticket Activity/audit trail
-- `FEATURE_TIMER` — live start/stop time tracking
-- `FEATURE_AR_AGING` — the AR Aging report tab
-- `FEATURE_NOTIFICATIONS` — the in-app notification bell (also stops its purge background loop)
-- `FEATURE_RECURRING_INVOICING` — the Recurring tab on Invoices (also stops its generation background loop)
-- `FEATURE_SCHEDULING` — the Schedule/dispatch calendar page
+Each feature below can be turned off independently via env vars. A disabled feature's API returns 503 and its nav item/tab/section disappears from the UI:
+- `FEATURE_AUDIT_LOG` — ticket Activity/audit trail (default enabled)
+- `FEATURE_TIMER` — live start/stop time tracking (default enabled)
+- `FEATURE_AR_AGING` — the AR Aging report tab (default enabled)
+- `FEATURE_NOTIFICATIONS` — the in-app notification bell, also stops its purge background loop (default enabled)
+- `FEATURE_RECURRING_INVOICING` — the Recurring tab on Invoices, also stops its generation background loop (default enabled)
+- `FEATURE_SCHEDULING` — the Schedule/dispatch calendar page (default enabled)
+- `FEATURE_QUOTES` — the Quotes/Estimates page and convert-to-invoice action (default enabled)
+- `FEATURE_GLOBAL_SEARCH` — the topbar global search box across tickets/clients/invoices/quotes (default enabled)
+- `FEATURE_CANNED_RESPONSES` — the reusable canned-response picker in ticket comments (default enabled)
+- `FEATURE_SLA_ESCALATION` — the background SLA-breach check and its notifications (default enabled)
+- `FEATURE_SLA_TIERS` — per-client SLA tier overrides, gold/silver/bronze (default enabled)
+- `FEATURE_2FA` — two-factor auth enrollment and enforcement (**default DISABLED** — set to `true` to opt in; unlike every toggle above, this one changes the login flow itself)
 
 ### Setup Wizard
 - First-boot admin account creation

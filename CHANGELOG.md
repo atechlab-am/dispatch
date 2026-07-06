@@ -1,5 +1,79 @@
 # Changelog
 
+## [1.23.0] — 2026-07-06
+
+### Added — two-factor authentication (2FA)
+- Staff can enable TOTP-based two-factor auth from Settings → **Security**: scan a QR code with an authenticator app (Google Authenticator, Authy, 1Password, etc.), confirm with a 6-digit code, and receive 10 one-time backup codes to store somewhere safe (shown once, never again).
+- Login becomes a two-step flow for accounts with 2FA enabled: `POST /auth/login` with email+password returns a short-lived `login_token` instead of real tokens when 2FA is required; `POST /auth/login/2fa` exchanges that token plus a TOTP or backup code for the actual access/refresh tokens. Accounts without 2FA enabled see no change — `/auth/login` still returns tokens directly in the same call.
+- Backup codes are one-time use: each is removed from the account the moment it's used to log in, so a leaked/used code can't be replayed.
+- Disabling 2FA requires re-entering your password (`POST /auth/2fa/disable`), preventing a hijacked access token alone from turning off the second factor.
+- **Unlike every other feature toggle in this app, `FEATURE_2FA` defaults to `false`** — it changes the login flow itself, so it must be an explicit opt-in per deployment rather than something that silently changes behavior for every existing installation on upgrade. Flipping it off later never locks anyone out: login skips straight to issuing tokens regardless of whether a user previously enrolled.
+- New `pyotp`, `qrcode`, and `pillow` backend dependencies (QR code generation only — no other imaging use). New `User` columns `totp_secret`, `totp_enabled`, `backup_codes` (migration `0032`).
+
+### Tests
+- New `backend/tests/test_2fa.py` (16 tests): setup/enable/disable, wrong-code rejection, the full two-step login flow, backup-code login and one-time consumption, pending-login tokens being rejected as access tokens, and the `FEATURE_2FA` toggle (including that flipping it off never blocks a previously-enrolled user's login).
+- New `src/__tests__/LoginPage.test.jsx` (6 tests) and extended `SettingsPage.test.jsx` (+6 tests) covering the Security tab's full enroll/disable UI flow.
+
+## [1.22.0] — 2026-07-05
+
+### Added — per-client SLA tiers
+- Business clients can now be assigned an optional **SLA Tier** (Gold/Silver/Bronze) from the Edit Business form on the Clients page. Gold halves the global per-priority SLA hours (faster deadlines), Bronze extends them 1.5x (more relaxed), and Silver is a passthrough alias — no tier set behaves exactly as before (uses the global table).
+- The tier is looked up and applied wherever SLA deadlines are computed: manual ticket creation/editing (`routers/tickets.py`) and the recurring-ticket background loop (`tasks.py`) — one shared `_sla_deadlines(priority, from_dt, tier)` helper, not a second implementation.
+- Changing a ticket's client (not just its priority) now also triggers an SLA deadline recompute, so moving a ticket onto a tiered client's account picks up that tier's deadlines.
+- New `Client.sla_tier` column (migration `0031`), validated against `gold`/`silver`/`bronze` — an invalid value is rejected with 422, and the field is silently ignored (stored as null) when `FEATURE_SLA_TIERS` is off, so a toggle flip never leaves a tier value with no effect.
+- Gated behind `FEATURE_SLA_TIERS` (default enabled) — disabling it hides the SLA Tier field/select from the Clients UI and every ticket falls back to the global table regardless of what's stored.
+
+### Tests
+- New `backend/tests/test_sla_tiers.py` (9 tests): tier CRUD on clients, invalid-tier rejection, gold tightens / bronze loosens / silver matches the global Urgent SLA deadline, and the toggle disabling tier effects and nulling the field on write.
+- New `src/__tests__/ClientsPage.test.jsx` (3 tests): tier display when enabled, hidden when disabled, and the edit form's SLA Tier select saving the chosen value.
+
+## [1.21.0] — 2026-07-05
+
+### Added — SLA-breach escalation
+- New background check (every 5 minutes) scans for tickets that have breached their SLA response or resolution deadline and fires an in-app notification — to the assignee if the ticket is assigned, or to every active admin if it isn't. Reuses the existing SLA deadline computation (`_sla_deadlines`/`SLA_HOURS` in `routers/tickets.py`) rather than a second implementation.
+- A breach only notifies once: `Ticket.sla_breach_notified_at` guards against re-notifying every cycle for a ticket that's still breached. It's cleared whenever the ticket's deadlines are legitimately recomputed — resuming from Awaiting Client/On Hold, a priority change, or reopening from Resolved/Closed — so a ticket can be re-notified if it breaches again later.
+- Paused tickets (`sla_paused_at` set) and tickets already Resolved/Closed are never flagged.
+- Gated behind `FEATURE_SLA_ESCALATION` (default enabled) — disabling it stops the background loop from starting at all. This toggle only controls the loop (there's no request endpoint of its own to 503).
+- New column `tickets.sla_breach_notified_at` (migration `0030`).
+
+### Tests
+- New `backend/tests/test_sla_escalation.py` (6 tests): notifies assignee, notifies all admins when unassigned, only notifies once per breach, paused tickets are skipped, resolved tickets are skipped, and reopening a ticket clears the notified guard so it can be flagged again.
+
+## [1.20.0] — 2026-07-05
+
+### Added — canned responses / macros
+- Admins can now manage a library of reusable comment snippets from Settings → **Canned Responses** (create/edit/delete). Any authenticated staff member can read the library and insert a snippet into the comment box on a ticket — inserting appends the snippet's text to whatever's already typed, rather than replacing it.
+- New table `canned_responses` (migration `0029`), new `/api/canned-responses` CRUD endpoints — list is any authenticated user, create/update/delete are admin-only (a deliberate stricter rule than the existing `TicketTemplate` CRUD, which any staff member can manage).
+- Gated behind `FEATURE_CANNED_RESPONSES` (default enabled) — disabling it 503s the endpoints and hides both the Settings tab and the comment-box picker.
+
+### Tests
+- New `backend/tests/test_canned_responses.py` (9 tests): admin-only create/update/delete enforcement, any-staff read, 404, and the `FEATURE_CANNED_RESPONSES` 503 toggle.
+- Extended `src/__tests__/SettingsPage.test.jsx`: Canned Responses tab visibility for admin vs. technician, and for the feature flag on/off.
+
+## [1.19.0] — 2026-07-05
+
+### Added — global search
+- New search box in the staff topbar: type to search tickets, clients, invoices, and quotes at once, debounced 300ms, with a grouped results dropdown (click a row to jump straight to that record).
+- New `GET /api/search?q=` endpoint aggregates all four entities in one call, capped at 10 results per entity (tickets/clients matched on name/company/email/title/ID; invoices/quotes matched on client name/ID). This is a quick-search dropdown, not a full results page — no pagination.
+- Gated behind `FEATURE_GLOBAL_SEARCH` (default enabled) — disabling it 503s `/api/search` and removes the topbar search box.
+
+### Tests
+- New `backend/tests/test_search.py` (8 tests): each entity's matching, empty-results shape, missing-query 422, the `FEATURE_GLOBAL_SEARCH` toggle, and quotes being omitted from results when `FEATURE_QUOTES` is separately disabled.
+- New `src/__tests__/GlobalSearch.test.jsx`: debounced search-and-render, click-to-navigate-and-clear, no dropdown on empty query.
+
+## [1.18.0] — 2026-07-05
+
+### Added — quotes/estimates
+- New **Quotes** page (staff nav): send a quote with the same line-item/tax/PDF/email shape as invoices, gated behind a status flow — `Draft → Sent → Approved/Rejected/Expired`. Only Draft quotes can be edited; every other state is locked so what the client actually saw is preserved.
+- **Convert to Invoice**: an Approved quote gets a one-click "Convert to Invoice" action that copies the client, line items, tax rate, and totals into a new Draft invoice. A quote can only be converted once (`converted_invoice_id` tracks it); the resulting invoice's creation is logged to its own audit trail (quotes don't have a separate audit trail of their own).
+- New `FEATURE_QUOTES` env var (default enabled) — disabling it 503s all `/api/quotes*` endpoints and hides the Quotes nav item, following the same toggle pattern introduced in v1.17.0. This release also adds four more toggles for the rest of Phase 14 ahead of their features shipping: `FEATURE_GLOBAL_SEARCH`, `FEATURE_CANNED_RESPONSES`, `FEATURE_SLA_ESCALATION`, `FEATURE_SLA_TIERS` (all present in `/api/config` now; their corresponding features land in follow-up releases).
+- New tables `quotes`/`quote_lines` (migration `0028`), new `/api/quotes` CRUD + `/status` transition + `/convert` + `/send` + `/pdf` endpoints.
+
+### Tests
+- New `backend/tests/test_quotes.py` (16 tests): CRUD, status-transition validation (valid and invalid transitions, terminal states), convert-to-invoice (success, wrong status, already-converted), PDF, send-marks-Sent, and the `FEATURE_QUOTES` 503 toggle.
+- New `src/__tests__/QuotesPage.test.jsx`: list rendering, new-quote form with no fetch, existing-quote fetch and render.
+- Extended `test_config_toggles.py` for the five new `/api/config` keys.
+
 ## [1.17.0] — 2026-07-05
 
 ### Added — feature toggles for Phase 12/13 additions

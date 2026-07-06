@@ -145,6 +145,12 @@ class FeatureConfigOut(BaseModel):
     notifications: bool
     recurring_invoicing: bool
     scheduling: bool
+    quotes: bool
+    global_search: bool
+    canned_responses: bool
+    sla_escalation: bool
+    sla_tiers: bool
+    two_factor_auth: bool
 
 
 @config_router.get("/config", response_model=FeatureConfigOut)
@@ -156,4 +162,10 @@ def get_feature_config(_: User = Depends(get_current_user)):
         notifications=config.FEATURE_NOTIFICATIONS,
         recurring_invoicing=config.FEATURE_RECURRING_INVOICING,
         scheduling=config.FEATURE_SCHEDULING,
+        quotes=config.FEATURE_QUOTES,
+        global_search=config.FEATURE_GLOBAL_SEARCH,
+        canned_responses=config.FEATURE_CANNED_RESPONSES,
+        sla_escalation=config.FEATURE_SLA_ESCALATION,
+        sla_tiers=config.FEATURE_SLA_TIERS,
+        two_factor_auth=config.FEATURE_2FA,
     )

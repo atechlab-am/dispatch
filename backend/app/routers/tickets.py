@@ -27,6 +27,17 @@ SLA_HOURS = {
     "Low":    (24, 72),
 }
 
+# Per-client SLA tier multipliers applied to SLA_HOURS above. Gold is tighter
+# (faster deadlines), bronze is looser — silver is a passthrough alias for the
+# global table so "no tier" and "silver tier" behave identically. Only takes
+# effect when FEATURE_SLA_TIERS is enabled; ignored (falls back to the global
+# table) otherwise.
+SLA_TIER_MULTIPLIERS = {
+    "gold":   0.5,
+    "silver": 1.0,
+    "bronze": 1.5,
+}
+
 
 def _add_business_hours(dt: datetime, hours: int) -> datetime:
     """Advance dt by `hours` of business time, skipping Sat/Sun."""
@@ -56,8 +67,12 @@ def _add_business_hours(dt: datetime, hours: int) -> datetime:
     return current
 
 
-def _sla_deadlines(priority: str, from_dt: datetime):
+def _sla_deadlines(priority: str, from_dt: datetime, tier: Optional[str] = None):
     response_h, resolution_h = SLA_HOURS.get(priority, (8, 24))
+    if tier and config.FEATURE_SLA_TIERS:
+        mult = SLA_TIER_MULTIPLIERS.get(tier, 1.0)
+        response_h *= mult
+        resolution_h *= mult
     if priority == "Urgent":
         return (
             from_dt + timedelta(hours=response_h),
@@ -67,6 +82,16 @@ def _sla_deadlines(priority: str, from_dt: datetime):
         _add_business_hours(from_dt, response_h),
         _add_business_hours(from_dt, resolution_h),
     )
+
+
+def _client_sla_tier(db: Session, client_id: Optional[int]) -> Optional[str]:
+    if not client_id or not config.FEATURE_SLA_TIERS:
+        return None
+    from ..models.models import Client
+    c = db.query(Client).filter(Client.id == client_id).first()
+    if not c or not c.sla_tier:
+        return None
+    return c.sla_tier.value if hasattr(c.sla_tier, "value") else c.sla_tier
 
 
 TRAVEL_FEES = {
@@ -268,7 +293,8 @@ def create_ticket(
 ):
     ticket_id = _make_ticket_id(db)
     now = datetime.now(timezone.utc)
-    sla_response, sla_resolution = _sla_deadlines(body.priority.value, now)
+    tier = _client_sla_tier(db, body.client_id)
+    sla_response, sla_resolution = _sla_deadlines(body.priority.value, now, tier)
     ticket = Ticket(
         id=ticket_id,
         client_id=body.client_id,
@@ -380,6 +406,12 @@ def update_ticket(
                 rsd = ticket.sla_resolution_due.replace(tzinfo=timezone.utc) if ticket.sla_resolution_due.tzinfo is None else ticket.sla_resolution_due
                 ticket.sla_resolution_due = rsd + elapsed
             ticket.sla_paused_at = None
+        # Deadlines just moved out, so a previous breach notification no longer
+        # reflects reality — let the escalation loop re-notify if it re-breaches.
+        ticket.sla_breach_notified_at = None
+    elif prev_status in {"Resolved", "Closed"} and new_status not in {"Resolved", "Closed"}:
+        # Reopened from a terminal state — same reasoning, clear the guard.
+        ticket.sla_breach_notified_at = None
 
     ticket.client_id = body.client_id
     ticket.assigned_to = body.assigned_to
@@ -396,10 +428,13 @@ def update_ticket(
     ticket.internal_notes = body.internal_notes
     ticket.travel_fee = body.travel_fee
     ticket.updated_at = now
-    if priority_changed or ticket.sla_response_due is None:
+    client_changed = audit_old["client_id"] != body.client_id
+    if priority_changed or client_changed or ticket.sla_response_due is None:
         base = ticket.created_at.replace(tzinfo=timezone.utc) if ticket.created_at.tzinfo is None else ticket.created_at
-        ticket.sla_response_due, ticket.sla_resolution_due = _sla_deadlines(body.priority.value, base)
+        tier = _client_sla_tier(db, body.client_id)
+        ticket.sla_response_due, ticket.sla_resolution_due = _sla_deadlines(body.priority.value, base, tier)
         ticket.sla_paused_at = None
+        ticket.sla_breach_notified_at = None
 
     # Replace child rows. Hour logs are only deleted/recreated for manual entries
     # (started_at is null) — timer-originated rows are owned by the timer endpoints

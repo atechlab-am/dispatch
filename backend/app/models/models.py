@@ -63,6 +63,12 @@ class ServiceLineType(str, enum.Enum):
     hourly = "hourly"
 
 
+class ClientSlaTier(str, enum.Enum):
+    gold = "gold"
+    silver = "silver"
+    bronze = "bronze"
+
+
 class Client(Base):
     __tablename__ = "clients"
 
@@ -75,6 +81,7 @@ class Client(Base):
     company = Column(String(255), nullable=False, default="")
     notes = Column(Text, nullable=False, default="")
     slug = Column(String(100), unique=True, nullable=True, index=True)  # e.g. "acme-corp" → portal at /p/acme-corp
+    sla_tier = Column(SAEnum(ClientSlaTier, values_callable=lambda e: [m.value for m in e]), nullable=True)  # null = use the global per-priority table
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     tickets = relationship("Ticket", back_populates="client")
@@ -90,6 +97,9 @@ class User(Base):
     role = Column(SAEnum(UserRole, values_callable=lambda e: [m.value for m in e]), nullable=False, default=UserRole.technician)
     active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    totp_secret = Column(String(64), nullable=True)  # base32 secret; null = 2FA not set up
+    totp_enabled = Column(Boolean, nullable=False, default=False)
+    backup_codes = Column(Text, nullable=True)  # JSON list of bcrypt-hashed one-time backup codes
 
     tickets = relationship("Ticket", foreign_keys="Ticket.created_by", back_populates="creator")
     assigned_tickets = relationship("Ticket", foreign_keys="Ticket.assigned_to", back_populates="assignee")
@@ -132,6 +142,7 @@ class Ticket(Base):
     sla_response_due = Column(DateTime, nullable=True)
     sla_resolution_due = Column(DateTime, nullable=True)
     sla_paused_at = Column(DateTime, nullable=True)  # set when Awaiting Client, cleared on resume
+    sla_breach_notified_at = Column(DateTime, nullable=True)  # guards against re-notifying every escalation cycle
     client_id = Column(Integer, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # null = auto-created (e.g. inbound email)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -153,6 +164,55 @@ class InvoiceStatus(str, enum.Enum):
     sent = "Sent"
     paid = "Paid"
     void = "Void"
+
+
+class QuoteStatus(str, enum.Enum):
+    draft = "Draft"
+    sent = "Sent"
+    approved = "Approved"
+    rejected = "Rejected"
+    expired = "Expired"
+
+
+class Quote(Base):
+    __tablename__ = "quotes"
+
+    id = Column(String(32), primary_key=True)          # QUO-YYYY-NNNNN
+    ticket_id = Column(String(32), ForeignKey("tickets.id", ondelete="SET NULL"), nullable=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True)
+    client_name = Column(String(255), nullable=False, default="")
+    client_email = Column(String(255), nullable=False, default="")
+    client_address = Column(Text, nullable=False, default="")
+    status = Column(String(20), nullable=False, default=QuoteStatus.draft)
+    issue_date = Column(Date, nullable=False, default=date.today)
+    expiry_date = Column(Date, nullable=True)
+    notes = Column(Text, nullable=False, default="")
+    subtotal = Column(Numeric(12, 2), nullable=False, default=0)
+    tax_rate = Column(Numeric(5, 4), nullable=False, default=0)
+    tax_amount = Column(Numeric(12, 2), nullable=False, default=0)
+    total = Column(Numeric(12, 2), nullable=False, default=0)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    converted_invoice_id = Column(String(32), ForeignKey("invoices.id", ondelete="SET NULL"), nullable=True)
+
+    ticket = relationship("Ticket")
+    client = relationship("Client")
+    lines = relationship("QuoteLine", back_populates="quote", cascade="all, delete-orphan")
+    converted_invoice = relationship("Invoice")
+
+
+class QuoteLine(Base):
+    __tablename__ = "quote_lines"
+
+    id = Column(Integer, primary_key=True, index=True)
+    quote_id = Column(String(32), ForeignKey("quotes.id", ondelete="CASCADE"), nullable=False)
+    description = Column(String(500), nullable=False, default="")
+    qty = Column(Numeric(10, 2), nullable=False, default=1)
+    unit_price = Column(Numeric(12, 2), nullable=False, default=0)
+    amount = Column(Numeric(12, 2), nullable=False, default=0)
+
+    quote = relationship("Quote", back_populates="lines")
 
 
 class Invoice(Base):
@@ -525,5 +585,15 @@ class TicketTemplate(Base):
     description = Column(Text, nullable=False, default="")
     internal_notes = Column(Text, nullable=False, default="")
     travel_fee = Column(SAEnum(TravelFee, values_callable=lambda e: [m.value for m in e]), nullable=False, default=TravelFee.none)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class CannedResponse(Base):
+    __tablename__ = "canned_responses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    body = Column(Text, nullable=False, default="")
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))

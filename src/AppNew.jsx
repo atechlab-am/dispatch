@@ -8,6 +8,7 @@ import { useBranding } from "./branding.jsx";
 import DashboardPage from "./DashboardPage.jsx";
 import ClientsPage from "./ClientsPage.jsx";
 import InvoicesPage, { InvoiceEditorRoute } from "./InvoicesPage.jsx";
+import QuotesPage, { QuoteEditorRoute } from "./QuotesPage.jsx";
 import SettingsPage from "./SettingsPage.jsx";
 import DocumentsPage from "./DocumentsPage.jsx";
 import ReportsPage from "./ReportsPage.jsx";
@@ -16,6 +17,7 @@ import PortalPage from "./PortalPage.jsx";
 import BrandingSettingsPanel from "./BrandingSettingsPanel.jsx";
 import UpdateBanner from "./UpdateBanner.jsx";
 import NotificationBell from "./NotificationBell.jsx";
+import GlobalSearch from "./GlobalSearch.jsx";
 
 // ─── Icon set (inline SVG helpers) ───────────────────────────────────────────
 const Icon = ({ d, size = 18, style = {} }) => (
@@ -31,6 +33,7 @@ const ICONS = {
   tickets:   "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2 M9 5a2 2 0 002 2h2a2 2 0 002-2 M9 5a2 2 0 012-2h2a2 2 0 012 2",
   clients:   "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2 M23 21v-2a4 4 0 00-3-3.87 M9 11a4 4 0 100-8 4 4 0 000 8z M16 3.13a4 4 0 010 7.75",
   invoices:  "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8",
+  quotes:    "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M9 15l2 2 4-4",
   recurring: "M1 4v6h6 M23 20v-6h-6 M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15",
   documents: "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M12 18v-6 M9 15h6",
   schedule:  "M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z",
@@ -138,6 +141,7 @@ export default function AppNew({
     { path: "/tickets",   label: "Tickets",    icon: ICONS.tickets },
     { path: "/clients",   label: "Clients",    icon: ICONS.clients },
     { path: "/invoices",  label: "Invoices",   icon: ICONS.invoices },
+    ...(features?.quotes !== false ? [{ path: "/quotes", label: "Quotes", icon: ICONS.quotes }] : []),
     { path: "/recurring", label: "Recurring",  icon: ICONS.recurring },
     ...(features?.scheduling !== false ? [{ path: "/schedule", label: "Schedule", icon: ICONS.schedule }] : []),
     { path: "/documents", label: "Documents",  icon: ICONS.documents },
@@ -158,6 +162,8 @@ export default function AppNew({
     if (location.pathname === "/clients") return "Clients";
     if (location.pathname.startsWith("/invoices/")) return "Invoice";
     if (location.pathname === "/invoices") return "Invoices";
+    if (location.pathname.startsWith("/quotes/")) return "Quote";
+    if (location.pathname === "/quotes") return "Quotes";
     if (location.pathname === "/recurring") return "Recurring Tickets";
     if (location.pathname === "/schedule") return "Schedule";
     if (location.pathname === "/documents") return "Documents";
@@ -246,6 +252,7 @@ export default function AppNew({
             <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{pageTitle}</h1>
           </div>
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+            {features?.global_search !== false && <GlobalSearch navigate={navigate} />}
             {features?.notifications !== false && <NotificationBell user={user} navigate={navigate} />}
             {location.pathname === "/tickets" && (
               <button
@@ -291,10 +298,13 @@ export default function AppNew({
                 features={features}
               />
             } />
-            <Route path="/clients"   element={<ClientsPage showToast={showToast} />} />
+            <Route path="/clients"   element={<ClientsPage showToast={showToast} features={features} />} />
             <Route path="/invoices"      element={<InvoicesPage showToast={showToast} features={features} />} />
             <Route path="/invoices/new"  element={<InvoiceEditorRoute showToast={showToast} prefill={invoiceDraft} onDraftConsumed={() => setInvoiceDraft(null)} />} />
             <Route path="/invoices/:invoiceId" element={<InvoiceEditorRoute showToast={showToast} />} />
+            {features?.quotes !== false && <Route path="/quotes" element={<QuotesPage showToast={showToast} />} />}
+            {features?.quotes !== false && <Route path="/quotes/new" element={<QuoteEditorRoute showToast={showToast} />} />}
+            {features?.quotes !== false && <Route path="/quotes/:quoteId" element={<QuoteEditorRoute showToast={showToast} />} />}
             <Route path="/recurring" element={<RecurringPage showToast={showToast} clients={clients} />} />
             {features?.scheduling !== false && <Route path="/schedule" element={<SchedulePage showToast={showToast} users={users} />} />}
             <Route path="/documents" element={<DocumentsPage showToast={showToast} user={user} />} />
@@ -315,7 +325,7 @@ export default function AppNew({
                 </div>
                 {showBranding
                   ? <BrandingSettingsPanel onClose={() => setShowBranding(false)} />
-                  : <SettingsPage user={user} showToast={showToast} />
+                  : <SettingsPage user={user} showToast={showToast} features={features} />
                 }
               </div>
             } />

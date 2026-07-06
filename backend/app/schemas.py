@@ -17,6 +17,22 @@ class TokenOut(BaseModel):
     token_type: str = "bearer"
 
 
+class LoginResultOut(BaseModel):
+    """Returned by POST /auth/login. Either `access_token`/`refresh_token` are
+    set (2FA not required or not enabled for this user), or `requires_2fa` is
+    true and `login_token` must be exchanged via /auth/login/2fa."""
+    requires_2fa: bool = False
+    login_token: Optional[str] = None
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+    token_type: str = "bearer"
+
+
+class Verify2FAIn(BaseModel):
+    login_token: str
+    code: str = Field(..., max_length=20)
+
+
 class RefreshIn(BaseModel):
     refresh_token: str
 
@@ -27,6 +43,7 @@ class UserOut(BaseModel):
     name: str
     role: str
     active: bool
+    totp_enabled: bool = False
 
     model_config = {"from_attributes": True}
 

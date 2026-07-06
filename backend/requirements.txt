@@ -12,3 +12,6 @@ slowapi==0.1.9
 gunicorn==23.0.0
 alembic==1.14.1
 stripe==15.2.0
+pyotp==2.9.0
+qrcode==8.0
+pillow==12.2.0

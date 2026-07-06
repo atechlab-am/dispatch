@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { listUsers, createUser, updateUser, deactivateUser, changeOwnPassword } from "./api/users.js";
 import { listPortalAccounts, createPortalAccount, updatePortalAccount, deletePortalAccount } from "./api/portal.js";
 import { listClients } from "./api/clients.js";
+import { listCannedResponses, createCannedResponse, updateCannedResponse, deleteCannedResponse } from "./api/cannedResponses.js";
+import { me, setup2fa, enable2fa, disable2fa } from "./api/auth.js";
 
 const brand = {
   blue: "#1A5CBA",
@@ -516,14 +518,251 @@ function PortalAccountsTab({ showToast }) {
   );
 }
 
+// ─── Canned Responses tab ─────────────────────────────────────────────────────
+function CannedResponsesTab({ showToast }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null); // null | {} | existing row
+  const [saving, setSaving] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    listCannedResponses()
+      .then(setItems)
+      .catch(() => showToast("Failed to load canned responses.", "err"))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (editing.id) {
+        await updateCannedResponse(editing.id, { name: editing.name, body: editing.body });
+      } else {
+        await createCannedResponse({ name: editing.name, body: editing.body });
+      }
+      showToast("Saved.", "ok");
+      setEditing(null);
+      load();
+    } catch (err) {
+      showToast(err?.response?.data?.detail || "Save failed.", "err");
+    } finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this canned response?")) return;
+    try {
+      await deleteCannedResponse(id);
+      showToast("Deleted.", "ok");
+      load();
+    } catch { showToast("Delete failed.", "err"); }
+  };
+
+  if (editing !== null) {
+    return (
+      <div style={{ maxWidth: 560 }}>
+        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{editing.id ? "Edit Canned Response" : "New Canned Response"}</div>
+        <div style={{ marginBottom: 14 }}>
+          <FieldLabel>Name</FieldLabel>
+          <input style={inp} value={editing.name} onChange={e => setEditing(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Password Reset" />
+        </div>
+        <div style={{ marginBottom: 20 }}>
+          <FieldLabel>Body</FieldLabel>
+          <textarea style={{ ...inp, minHeight: 120, resize: "vertical" }} value={editing.body} onChange={e => setEditing(p => ({ ...p, body: e.target.value }))} placeholder="The text inserted into the comment box…" />
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <Btn onClick={handleSave} disabled={saving || !editing.name?.trim()}>{saving ? "Saving…" : "Save"}</Btn>
+          <Btn variant="ghost" onClick={() => setEditing(null)}>Cancel</Btn>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 18 }}>
+        <div style={{ fontSize: 13, color: brand.muted }}>
+          Reusable snippets technicians can insert into ticket comments.
+        </div>
+        <Btn variant="accent" small onClick={() => setEditing({ name: "", body: "" })}>+ New Response</Btn>
+      </div>
+      {loading ? (
+        <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>Loading…</div>
+      ) : items.length === 0 ? (
+        <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>No canned responses yet.</div>
+      ) : (
+        <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: brand.bg }}>
+                {["Name", "Body", ""].map(h => (
+                  <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {items.map(r => (
+                <tr key={r.id}>
+                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, fontWeight: 600 }}>{r.name}</td>
+                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, color: brand.muted, maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.body}</td>
+                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, whiteSpace: "nowrap" }}>
+                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                      <Btn small variant="secondary" onClick={() => setEditing(r)}>Edit</Btn>
+                      <Btn small variant="danger" onClick={() => handleDelete(r.id)}>Delete</Btn>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Security (2FA) tab ────────────────────────────────────────────────────────
+function SecurityTab({ showToast }) {
+  const [totpEnabled, setTotpEnabled] = useState(null); // null = loading
+  const [setupData, setSetupData] = useState(null); // { secret, qr_code } while enrolling
+  const [code, setCode] = useState("");
+  const [backupCodes, setBackupCodes] = useState(null); // shown once right after enabling
+  const [disablePassword, setDisablePassword] = useState("");
+  const [showDisableForm, setShowDisableForm] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    me().then(u => setTotpEnabled(u.totp_enabled)).catch(() => setTotpEnabled(false));
+  }, []);
+
+  const handleStartSetup = async () => {
+    setBusy(true);
+    try {
+      setSetupData(await setup2fa());
+    } catch (err) {
+      showToast(err?.response?.data?.detail || "Failed to start 2FA setup.", "err");
+    } finally { setBusy(false); }
+  };
+
+  const handleEnable = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const { backup_codes } = await enable2fa(code.trim());
+      setBackupCodes(backup_codes);
+      setSetupData(null);
+      setCode("");
+      setTotpEnabled(true);
+      showToast("Two-factor authentication enabled.", "ok");
+    } catch (err) {
+      showToast(err?.response?.data?.detail || "Invalid code.", "err");
+    } finally { setBusy(false); }
+  };
+
+  const handleDisable = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await disable2fa(disablePassword);
+      setTotpEnabled(false);
+      setShowDisableForm(false);
+      setDisablePassword("");
+      showToast("Two-factor authentication disabled.", "ok");
+    } catch (err) {
+      showToast(err?.response?.data?.detail || "Incorrect password.", "err");
+    } finally { setBusy(false); }
+  };
+
+  if (totpEnabled === null) {
+    return <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>Loading…</div>;
+  }
+
+  // Just enabled — show the one-time backup codes and nothing else until dismissed.
+  if (backupCodes) {
+    return (
+      <div style={{ maxWidth: 480 }}>
+        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 10 }}>Save Your Backup Codes</div>
+        <div style={{ fontSize: 13, color: brand.muted, marginBottom: 16 }}>
+          Each code can be used once instead of your authenticator app if you lose access to it. Store them somewhere safe — they will not be shown again.
+        </div>
+        <div style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 8, padding: "16px 20px", fontFamily: "monospace", fontSize: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+          {backupCodes.map(c => <div key={c}>{c}</div>)}
+        </div>
+        <Btn onClick={() => setBackupCodes(null)}>Done</Btn>
+      </div>
+    );
+  }
+
+  if (totpEnabled) {
+    return (
+      <div style={{ maxWidth: 480 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <span style={{ background: "#d1fae5", color: "#065f46", borderRadius: 20, padding: "3px 12px", fontSize: 12, fontWeight: 700 }}>Enabled</span>
+          <span style={{ fontSize: 13, color: brand.muted }}>Two-factor authentication is protecting your account.</span>
+        </div>
+        {!showDisableForm ? (
+          <Btn variant="danger" small onClick={() => setShowDisableForm(true)}>Disable Two-Factor Auth</Btn>
+        ) : (
+          <form onSubmit={handleDisable} style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 8, padding: "16px 18px" }}>
+            <FieldLabel>Confirm your password to disable</FieldLabel>
+            <input type="password" style={inp} value={disablePassword} onChange={e => setDisablePassword(e.target.value)} required autoFocus />
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <Btn type="submit" variant="danger" small disabled={busy}>{busy ? "…" : "Confirm Disable"}</Btn>
+              <Btn variant="ghost" small onClick={() => { setShowDisableForm(false); setDisablePassword(""); }}>Cancel</Btn>
+            </div>
+          </form>
+        )}
+      </div>
+    );
+  }
+
+  if (setupData) {
+    return (
+      <div style={{ maxWidth: 480 }}>
+        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 10 }}>Scan this QR code</div>
+        <div style={{ fontSize: 13, color: brand.muted, marginBottom: 16 }}>
+          Use an authenticator app (Google Authenticator, Authy, 1Password, etc.) to scan the code below, or enter the secret manually.
+        </div>
+        <img src={setupData.qr_code} alt="2FA QR code" style={{ display: "block", marginBottom: 12, border: `1px solid ${brand.border}`, borderRadius: 8 }} />
+        <div style={{ fontSize: 12, color: brand.muted, marginBottom: 20 }}>
+          Secret: <code style={{ background: brand.bg, padding: "2px 6px", borderRadius: 4 }}>{setupData.secret}</code>
+        </div>
+        <form onSubmit={handleEnable}>
+          <FieldLabel>Enter the 6-digit code to confirm</FieldLabel>
+          <input style={{ ...inp, maxWidth: 160, letterSpacing: "2px", textAlign: "center" }} value={code} onChange={e => setCode(e.target.value)} placeholder="123456" required autoFocus />
+          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+            <Btn type="submit" variant="accent" disabled={busy}>{busy ? "Verifying…" : "Enable"}</Btn>
+            <Btn variant="ghost" onClick={() => setSetupData(null)}>Cancel</Btn>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ maxWidth: 480 }}>
+      <div style={{ fontSize: 13, color: brand.muted, marginBottom: 18 }}>
+        Two-factor authentication adds a second step to sign-in using a code from an authenticator app on your phone.
+      </div>
+      <Btn variant="accent" onClick={handleStartSetup} disabled={busy}>{busy ? "…" : "Enable Two-Factor Auth"}</Btn>
+    </div>
+  );
+}
+
 // ─── Settings page shell ──────────────────────────────────────────────────────
-export default function SettingsPage({ user, showToast }) {
+export default function SettingsPage({ user, showToast, features }) {
   const isAdmin = user?.role === "admin";
   const [tab, setTab] = useState(isAdmin ? "users" : "password");
+  const showCanned = isAdmin && features?.canned_responses !== false;
+  const show2fa = features?.two_factor_auth !== false;
 
   const tabs = [
     ...(isAdmin ? [{ id: "users", label: "Users" }] : []),
     { id: "password", label: "Change Password" },
+    ...(show2fa ? [{ id: "security", label: "Security" }] : []),
+    ...(showCanned ? [{ id: "canned", label: "Canned Responses" }] : []),
   ];
 
   return (
@@ -547,6 +786,12 @@ export default function SettingsPage({ user, showToast }) {
       )}
       {tab === "password" && (
         <PasswordTab showToast={showToast} />
+      )}
+      {tab === "security" && show2fa && (
+        <SecurityTab showToast={showToast} />
+      )}
+      {tab === "canned" && showCanned && (
+        <CannedResponsesTab showToast={showToast} />
       )}
     </div>
   );

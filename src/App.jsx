@@ -5,6 +5,7 @@ import { setTokens, clearTokens, registerLogoutHandler, hasStoredSession, downlo
 import { me, logout as apiLogout } from "./api/auth.js";
 import { listTickets, getTicket, createTicket, updateTicket, deleteTicket } from "./api/tickets.js";
 import { listComments, addComment, deleteComment } from "./api/comments.js";
+import { listCannedResponses } from "./api/cannedResponses.js";
 import { listTicketAudit } from "./api/audit.js";
 import { getFeatureConfig } from "./api/config.js";
 import { startTimer, stopTimer, getActiveTimer } from "./api/timer.js";
@@ -1324,15 +1325,32 @@ const PlaybookSection = ({ ticketType, ticketId }) => {
   );
 };
 
-const CommentsSection = ({ ticketId, currentUser }) => {
+const CommentsSection = ({ ticketId, currentUser, features }) => {
   const [comments, setComments] = useState([]);
   const [body,       setBody]       = useState("");
   const [isInternal, setIsInternal] = useState(false);
   const [posting,    setPosting]    = useState(false);
+  const [canned,     setCanned]     = useState([]);
+
+  const showCanned = features?.canned_responses !== false;
 
   useEffect(() => {
     listComments(ticketId).then(setComments).catch(() => {});
   }, [ticketId]);
+
+  useEffect(() => {
+    if (!showCanned) return;
+    listCannedResponses().then(setCanned).catch(() => {});
+  }, [showCanned]);
+
+  const insertCanned = (e) => {
+    const id = e.target.value;
+    e.target.value = "";
+    if (!id) return;
+    const r = canned.find(c => String(c.id) === id);
+    if (!r) return;
+    setBody(prev => (prev ? prev + "\n" + r.body : r.body));
+  };
 
   const handlePost = async () => {
     if (!body.trim()) return;
@@ -1374,6 +1392,12 @@ const CommentsSection = ({ ticketId, currentUser }) => {
         </div>
       ))}
       <div style={{ marginTop: 12 }}>
+        {showCanned && canned.length > 0 && (
+          <select onChange={insertCanned} defaultValue="" style={{ ...inp, marginBottom: 8, width: "auto" }}>
+            <option value="">Insert canned response…</option>
+            {canned.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        )}
         <textarea rows={3} value={body} onChange={e => setBody(e.target.value)} placeholder="Add a comment…" style={{ ...inp, resize: "vertical", marginBottom: 8 }} />
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: brand.muted, cursor: "pointer" }}>
@@ -1990,7 +2014,7 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
           <FormsSection ticket={t} showToast={showToast} />
         </div>
       )}
-      {t.id && <CommentsSection ticketId={t.id} currentUser={currentUser} />}
+      {t.id && <CommentsSection ticketId={t.id} currentUser={currentUser} features={features} />}
       {t.id && <AttachmentsSection ticketId={t.id} currentUser={currentUser} />}
       {t.id && features?.audit_log !== false && <AuditSection ticketId={t.id} />}
     </div>
@@ -2243,6 +2267,9 @@ export default function App() {
   const [features, setFeatures]     = useState({
     audit_log: true, timer: true, ar_aging: true,
     notifications: true, recurring_invoicing: true, scheduling: true,
+    quotes: true, global_search: true, canned_responses: true,
+    sla_escalation: true, sla_tiers: true,
+    two_factor_auth: false, // unlike every other toggle, FEATURE_2FA defaults off
   });
 
   const navigate = useNavigate();

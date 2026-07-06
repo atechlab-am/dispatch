@@ -54,4 +54,15 @@ FEATURE_AR_AGING: bool = os.environ.get("FEATURE_AR_AGING", "true").lower() == "
 FEATURE_NOTIFICATIONS: bool = os.environ.get("FEATURE_NOTIFICATIONS", "true").lower() == "true"
 FEATURE_RECURRING_INVOICING: bool = os.environ.get("FEATURE_RECURRING_INVOICING", "true").lower() == "true"
 FEATURE_SCHEDULING: bool = os.environ.get("FEATURE_SCHEDULING", "true").lower() == "true"
+FEATURE_QUOTES: bool = os.environ.get("FEATURE_QUOTES", "true").lower() == "true"
+FEATURE_GLOBAL_SEARCH: bool = os.environ.get("FEATURE_GLOBAL_SEARCH", "true").lower() == "true"
+FEATURE_CANNED_RESPONSES: bool = os.environ.get("FEATURE_CANNED_RESPONSES", "true").lower() == "true"
+FEATURE_SLA_ESCALATION: bool = os.environ.get("FEATURE_SLA_ESCALATION", "true").lower() == "true"
+FEATURE_SLA_TIERS: bool = os.environ.get("FEATURE_SLA_TIERS", "true").lower() == "true"
+
+# Two-factor auth (TOTP) — unlike every toggle above, this one defaults to
+# DISABLED ("false"). It changes the login flow itself (adds a second step),
+# so it must be an explicit opt-in rather than something that silently changes
+# behavior for every existing deployment on upgrade.
+FEATURE_2FA: bool = os.environ.get("FEATURE_2FA", "false").lower() == "true"
 

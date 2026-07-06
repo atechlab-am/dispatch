@@ -32,6 +32,27 @@ def create_access_token(user_id: int) -> str:
     return jwt.encode({"sub": str(user_id), "exp": expire, "type": "access"}, SECRET_KEY, algorithm=ALGORITHM)
 
 
+def create_2fa_pending_token(user_id: int) -> str:
+    """Short-lived token issued after password verification when the user has
+    2FA enabled — proves the password was already checked, but grants no API
+    access (type "2fa_pending" is rejected by get_current_user). The second
+    login step exchanges this plus a TOTP/backup code for real tokens."""
+    expire = datetime.now(timezone.utc) + timedelta(minutes=5)
+    return jwt.encode({"sub": str(user_id), "exp": expire, "type": "2fa_pending"}, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def verify_2fa_pending_token(token: str) -> int:
+    """Return the user_id encoded in a 2fa_pending token, or raise 401."""
+    exc = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired login session")
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "2fa_pending":
+            raise exc
+        return int(payload["sub"])
+    except (JWTError, KeyError, ValueError):
+        raise exc
+
+
 def create_refresh_token(user_id: int) -> str:
     import secrets
     raw = secrets.token_hex(32)
