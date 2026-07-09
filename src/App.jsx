@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Routes, Route, useNavigate, useParams, Navigate } from "react-router-dom";
-import { fmt, esc, calcServiceTotal, calcHourTotal } from "./helpers.js";
+import { fmt, esc, calcServiceTotal, calcHourTotal, calcMaterialsTotal } from "./helpers.js";
 import { setTokens, clearTokens, registerLogoutHandler, hasStoredSession, downloadWithAuth } from "./api/client.js";
 import { me, logout as apiLogout } from "./api/auth.js";
 import { listTickets, getTicket, createTicket, updateTicket, deleteTicket } from "./api/tickets.js";
@@ -17,6 +17,7 @@ import { listUsers } from "./api/users.js";
 import { listClients, createClient, updateClient, deleteClient } from "./api/clients.js";
 import { listDocuments, downloadUrl as docDownloadUrl } from "./api/documents.js";
 import { listTicketDocuments, attachDocument, updateTicketDocument, detachDocument } from "./api/ticketDocuments.js";
+import { listMaterials } from "./api/materials.js";
 import FormsSection from "./FormsSection.jsx";
 import LoginPage from "./LoginPage.jsx";
 import SettingsPage from "./SettingsPage.jsx";
@@ -170,6 +171,13 @@ const apiToEditor = (t) => ({
     endedAt:     hl.ended_at ?? null,
     isRunning:   !!hl.is_running,
   })),
+  materialsUsed: (t.materials_used ?? []).map((tm) => ({
+    _id:        tm.id,
+    materialId: tm.material_id,
+    name:       tm.name,
+    unitPrice:  Number(tm.unit_price),
+    qty:        tm.qty,
+  })),
 });
 
 const editorToApi = (t) => ({
@@ -208,6 +216,12 @@ const editorToApi = (t) => ({
     rate:        parseFloat(h.rate) || 0,
     description: h.description,
   })),
+  materials_used: t.materialsUsed.filter((m) => m.name).map((m) => ({
+    material_id: m.materialId ?? null,
+    name:        m.name,
+    unit_price:  m.unitPrice ?? 0,
+    qty:         m.qty ?? 1,
+  })),
 });
 
 // ─── PDF / Print ──────────────────────────────────────────────────────────────
@@ -216,7 +230,8 @@ const printTicket = (ticket) => {
   const travelFee = travel?.fee || 0;
   const svcTotal  = ticket.services.reduce((s, sv) => s + calcServiceTotal(sv), 0);
   const hourTotal = calcHourTotal(ticket.hourLogs);
-  const grand     = svcTotal + hourTotal + travelFee;
+  const materialsTotal = calcMaterialsTotal(ticket.materialsUsed);
+  const grand     = svcTotal + hourTotal + materialsTotal + travelFee;
 
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
 <title>Ticket ${ticket.id}</title>
@@ -309,10 +324,22 @@ ${ticket.hourLogs.length > 0 ? `
     </tr>`).join("")}
   </tbody>
 </table>` : ""}
+${ticket.materialsUsed.length > 0 ? `
+<table>
+  <thead><tr><th>Material</th><th>Qty</th><th>Unit Price</th><th class="right">Subtotal</th></tr></thead>
+  <tbody>
+    ${ticket.materialsUsed.map((m) => `<tr>
+      <td>${esc(m.name) || "—"}</td><td>${esc(m.qty) || 1}</td>
+      <td>${fmt(m.unitPrice)}</td>
+      <td class="right">${fmt((parseFloat(m.qty) || 0) * (parseFloat(m.unitPrice) || 0))}</td>
+    </tr>`).join("")}
+  </tbody>
+</table>` : ""}
 <div class="totals-wrap">
   <table class="totals"><tbody>
     ${svcTotal > 0 ? `<tr><td class="lbl">Services Subtotal</td><td class="val">${fmt(svcTotal)}</td></tr>` : ""}
     ${hourTotal > 0 ? `<tr><td class="lbl">Labour Subtotal</td><td class="val">${fmt(hourTotal)}</td></tr>` : ""}
+    ${materialsTotal > 0 ? `<tr><td class="lbl">Materials Subtotal</td><td class="val">${fmt(materialsTotal)}</td></tr>` : ""}
     ${travelFee > 0 ? `<tr><td class="lbl">Travel Fee (${esc(travel.label)})</td><td class="val">${fmt(travelFee)}</td></tr>` : ""}
     <tr class="grand"><td><strong>Total</strong></td><td class="val"><strong>${fmt(grand)}</strong></td></tr>
   </tbody></table>
@@ -524,6 +551,70 @@ const HourRow = ({ log, defaultRate, onChange, onRemove }) => {
         <div style={{ width:90, textAlign:"right" }}>
           <FieldLabel>Subtotal</FieldLabel>
           <div style={{ paddingTop:10, fontWeight:700, fontSize:14, color:brand.blue }}>{log.hours ? fmt(sub) : "—"}</div>
+        </div>
+        <div style={{ paddingTop:20 }}>
+          <button onClick={onRemove} style={{ background:"none", border:"none", color:brand.danger, cursor:"pointer", fontSize:20, lineHeight:1, padding:"2px 6px" }}>×</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Material used row ─────────────────────────────────────────────────────────
+const MaterialUsedRow = ({ item, materials, open, onOpenChange, onChange, onRemove }) => {
+  const cellStyle = { padding:"7px 8px", border:`1px solid ${brand.border}`, borderRadius:6, fontSize:12, color:brand.text, background:"#fff", width:"100%" };
+  const sub = (parseFloat(item.qty)||0) * (parseFloat(item.unitPrice)||0);
+  const matches = item.name.trim()
+    ? materials.filter(m => m.name.toLowerCase().includes(item.name.trim().toLowerCase()))
+    : [];
+
+  const pick = (m) => {
+    onChange({ ...item, materialId: m.id, name: m.name, unitPrice: Number(m.unit_price) || 0 });
+    onOpenChange(false);
+  };
+
+  return (
+    <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
+      <div style={{ display:"flex", gap:8, alignItems:"flex-start" }}>
+        <div style={{ flex:1, position:"relative" }}>
+          <FieldLabel>Material</FieldLabel>
+          <input
+            type="text"
+            value={item.name||""}
+            onChange={e=>onChange({...item, materialId:null, name:e.target.value})}
+            onFocus={() => onOpenChange(true)}
+            onBlur={() => setTimeout(() => onOpenChange(false), 150)}
+            placeholder="Search materials or type a name…"
+            style={cellStyle}
+          />
+          {open && item.name.trim() && (
+            <div style={{ border:`1px solid ${brand.border}`, borderRadius:6, marginTop:4, maxHeight:180, overflowY:"auto", background:"#fff", boxShadow:"0 4px 12px rgba(0,0,0,0.10)", zIndex:10, position:"absolute", left:0, right:0 }}>
+              {matches.length === 0 ? (
+                <div style={{ padding:"9px 12px", fontSize:13, color:brand.muted }}>No matches</div>
+              ) : (
+                matches.map(m => (
+                  <div key={m.id}
+                    onMouseDown={e => { e.preventDefault(); pick(m); }}
+                    style={{ padding:"9px 12px", fontSize:13, cursor:"pointer", borderBottom:`1px solid ${brand.border}`, display:"flex", justifyContent:"space-between", gap:10 }}>
+                    <span style={{ fontWeight:600 }}>{m.name}</span>
+                    <span style={{ color:brand.muted }}>{fmt(m.unit_price)}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+        <div style={{ width:80 }}>
+          <FieldLabel>Qty</FieldLabel>
+          <input type="number" min="1" step="1" value={item.qty||""} onChange={e=>onChange({...item, qty:e.target.value})} style={cellStyle} />
+        </div>
+        <div style={{ width:110 }}>
+          <FieldLabel>Unit Price</FieldLabel>
+          <input type="number" min="0" step="0.01" value={item.unitPrice!==undefined?item.unitPrice:0} onChange={e=>onChange({...item, unitPrice:parseFloat(e.target.value)||0})} style={cellStyle} />
+        </div>
+        <div style={{ width:90, textAlign:"right" }}>
+          <FieldLabel>Subtotal</FieldLabel>
+          <div style={{ paddingTop:10, fontWeight:700, fontSize:14, color:brand.blue }}>{item.qty ? fmt(sub) : "—"}</div>
         </div>
         <div style={{ paddingTop:20 }}>
           <button onClick={onRemove} style={{ background:"none", border:"none", color:brand.danger, cursor:"pointer", fontSize:20, lineHeight:1, padding:"2px 6px" }}>×</button>
@@ -1022,8 +1113,9 @@ const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch
   const grandTotal = (t) => {
     const svc   = (t.service_lines ?? []).reduce((s, sv) => s + calcServiceTotal({ serviceId: sv.service_id, type: sv.type, rate: Number(sv.rate), base: Number(sv.base), perUnit: Number(sv.per_unit), qty: sv.qty, extraQty: sv.extra_qty }), 0);
     const hours = (t.hour_logs ?? []).reduce((s, l) => s + (parseFloat(l.hours) || 0) * (parseFloat(l.rate) || 0), 0);
+    const materials = (t.materials_used ?? []).reduce((s, m) => s + (parseFloat(m.qty) || 0) * (parseFloat(m.unit_price) || 0), 0);
     const trav  = TRAVEL_FEES.find(f => f.id === t.travel_fee)?.fee || 0;
-    return svc + hours + trav;
+    return svc + hours + materials + trav;
   };
 
   const stats = {
@@ -1519,7 +1611,7 @@ const AttachmentsSection = ({ ticketId, currentUser }) => {
 };
 
 // ─── Ticket editor ────────────────────────────────────────────────────────────
-export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoice, users, currentUser, onTemplateSaved, showToast, clients = [], onClientUpdated, features }) => {
+export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoice, users, currentUser, onTemplateSaved, showToast, clients = [], onClientUpdated, features, materials = [] }) => {
   const [t, setT] = useState(ticket);
   const [savingTpl, setSavingTpl] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState(null); // null | "saving" | "saved"
@@ -1528,6 +1620,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
   const [postingHold, setPostingHold] = useState(false);
   const [convertPrompt, setConvertPrompt] = useState(null); // the linked Quote, once found
   const [converting, setConverting] = useState(false);
+  const [openMaterialRow, setOpenMaterialRow] = useState(null);
   const autoSaveTimer = useRef(null);
   const isNew = !ticket.id;
   const RESOLVED_STATUSES = ["Resolved", "Closed"];
@@ -1697,7 +1790,8 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
   const travel      = TRAVEL_FEES.find(f => f.id === t.travelFee);
   const svcTotal    = t.services.reduce((s, sv) => s + calcServiceTotal(sv), 0);
   const hourTotal   = calcHourTotal(t.hourLogs);
-  const grand       = svcTotal + hourTotal + (travel?.fee || 0);
+  const materialsTotal = calcMaterialsTotal(t.materialsUsed);
+  const grand       = svcTotal + hourTotal + materialsTotal + (travel?.fee || 0);
   const totalHours  = t.hourLogs.reduce((s,l) => s + (parseFloat(l.hours)||0), 0);
 
   const addSvc  = () => setT(p => ({ ...p, services: [...p.services, { _id:Date.now(), serviceId:"", name:"", type:"" }] }));
@@ -1707,6 +1801,10 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
   const addHour = () => setT(p => ({ ...p, hourLogs: [...p.hourLogs, { _id:Date.now(), date:new Date().toISOString().split("T")[0], hours:"", rate:defaultRate, description:"" }] }));
   const updHour = (i,v) => setT(p => { const h=[...p.hourLogs]; h[i]=v; return {...p,hourLogs:h}; });
   const remHour = (i)   => setT(p => ({ ...p, hourLogs: p.hourLogs.filter((_,idx)=>idx!==i) }));
+
+  const addMaterial = () => setT(p => ({ ...p, materialsUsed: [...p.materialsUsed, { _id:Date.now(), materialId:null, name:"", unitPrice:0, qty:1 }] }));
+  const updMaterial = (i,v) => setT(p => { const m=[...p.materialsUsed]; m[i]=v; return {...p,materialsUsed:m}; });
+  const remMaterial = (i)   => setT(p => ({ ...p, materialsUsed: p.materialsUsed.filter((_,idx)=>idx!==i) }));
 
   const changeType = (val) => setT(p => ({ ...p, clientType:val, services:[], hourLogs:[] }));
 
@@ -1972,6 +2070,27 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
             <Btn onClick={addHour} variant="secondary" small>+ Log Hours</Btn>
           </div>
 
+          {features?.materials !== false && (
+            <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <SectionHeader>Materials Used</SectionHeader>
+                {materialsTotal > 0 && <span style={{ fontSize:12, color:brand.muted, fontWeight:600 }}>{fmt(materialsTotal)} total</span>}
+              </div>
+              {t.materialsUsed.map((m,i) => (
+                <MaterialUsedRow
+                  key={m._id||i}
+                  item={m}
+                  materials={materials}
+                  open={openMaterialRow === i}
+                  onOpenChange={(v) => setOpenMaterialRow(v ? i : null)}
+                  onChange={v=>updMaterial(i,v)}
+                  onRemove={()=>remMaterial(i)}
+                />
+              ))}
+              <Btn onClick={addMaterial} variant="secondary" small>+ Add Material</Btn>
+            </div>
+          )}
+
           <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
             <SectionHeader>Travel Fee</SectionHeader>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
@@ -2043,6 +2162,12 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8, fontSize:13 }}>
                 <span style={{ color:"rgba(255,255,255,0.7)" }}>Labour ({totalHours.toFixed(2)} hrs)</span>
                 <span style={{ fontWeight:600 }}>{fmt(hourTotal)}</span>
+              </div>
+            )}
+            {materialsTotal > 0 && (
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8, fontSize:13 }}>
+                <span style={{ color:"rgba(255,255,255,0.7)" }}>Materials</span>
+                <span style={{ fontWeight:600 }}>{fmt(materialsTotal)}</span>
               </div>
             )}
             {(travel?.fee||0) > 0 && (
@@ -2277,6 +2402,7 @@ const TicketEditorRoute = ({ saving, onSave, onDelete, onCreateInvoice, users, c
   const navigate = useNavigate();
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [materials, setMaterials] = useState([]);
 
   useEffect(() => {
     setLoading(true);
@@ -2285,6 +2411,8 @@ const TicketEditorRoute = ({ saving, onSave, onDelete, onCreateInvoice, users, c
       .catch(() => navigate("/tickets", { replace: true }))
       .finally(() => setLoading(false));
   }, [ticketId, navigate]);
+
+  useEffect(() => { listMaterials().then(setMaterials).catch(() => {}); }, []);
 
   if (loading) return <TicketEditorSkeleton />;
   if (!ticket) return null;
@@ -2304,6 +2432,7 @@ const TicketEditorRoute = ({ saving, onSave, onDelete, onCreateInvoice, users, c
       clients={clients}
       onClientUpdated={onClientUpdated}
       features={features}
+      materials={materials}
     />
   );
 };
@@ -2456,7 +2585,7 @@ export default function App() {
         client_address:address,
         title,
         description: "", internal_notes: "",
-        travel_fee: "travel_none", service_lines: [], hour_logs: [],
+        travel_fee: "travel_none", service_lines: [], hour_logs: [], materials_used: [],
       });
       setNewModal(false);
       navigate(`/tickets/${created.id}`);
@@ -2517,6 +2646,12 @@ export default function App() {
       const hrs = parseFloat(hl.hours) || 0;
       const rate = parseFloat(hl.rate) || 0;
       if (hrs > 0) lines.push({ description: hl.description || `Labour ${hl.date}`, qty: hrs, unit_price: rate, amount: hrs * rate });
+    });
+    t.materialsUsed.forEach(tm => {
+      const qty = parseFloat(tm.qty) || 0;
+      const unitPrice = parseFloat(tm.unitPrice) || 0;
+      const amount = qty * unitPrice;
+      if (amount > 0) lines.push({ description: tm.name || "Material", qty, unit_price: unitPrice, amount });
     });
     const travel = TRAVEL_FEES.find(f => f.id === t.travelFee);
     if (travel?.fee > 0) lines.push({ description: `Travel (${travel.label})`, qty: 1, unit_price: travel.fee, amount: travel.fee });

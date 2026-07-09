@@ -45,6 +45,10 @@ vi.mock("../api/materials.js", () => ({
   updateMaterial: vi.fn(),
   deleteMaterial: vi.fn(),
   importMaterialsCsv: vi.fn(),
+  listMaterialCategories: vi.fn().mockResolvedValue([]),
+  bulkSetMaterialCategory: vi.fn(),
+  bulkDeleteMaterials: vi.fn(),
+  bulkAdjustMaterialPrice: vi.fn(),
 }));
 
 vi.mock("../api/backups.js", () => ({
@@ -64,7 +68,10 @@ vi.mock("../api/auth.js", () => ({
 import { listUsers, createUser, changeOwnPassword } from "../api/users.js";
 import { me, setup2fa, enable2fa, disable2fa } from "../api/auth.js";
 import { listBackupRuns, triggerBackup, listAvailableBackups, restoreBackup } from "../api/backups.js";
-import { listMaterials, importMaterialsCsv } from "../api/materials.js";
+import {
+  listMaterials, importMaterialsCsv, createMaterial,
+  listMaterialCategories, bulkSetMaterialCategory, bulkDeleteMaterials, bulkAdjustMaterialPrice,
+} from "../api/materials.js";
 
 const adminUser = { id: 1, name: "Admin", email: "admin@test.com", role: "admin", active: true };
 const techUser  = { id: 2, name: "Tech",  email: "tech@test.com",  role: "technician", active: true };
@@ -432,5 +439,76 @@ describe("SettingsPage — Materials tab CSV import", () => {
     fireEvent.change(input, { target: { files: [csvFile()] } });
 
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("Missing required column(s): name", "err"));
+  });
+});
+
+describe("SettingsPage — Materials tab categories & bulk edit", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const MATERIALS = [
+    { id: 1, name: "Alpha Router", category: "Networking", description: "", unit_price: 100 },
+    { id: 2, name: "HDMI Cable", category: "AV", description: "", unit_price: 15 },
+  ];
+
+  const openMaterialsTab = async (materials = MATERIALS) => {
+    listUsers.mockResolvedValue([adminUser]);
+    listMaterials.mockResolvedValue(materials);
+    listMaterialCategories.mockResolvedValue(["AV", "Networking"]);
+    render(<SettingsPage user={adminUser} showToast={vi.fn()} features={{ materials: true }} />);
+    fireEvent.click(await screen.findByRole("button", { name: /Materials/i }));
+    await screen.findByText("Alpha Router");
+  };
+
+  it("renders a category column and groups rows under category subheaders", async () => {
+    await openMaterialsTab();
+    expect(screen.getByText("AV")).toBeInTheDocument();
+    expect(screen.getByText("Networking")).toBeInTheDocument();
+  });
+
+  it("filters by category via the search box", async () => {
+    await openMaterialsTab();
+    const search = screen.getByPlaceholderText(/Search materials or categories/i);
+    fireEvent.change(search, { target: { value: "Networking" } });
+    expect(screen.getByText("Alpha Router")).toBeInTheDocument();
+    expect(screen.queryByText("HDMI Cable")).not.toBeInTheDocument();
+  });
+
+  it("saves a category on the add/edit form", async () => {
+    await openMaterialsTab();
+    fireEvent.click(screen.getByRole("button", { name: /New Material/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Cat6 Cable/i), { target: { value: "New Item" } });
+    fireEvent.change(screen.getByPlaceholderText(/e\.g\. Networking/i), { target: { value: "Tools" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+    await waitFor(() => expect(createMaterial).toHaveBeenCalledWith(expect.objectContaining({ category: "Tools" })));
+  });
+
+  it("bulk-sets a category across selected materials", async () => {
+    bulkSetMaterialCategory.mockResolvedValue({ updated: 2 });
+    await openMaterialsTab();
+    fireEvent.click(screen.getByLabelText("Select Alpha Router"));
+    fireEvent.click(screen.getByLabelText("Select HDMI Cable"));
+    fireEvent.click(screen.getByRole("button", { name: /Set Category/i }));
+    fireEvent.change(screen.getByPlaceholderText(/New category/i), { target: { value: "Merged" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Apply$/i }));
+    await waitFor(() => expect(bulkSetMaterialCategory).toHaveBeenCalledWith([1, 2], "Merged"));
+  });
+
+  it("bulk-deletes selected materials after confirmation", async () => {
+    bulkDeleteMaterials.mockResolvedValue({ updated: 1 });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    await openMaterialsTab();
+    fireEvent.click(screen.getByLabelText("Select Alpha Router"));
+    fireEvent.click(screen.getByRole("button", { name: /Delete Selected/i }));
+    await waitFor(() => expect(bulkDeleteMaterials).toHaveBeenCalledWith([1]));
+  });
+
+  it("bulk-adjusts price across selected materials", async () => {
+    bulkAdjustMaterialPrice.mockResolvedValue({ updated: 1 });
+    await openMaterialsTab();
+    fireEvent.click(screen.getByLabelText("Select Alpha Router"));
+    fireEvent.click(screen.getByRole("button", { name: /Adjust Price/i }));
+    fireEvent.change(screen.getByPlaceholderText(/e\.g\. 10/i), { target: { value: "10" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Apply$/i }));
+    await waitFor(() => expect(bulkAdjustMaterialPrice).toHaveBeenCalledWith([1], "percent", 10));
   });
 });

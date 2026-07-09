@@ -48,6 +48,7 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - **Live time tracking** — start/stop timer in the Hours Log section as an alternative to manual entry; one running timer per ticket
 - **Email-to-ticket** — clients replying to a ticket notification email have their reply threaded onto the ticket automatically; unmatched inbound emails create a new ticket (optional — requires `INBOUND_EMAIL_SECRET`, safely disabled if unset)
 - **Canned responses** — insert a reusable snippet into the comment box; the library is managed by admins from Settings
+- **Materials Used** — log parts/materials consumed on a ticket alongside Hours Log: search the Materials catalog or type a new name, set quantity, get an autofilled editable unit price. Billing/reference only (no inventory tracking); rolls into the ticket total, PDF export, CSV export, and invoice conversion, same as service lines and hour logs
 
 ### Scheduling
 - Day/week dispatch calendar — drag a ticket onto a technician's time slot to schedule an on-site appointment
@@ -71,7 +72,7 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Send a quote (Draft → Sent → Approved/Rejected/Expired) with the same line-item/tax/PDF/email shape as invoices
 - One-click **Convert to Invoice** on an Approved quote — copies client, line items, and totals into a new Draft invoice
 - Draft is the only editable state; Sent/Approved/Rejected/Expired are locked to preserve what the client actually saw
-- **Materials catalog** — each quote line is tagged Labor or Material; Material lines search a reusable parts catalog (Settings → Materials, admin-managed) to autofill description and unit price, and round quantity up to the nearest whole unit. Bulk-add entries via **Import CSV** (columns: `name`, `description`, `unit_price`) — validates every row before writing anything and reports per-row errors (e.g. missing name, invalid price) without blocking the valid rows
+- **Materials catalog** — each quote line is tagged Labor or Material; Material lines search a reusable parts catalog (Settings → Materials, admin-managed) to autofill description and unit price, and round quantity up to the nearest whole unit. Materials have an optional **category** (free text with autocomplete) — the catalog is grouped/sorted by category, then name, then unit price; category is searchable in the catalog but not shown in the quote/invoice line-item autofill dropdown. **Bulk edit** — select multiple materials to set their category, adjust price (%, flat, or set), or delete, all in one action. Bulk-add entries via **Import CSV** (columns: `name`, `category`, `description`, `unit_price`) — validates every row before writing anything and reports per-row errors (e.g. missing name, invalid price) without blocking the valid rows
 - **Quote → Ticket → Invoice workflow** — approving a quote automatically creates and links a Ticket, seeded with the quote's line items as hour-log entries (dollar-value preserved, no manual step). When that ticket is marked Resolved or Closed, the ticket editor prompts to convert the originating quote into an invoice.
 - **Project Name** — optional free-text label (e.g. "Office Network Upgrade") shown in the quote list, PDF, and send-by-email view, and carried into the title of the auto-created ticket on approval
 

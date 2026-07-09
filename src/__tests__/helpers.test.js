@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fmt, esc, calcServiceTotal, calcHourTotal } from '../helpers.js'
+import { fmt, esc, calcServiceTotal, calcHourTotal, calcMaterialsTotal } from '../helpers.js'
 
 // ─── fmt ─────────────────────────────────────────────────────────────────────
 describe('fmt', () => {
@@ -60,5 +60,22 @@ describe('calcHourTotal', () => {
 
   it('handles missing rate gracefully', () =>
     expect(calcHourTotal([{ hours: '1', rate: undefined }])).toBe(0))
+})
+
+// ─── calcMaterialsTotal ───────────────────────────────────────────────────────
+describe('calcMaterialsTotal', () => {
+  it('returns 0 for empty list', () => expect(calcMaterialsTotal([])).toBe(0))
+
+  it('sums qty × unitPrice across all entries', () =>
+    expect(calcMaterialsTotal([
+      { qty: 2, unitPrice: 25 },
+      { qty: 1, unitPrice: 15 },
+    ])).toBe(65))
+
+  it('handles missing qty gracefully', () =>
+    expect(calcMaterialsTotal([{ qty: '', unitPrice: 25 }])).toBe(0))
+
+  it('handles missing unitPrice gracefully', () =>
+    expect(calcMaterialsTotal([{ qty: 2, unitPrice: undefined }])).toBe(0))
 })
 

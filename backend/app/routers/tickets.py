@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from .. import config
 from ..database import get_db
-from ..models.models import User, Ticket, ServiceLine, HourLog, TicketStatus
+from ..models.models import User, Ticket, ServiceLine, HourLog, TicketMaterial, TicketStatus
 from ..schemas import TicketIn, TicketOut, TicketsPage, TicketListItem
 from ..security import get_current_user, require_admin
 from .. import email as mailer
@@ -149,6 +149,17 @@ def _apply_hour_logs(ticket: Ticket, logs: list, db: Session):
         ))
 
 
+def _apply_materials_used(ticket: Ticket, items: list, db: Session):
+    for m in items:
+        db.add(TicketMaterial(
+            ticket_id=ticket.id,
+            material_id=m.material_id,
+            name=m.name,
+            unit_price=m.unit_price,
+            qty=m.qty,
+        ))
+
+
 def _ticket_total(ticket: Ticket) -> float:
     TRAVEL = {"travel_none": 0, "travel_15": 40, "travel_30": 60, "travel_30p": 80}
     svc = sum(
@@ -157,8 +168,9 @@ def _ticket_total(ticket: Ticket) -> float:
         for sl in ticket.service_lines
     )
     hrs = sum((hl.hours * hl.rate) for hl in ticket.hour_logs)
+    mat = sum((tm.unit_price * tm.qty) for tm in ticket.materials_used)
     travel = TRAVEL.get(ticket.travel_fee.value if hasattr(ticket.travel_fee, "value") else ticket.travel_fee, 0)
-    return round(svc + hrs + travel, 2)
+    return round(svc + hrs + mat + travel, 2)
 
 
 @router.get("/export")
@@ -195,7 +207,7 @@ def export_tickets(
     writer.writerow([
         "Ticket ID", "Type", "Status", "Priority", "Client Type",
         "Client Name", "Client Email", "Client Phone",
-        "Title", "Travel Fee", "Services Total", "Labour Total", "Grand Total",
+        "Title", "Travel Fee", "Services Total", "Labour Total", "Materials Total", "Grand Total",
         "SLA Response Due", "SLA Resolution Due",
         "Created At", "Updated At",
     ])
@@ -206,6 +218,7 @@ def export_tickets(
             for sl in t.service_lines
         )
         hrs = sum(hl.hours * hl.rate for hl in t.hour_logs)
+        mat = sum(tm.unit_price * tm.qty for tm in t.materials_used)
         travel_fee_key = t.travel_fee.value if hasattr(t.travel_fee, "value") else t.travel_fee
         travel = {"travel_none": 0, "travel_15": 40, "travel_30": 60, "travel_30p": 80}.get(travel_fee_key, 0)
         writer.writerow([
@@ -221,7 +234,8 @@ def export_tickets(
             travel,
             round(svc, 2),
             round(hrs, 2),
-            round(svc + hrs + travel, 2),
+            round(mat, 2),
+            round(svc + hrs + mat + travel, 2),
             t.sla_response_due.isoformat() if t.sla_response_due else "",
             t.sla_resolution_due.isoformat() if t.sla_resolution_due else "",
             t.created_at.isoformat() if t.created_at else "",
@@ -320,6 +334,7 @@ def create_ticket(
 
     _apply_service_lines(ticket, body.service_lines, db)
     _apply_hour_logs(ticket, body.hour_logs, db)
+    _apply_materials_used(ticket, body.materials_used, db)
 
     actor_id, actor_label = actor_of(current_user)
     write_audit(db, ticket_id=ticket.id, actor_id=actor_id, actor_label=actor_label, action="created")
@@ -445,12 +460,14 @@ def update_ticket(
         HourLog.ticket_id == ticket_id,
         HourLog.started_at.is_(None),
     ).delete()
+    db.query(TicketMaterial).filter(TicketMaterial.ticket_id == ticket_id).delete()
     db.flush()
 
     _apply_service_lines(ticket, body.service_lines, db)
     _apply_hour_logs(ticket, body.hour_logs, db)
+    _apply_materials_used(ticket, body.materials_used, db)
     db.flush()
-    db.expire(ticket, ["service_lines", "hour_logs"])
+    db.expire(ticket, ["service_lines", "hour_logs", "materials_used"])
 
     actor_id, actor_label = actor_of(current_user)
     audit_new = {

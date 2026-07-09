@@ -153,6 +153,7 @@ class Ticket(Base):
     assignee = relationship("User", foreign_keys=[assigned_to], back_populates="assigned_tickets")
     service_lines = relationship("ServiceLine", back_populates="ticket", cascade="all, delete-orphan")
     hour_logs = relationship("HourLog", back_populates="ticket", cascade="all, delete-orphan")
+    materials_used = relationship("TicketMaterial", back_populates="ticket", cascade="all, delete-orphan")
     comments = relationship("TicketComment", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketComment.created_at")
     attachments = relationship("TicketAttachment", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketAttachment.created_at")
     audit_logs = relationship("AuditLog", back_populates="ticket", cascade="all, delete-orphan", order_by="AuditLog.created_at")
@@ -300,6 +301,23 @@ class HourLog(Base):
     is_running = Column(Boolean, nullable=False, default=False)
 
     ticket = relationship("Ticket", back_populates="hour_logs")
+
+
+class TicketMaterial(Base):
+    """Materials used on a ticket, billing/reference only (no inventory
+    tracking). Name/unit_price are a snapshot at time of use, mirroring
+    ServiceLine's snapshot-from-catalogue pattern, so later edits or deletion
+    of the source Material never change a ticket's historical cost."""
+    __tablename__ = "ticket_materials"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_id = Column(String(32), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False)
+    material_id = Column(Integer, ForeignKey("materials.id", ondelete="SET NULL"), nullable=True)
+    name = Column(String(255), nullable=False)
+    unit_price = Column(Numeric(10, 2), nullable=False, default=0)
+    qty = Column(Integer, nullable=False, default=1)
+
+    ticket = relationship("Ticket", back_populates="materials_used")
 
 
 class TicketComment(Base):
@@ -613,6 +631,7 @@ class Material(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
+    category = Column(String(120), nullable=False, default="")
     description = Column(String(500), nullable=False, default="")
     unit_price = Column(Numeric(12, 2), nullable=False, default=0)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)

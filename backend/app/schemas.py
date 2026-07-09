@@ -87,6 +87,21 @@ class HourLogOut(HourLogIn):
     model_config = {"from_attributes": True}
 
 
+# ─── Materials used on a ticket ───────────────────────────────────────────────
+
+class TicketMaterialIn(BaseModel):
+    material_id: Optional[int] = None
+    name: str = Field(..., max_length=255)
+    unit_price: float = 0
+    qty: int = Field(1, ge=1)
+
+
+class TicketMaterialOut(TicketMaterialIn):
+    id: int
+
+    model_config = {"from_attributes": True}
+
+
 # ─── Tickets ──────────────────────────────────────────────────────────────────
 
 class TicketIn(BaseModel):
@@ -106,6 +121,7 @@ class TicketIn(BaseModel):
     travel_fee: TravelFee = TravelFee.none
     service_lines: list[ServiceLineIn] = Field(default=[], max_length=100)
     hour_logs: list[HourLogIn] = Field(default=[], max_length=500)
+    materials_used: list[TicketMaterialIn] = Field(default=[], max_length=200)
 
 
 class TicketOut(BaseModel):
@@ -133,6 +149,7 @@ class TicketOut(BaseModel):
     sla_paused_at: Optional[datetime] = None
     service_lines: list[ServiceLineOut] = []
     hour_logs: list[HourLogOut] = []
+    materials_used: list[TicketMaterialOut] = []
 
     model_config = {"from_attributes": True}
 

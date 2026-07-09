@@ -1,6 +1,7 @@
 import csv
 import io
 from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
@@ -13,8 +14,9 @@ from .. import config
 
 MAX_IMPORT_SIZE = 2 * 1024 * 1024  # 2 MB — a materials catalog is a short list, not a data dump
 MAX_IMPORT_ROWS = 5000
+MAX_CATEGORY_LENGTH = 120
 REQUIRED_COLUMNS = {"name"}
-KNOWN_COLUMNS = {"name", "description", "unit_price"}
+KNOWN_COLUMNS = {"name", "category", "description", "unit_price"}
 
 router = APIRouter(prefix="/materials", tags=["materials"])
 
@@ -26,6 +28,7 @@ def _require_enabled():
 
 class MaterialIn(BaseModel):
     name: str = Field(..., max_length=255)
+    category: str = Field("", max_length=MAX_CATEGORY_LENGTH)
     description: str = Field("", max_length=500)
     unit_price: float = 0
 
@@ -33,6 +36,7 @@ class MaterialIn(BaseModel):
 class MaterialOut(BaseModel):
     id: int
     name: str
+    category: str
     description: str
     unit_price: float
     created_by: int
@@ -46,9 +50,29 @@ def list_materials(
     _: User = Depends(get_current_user),
 ):
     """Any authenticated staff can read the catalog — it's searched from quote
-    line items to autofill price. Only admins can manage (create/update/delete) it."""
+    line items to autofill price. Only admins can manage (create/update/delete) it.
+    Sorted by category, then name, then unit price to match the Settings UI's
+    grouped catalog view."""
     _require_enabled()
-    return db.query(Material).order_by(Material.name).all()
+    return db.query(Material).order_by(Material.category, Material.name, Material.unit_price).all()
+
+
+@router.get("/categories", response_model=list[str])
+def list_material_categories(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Distinct, non-blank category names in use — powers the autocomplete
+    suggestions when assigning a category to a material."""
+    _require_enabled()
+    rows = (
+        db.query(Material.category)
+        .filter(Material.category != "")
+        .distinct()
+        .order_by(Material.category)
+        .all()
+    )
+    return [r[0] for r in rows]
 
 
 @router.post("", response_model=MaterialOut, status_code=status.HTTP_201_CREATED)
@@ -60,6 +84,7 @@ def create_material(
     _require_enabled()
     m = Material(
         name=body.name,
+        category=body.category,
         description=body.description,
         unit_price=body.unit_price,
         created_by=current_user.id,
@@ -139,6 +164,11 @@ async def import_materials_csv(
             errors.append(ImportRowError(row=row_num, message="Name exceeds 255 characters"))
             continue
 
+        category = row.get("category", "")
+        if len(category) > MAX_CATEGORY_LENGTH:
+            errors.append(ImportRowError(row=row_num, message=f"Category exceeds {MAX_CATEGORY_LENGTH} characters"))
+            continue
+
         description = row.get("description", "")
         if len(description) > 500:
             errors.append(ImportRowError(row=row_num, message="Description exceeds 500 characters"))
@@ -158,6 +188,7 @@ async def import_materials_csv(
 
         to_create.append(Material(
             name=name,
+            category=category,
             description=description,
             unit_price=unit_price,
             created_by=current_user.id,
@@ -183,6 +214,7 @@ def update_material(
     if not m:
         raise HTTPException(status_code=404, detail="Material not found")
     m.name = body.name
+    m.category = body.category
     m.description = body.description
     m.unit_price = body.unit_price
     db.commit()
@@ -202,3 +234,77 @@ def delete_material(
         raise HTTPException(status_code=404, detail="Material not found")
     db.delete(m)
     db.commit()
+
+
+class BulkIdsIn(BaseModel):
+    ids: list[int] = Field(..., min_length=1, max_length=500)
+
+
+class BulkCategoryIn(BulkIdsIn):
+    category: str = Field("", max_length=MAX_CATEGORY_LENGTH)
+
+
+class BulkPriceAdjustIn(BulkIdsIn):
+    mode: Literal["percent", "flat", "set"]
+    value: float
+
+
+class BulkResult(BaseModel):
+    updated: int
+
+
+def _materials_for_bulk(db: Session, ids: list[int]) -> list[Material]:
+    materials = db.query(Material).filter(Material.id.in_(ids)).all()
+    if not materials:
+        raise HTTPException(status_code=400, detail="No matching materials found")
+    return materials
+
+
+@router.post("/bulk/category", response_model=BulkResult)
+def bulk_set_category(
+    body: BulkCategoryIn,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    _require_enabled()
+    materials = _materials_for_bulk(db, body.ids)
+    for m in materials:
+        m.category = body.category
+    db.commit()
+    return BulkResult(updated=len(materials))
+
+
+@router.post("/bulk/delete", response_model=BulkResult)
+def bulk_delete_materials(
+    body: BulkIdsIn,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    _require_enabled()
+    materials = _materials_for_bulk(db, body.ids)
+    count = len(materials)
+    for m in materials:
+        db.delete(m)
+    db.commit()
+    return BulkResult(updated=count)
+
+
+@router.post("/bulk/price", response_model=BulkResult)
+def bulk_adjust_price(
+    body: BulkPriceAdjustIn,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    _require_enabled()
+    materials = _materials_for_bulk(db, body.ids)
+    for m in materials:
+        current = float(m.unit_price)
+        if body.mode == "percent":
+            new_price = current * (1 + body.value / 100)
+        elif body.mode == "flat":
+            new_price = current + body.value
+        else:  # "set"
+            new_price = body.value
+        m.unit_price = max(0, round(new_price, 2))
+    db.commit()
+    return BulkResult(updated=len(materials))

@@ -22,3 +22,6 @@ export const calcServiceTotal = (svc) => {
 
 export const calcHourTotal = (logs) =>
   logs.reduce((s, l) => s + (parseFloat(l.hours) || 0) * (parseFloat(l.rate) || 0), 0);
+
+export const calcMaterialsTotal = (items) =>
+  items.reduce((s, m) => s + (parseFloat(m.qty) || 0) * (parseFloat(m.unitPrice) || 0), 0);

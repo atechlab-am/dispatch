@@ -1,9 +1,12 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { listUsers, createUser, updateUser, deactivateUser, changeOwnPassword } from "./api/users.js";
 import { listPortalAccounts, createPortalAccount, updatePortalAccount, deletePortalAccount } from "./api/portal.js";
 import { listClients } from "./api/clients.js";
 import { listCannedResponses, createCannedResponse, updateCannedResponse, deleteCannedResponse } from "./api/cannedResponses.js";
-import { listMaterials, createMaterial, updateMaterial, deleteMaterial, importMaterialsCsv } from "./api/materials.js";
+import {
+  listMaterials, createMaterial, updateMaterial, deleteMaterial, importMaterialsCsv,
+  listMaterialCategories, bulkSetMaterialCategory, bulkDeleteMaterials, bulkAdjustMaterialPrice,
+} from "./api/materials.js";
 import { listBackupRuns, triggerBackup, listAvailableBackups, restoreBackup } from "./api/backups.js";
 import { me, setup2fa, enable2fa, disable2fa } from "./api/auth.js";
 
@@ -628,6 +631,7 @@ function CannedResponsesTab({ showToast }) {
 // ─── Materials tab ─────────────────────────────────────────────────────────────
 function MaterialsTab({ showToast }) {
   const [items, setItems] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null); // null | {} | existing row
   const [saving, setSaving] = useState(false);
@@ -635,6 +639,13 @@ function MaterialsTab({ showToast }) {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null); // { created, errors } after a run
   const fileInputRef = useRef(null);
+
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkAction, setBulkAction] = useState(null); // null | "category" | "delete" | "price"
+  const [bulkCategory, setBulkCategory] = useState("");
+  const [bulkPriceMode, setBulkPriceMode] = useState("percent");
+  const [bulkPriceValue, setBulkPriceValue] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -644,7 +655,11 @@ function MaterialsTab({ showToast }) {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  const loadCategories = () => {
+    listMaterialCategories().then(setCategories).catch(() => {});
+  };
+
+  useEffect(() => { load(); loadCategories(); }, []);
 
   const handleImportClick = () => fileInputRef.current?.click();
 
@@ -663,6 +678,7 @@ function MaterialsTab({ showToast }) {
         showToast(`Imported ${result.created}, ${result.errors.length} row${result.errors.length === 1 ? "" : "s"} skipped — see details below.`, "err");
       }
       load();
+      loadCategories();
     } catch (err) {
       showToast(err?.response?.data?.detail || "Import failed.", "err");
     } finally {
@@ -673,7 +689,7 @@ function MaterialsTab({ showToast }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const payload = { name: editing.name, description: editing.description, unit_price: Number(editing.unit_price) || 0 };
+      const payload = { name: editing.name, category: editing.category || "", description: editing.description, unit_price: Number(editing.unit_price) || 0 };
       if (editing.id) {
         await updateMaterial(editing.id, payload);
       } else {
@@ -682,6 +698,7 @@ function MaterialsTab({ showToast }) {
       showToast("Saved.", "ok");
       setEditing(null);
       load();
+      loadCategories();
     } catch (err) {
       showToast(err?.response?.data?.detail || "Save failed.", "err");
     } finally { setSaving(false); }
@@ -696,13 +713,94 @@ function MaterialsTab({ showToast }) {
     } catch { showToast("Delete failed.", "err"); }
   };
 
+  const filtered = search.trim()
+    ? items.filter(m => {
+        const q = search.trim().toLowerCase();
+        return m.name.toLowerCase().includes(q) || (m.category || "").toLowerCase().includes(q);
+      })
+    : items;
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every(m => selectedIds.has(m.id));
+
+  const toggleSelectAll = () => {
+    setSelectedIds(prev => {
+      if (allFilteredSelected) return new Set();
+      const next = new Set(prev);
+      filtered.forEach(m => next.add(m.id));
+      return next;
+    });
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const clearBulk = () => {
+    setSelectedIds(new Set());
+    setBulkAction(null);
+    setBulkCategory("");
+    setBulkPriceMode("percent");
+    setBulkPriceValue("");
+  };
+
+  const handleBulkCategory = async () => {
+    setBulkBusy(true);
+    try {
+      const result = await bulkSetMaterialCategory([...selectedIds], bulkCategory);
+      showToast(`Updated ${result.updated} material${result.updated === 1 ? "" : "s"}.`, "ok");
+      clearBulk();
+      load();
+      loadCategories();
+    } catch (err) {
+      showToast(err?.response?.data?.detail || "Bulk category update failed.", "err");
+    } finally { setBulkBusy(false); }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Delete ${selectedIds.size} selected material${selectedIds.size === 1 ? "" : "s"}? This cannot be undone.`)) return;
+    setBulkBusy(true);
+    try {
+      const result = await bulkDeleteMaterials([...selectedIds]);
+      showToast(`Deleted ${result.updated} material${result.updated === 1 ? "" : "s"}.`, "ok");
+      clearBulk();
+      load();
+    } catch (err) {
+      showToast(err?.response?.data?.detail || "Bulk delete failed.", "err");
+    } finally { setBulkBusy(false); }
+  };
+
+  const handleBulkPrice = async () => {
+    const value = Number(bulkPriceValue);
+    if (Number.isNaN(value)) { showToast("Enter a valid number.", "err"); return; }
+    setBulkBusy(true);
+    try {
+      const result = await bulkAdjustMaterialPrice([...selectedIds], bulkPriceMode, value);
+      showToast(`Updated ${result.updated} material${result.updated === 1 ? "" : "s"}.`, "ok");
+      clearBulk();
+      load();
+    } catch (err) {
+      showToast(err?.response?.data?.detail || "Bulk price adjustment failed.", "err");
+    } finally { setBulkBusy(false); }
+  };
+
   if (editing !== null) {
     return (
       <div style={{ maxWidth: 560 }}>
+        <datalist id="material-categories">
+          {categories.map(c => <option key={c} value={c} />)}
+        </datalist>
         <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{editing.id ? "Edit Material" : "New Material"}</div>
         <div style={{ marginBottom: 14 }}>
           <FieldLabel>Name</FieldLabel>
           <input style={inp} value={editing.name} onChange={e => setEditing(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Cat6 Cable (per box)" />
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <FieldLabel>Category (optional)</FieldLabel>
+          <input style={inp} list="material-categories" value={editing.category || ""} onChange={e => setEditing(p => ({ ...p, category: e.target.value }))} placeholder="e.g. Networking" />
         </div>
         <div style={{ marginBottom: 14 }}>
           <FieldLabel>Description (optional)</FieldLabel>
@@ -720,20 +818,18 @@ function MaterialsTab({ showToast }) {
     );
   }
 
-  const filtered = search.trim()
-    ? items.filter(m => m.name.toLowerCase().includes(search.trim().toLowerCase()))
-    : items;
+  let lastCategory = Symbol("none"); // sentinel guarantees the first row's subheader always renders
 
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 18, gap: 12 }}>
         <div style={{ fontSize: 13, color: brand.muted }}>
-          Frequently used materials/parts. Searchable from quote line items to autofill description and price.
+          Frequently used materials/parts, grouped by category. Searchable from quote line items to autofill description and price.
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={handleImportFile} style={{ display: "none" }} />
           <Btn variant="secondary" small onClick={handleImportClick} disabled={importing}>{importing ? "Importing…" : "Import CSV"}</Btn>
-          <Btn variant="accent" small onClick={() => setEditing({ name: "", description: "", unit_price: 0 })}>+ New Material</Btn>
+          <Btn variant="accent" small onClick={() => setEditing({ name: "", category: "", description: "", unit_price: 0 })}>+ New Material</Btn>
         </div>
       </div>
       {importResult && importResult.errors.length > 0 && (
@@ -749,38 +845,94 @@ function MaterialsTab({ showToast }) {
         </div>
       )}
       {!loading && items.length > 0 && (
-        <input style={{ ...inp, maxWidth: 280, marginBottom: 14 }} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search materials…" />
+        <input style={{ ...inp, maxWidth: 280, marginBottom: 14 }} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search materials or categories…" />
       )}
+
+      {selectedIds.size > 0 && (
+        <div style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: brand.text }}>{selectedIds.size} selected</span>
+          {bulkAction === null && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <Btn small variant="secondary" onClick={() => setBulkAction("category")}>Set Category</Btn>
+              <Btn small variant="secondary" onClick={() => setBulkAction("price")}>Adjust Price</Btn>
+              <Btn small variant="danger" onClick={handleBulkDelete} disabled={bulkBusy}>Delete Selected</Btn>
+              <Btn small variant="ghost" onClick={clearBulk}>Clear</Btn>
+            </div>
+          )}
+          {bulkAction === "category" && (
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <datalist id="material-categories-bulk">
+                {categories.map(c => <option key={c} value={c} />)}
+              </datalist>
+              <input style={{ ...inp, width: 200 }} list="material-categories-bulk" value={bulkCategory} onChange={e => setBulkCategory(e.target.value)} placeholder="New category" autoFocus />
+              <Btn small onClick={handleBulkCategory} disabled={bulkBusy}>{bulkBusy ? "Applying…" : "Apply"}</Btn>
+              <Btn small variant="ghost" onClick={clearBulk}>Cancel</Btn>
+            </div>
+          )}
+          {bulkAction === "price" && (
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <select style={{ ...inp, width: 160 }} value={bulkPriceMode} onChange={e => setBulkPriceMode(e.target.value)}>
+                <option value="percent">Adjust by %</option>
+                <option value="flat">Adjust by $</option>
+                <option value="set">Set to $</option>
+              </select>
+              <input style={{ ...inp, width: 120 }} type="number" step="0.01" value={bulkPriceValue} onChange={e => setBulkPriceValue(e.target.value)} placeholder={bulkPriceMode === "percent" ? "e.g. 10" : "e.g. 5.00"} autoFocus />
+              <Btn small onClick={handleBulkPrice} disabled={bulkBusy || bulkPriceValue === ""}>{bulkBusy ? "Applying…" : "Apply"}</Btn>
+              <Btn small variant="ghost" onClick={clearBulk}>Cancel</Btn>
+            </div>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>Loading…</div>
       ) : items.length === 0 ? (
         <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>
-          No materials yet. Add one, or import a CSV with <code>name</code>, <code>description</code>, <code>unit_price</code> columns.
+          No materials yet. Add one, or import a CSV with <code>name</code>, <code>category</code>, <code>description</code>, <code>unit_price</code> columns.
         </div>
       ) : (
         <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: brand.bg }}>
+                <th style={{ padding: "10px 14px", borderBottom: `1px solid ${brand.border}`, width: 32 }}>
+                  <input type="checkbox" checked={allFilteredSelected} onChange={toggleSelectAll} aria-label="Select all materials" />
+                </th>
                 {["Name", "Description", "Unit Price", ""].map((h, i) => (
                   <th key={h} style={{ padding: "10px 14px", textAlign: i === 2 ? "right" : "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filtered.map(r => (
-                <tr key={r.id}>
-                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, fontWeight: 600 }}>{r.name}</td>
-                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, color: brand.muted, maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.description}</td>
-                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, textAlign: "right", fontWeight: 600 }}>${Number(r.unit_price || 0).toFixed(2)}</td>
-                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, whiteSpace: "nowrap" }}>
-                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                      <Btn small variant="secondary" onClick={() => setEditing(r)}>Edit</Btn>
-                      <Btn small variant="danger" onClick={() => handleDelete(r.id)}>Delete</Btn>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map(r => {
+                const showCategoryHeader = r.category !== lastCategory;
+                lastCategory = r.category;
+                return (
+                  <Fragment key={r.id}>
+                    {showCategoryHeader && (
+                      <tr>
+                        <td colSpan={5} style={{ padding: "8px 14px", background: brand.bg, borderBottom: `1px solid ${brand.border}`, fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                          {r.category || "Uncategorized"}
+                        </td>
+                      </tr>
+                    )}
+                    <tr>
+                      <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}` }}>
+                        <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} aria-label={`Select ${r.name}`} />
+                      </td>
+                      <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, fontWeight: 600 }}>{r.name}</td>
+                      <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, color: brand.muted, maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.description}</td>
+                      <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, textAlign: "right", fontWeight: 600 }}>${Number(r.unit_price || 0).toFixed(2)}</td>
+                      <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, whiteSpace: "nowrap" }}>
+                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                          <Btn small variant="secondary" onClick={() => setEditing(r)}>Edit</Btn>
+                          <Btn small variant="danger" onClick={() => handleDelete(r.id)}>Delete</Btn>
+                        </div>
+                      </td>
+                    </tr>
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

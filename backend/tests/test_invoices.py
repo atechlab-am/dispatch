@@ -298,6 +298,31 @@ def test_attach_ticket_imports_lines_and_marks_invoiced(client, admin_headers):
     assert t["billing_status"] == "invoiced"
 
 
+def test_attach_ticket_imports_materials_used_as_lines(client, admin_headers):
+    cid, tid = _make_ticket_with_client(client, admin_headers)
+    # attach a material line directly via ticket update
+    ticket = client.get(f"/api/tickets/{tid}", headers=admin_headers).json()
+    update_payload = {
+        "status": ticket["status"], "priority": ticket["priority"], "client_type": ticket["client_type"],
+        "client_id": ticket["client_id"], "client_name": ticket["client_name"], "client_email": ticket["client_email"],
+        "client_phone": ticket["client_phone"], "client_address": ticket["client_address"], "title": ticket["title"],
+        "description": ticket["description"], "internal_notes": ticket["internal_notes"], "travel_fee": ticket["travel_fee"],
+        "service_lines": [], "hour_logs": [],
+        "materials_used": [{"material_id": None, "name": "Cat6 Cable", "unit_price": 25.0, "qty": 2}],
+    }
+    client.put(f"/api/tickets/{tid}", json=update_payload, headers=admin_headers)
+
+    inv = client.post("/api/invoices", json={**INVOICE_BASE, "client_id": cid, "tax_rate": 0, "lines": []}, headers=admin_headers).json()
+    r = client.post(f"/api/invoices/{inv['id']}/tickets", json={"ticket_ids": [tid]}, headers=admin_headers)
+    assert r.status_code == 200
+    data = r.json()
+    material_lines = [l for l in data["lines"] if "Cat6 Cable" in l["description"]]
+    assert len(material_lines) == 1
+    assert material_lines[0]["qty"] == 2
+    assert material_lines[0]["unit_price"] == 25.0
+    assert material_lines[0]["amount"] == 50.0
+
+
 def test_detach_ticket_removes_lines_and_reverts_status(client, admin_headers):
     cid, tid = _make_ticket_with_client(client, admin_headers)
     inv = client.post("/api/invoices", json={**INVOICE_BASE, "client_id": cid, "tax_rate": 0, "lines": []}, headers=admin_headers).json()

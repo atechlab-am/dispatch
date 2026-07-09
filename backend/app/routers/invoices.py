@@ -465,6 +465,17 @@ def attach_tickets(
                 amount=round(hours * rate, 2),
             ))
 
+        # Import materials used
+        for tm in ticket.materials_used:
+            unit_price = float(tm.unit_price)
+            db.add(InvoiceLine(
+                invoice_id=inv.id,
+                description=f"[{ticket.id}] {tm.name}",
+                qty=tm.qty,
+                unit_price=unit_price,
+                amount=round(unit_price * tm.qty, 2),
+            ))
+
     db.flush()
     # Recompute totals
     all_lines = db.query(InvoiceLine).filter(InvoiceLine.invoice_id == inv.id).all()

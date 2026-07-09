@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.30.0] — 2026-07-09
+
+### Added — Material categories, bulk edit, and a ticket Materials Used section
+- Materials now have an optional **category** (free text, with autocomplete suggestions drawn from existing categories). The catalog (Settings → Materials) is sorted and grouped by category, then name, then unit price, with a bold subheader row per category (including an "Uncategorized" group). Category is searchable in the catalog's search box but intentionally **not shown** in the compact search-and-autofill dropdown used when adding a Material line to a quote — that dropdown stays name/price only.
+- **Bulk edit** on the Materials catalog: select any number of rows via checkboxes (or "select all") to Set Category, Adjust Price (`+X%`, `+/-$X`, or set to a flat `$X`, clamped at 0), or Delete — all in one action. New admin-only endpoints `POST /materials/bulk/category`, `/bulk/delete`, `/bulk/price`; unknown ids in a bulk request are silently ignored rather than erroring.
+- New `GET /materials/categories` endpoint returning distinct category names in use, powering the autocomplete.
+- CSV import/export both gained the `category` column (optional on import, defaults to blank; validated to 120 characters with a per-row error like other fields).
+- New **Materials Used** section on tickets, directly under Hours Log: search the catalog or type a new name, set quantity, get an editable autofilled unit price and a running subtotal — mirrors Hours Log's shape exactly. Billing/reference only (no inventory/stock tracking). Rolls into the ticket's grand total, the Invoice Summary panel, the printed/PDF ticket, the ticket CSV export (new "Materials Total" column), the Dashboard's ticket-total aggregation, and both ticket→invoice conversion paths (one invoice line per material, same as service lines and hour logs).
+- New `ticket_materials` table (migration `0038`) snapshots `name`/`unit_price` at time of use — like `ServiceLine` already does for the service catalogue — so later catalog edits or deletions never change a ticket's historical cost. New `materials` column: migration `0037` adds `category`.
+
+### Tests
+- New tests in `backend/tests/test_materials.py` (+19): category create/update, CSV import with category (including a too-long-category row error), category-aware sort order, `GET /materials/categories`, and each bulk endpoint's success path, unknown-id handling, empty-result 400, admin gating, and feature-toggle gating.
+- New tests in `backend/tests/test_tickets.py` (+3): creating/updating a ticket with `materials_used`, and the CSV export's new Materials Total column.
+- New test in `backend/tests/test_invoices.py` (+1): attaching a ticket with materials used to an invoice produces one invoice line per material.
+- New tests in `src/__tests__/SettingsPage.test.jsx` (+5): category column/grouping render, category search filtering, saving a category on the add/edit form, and each bulk action (set category, delete, adjust price).
+- New tests in `src/__tests__/TicketEditor.test.jsx` (+5): Materials Used section rendering, catalog-match autofill, row removal, hiding when the feature is disabled, and materials rolling into the Invoice Summary total.
+- New tests in `src/__tests__/helpers.test.js` (+4): `calcMaterialsTotal`.
+
 ## [1.29.0] — 2026-07-09
 
 ### Added — CSV import for Materials

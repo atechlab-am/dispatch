@@ -103,6 +103,50 @@ def test_update_ticket(client, admin_headers, ticket_id):
     assert data["hour_logs"] == []
 
 
+# ─── Materials used ─────────────────────────────────────────────────────────────
+
+def test_create_ticket_with_materials_used(client, admin_headers):
+    payload = {**TICKET_BASE, "materials_used": [
+        {"material_id": None, "name": "Cat6 Cable", "unit_price": 25.0, "qty": 2},
+    ]}
+    r = client.post("/api/tickets", json=payload, headers=admin_headers)
+    assert r.status_code == 201
+    data = r.json()
+    assert len(data["materials_used"]) == 1
+    assert data["materials_used"][0]["name"] == "Cat6 Cable"
+    assert data["materials_used"][0]["qty"] == 2
+    assert data["materials_used"][0]["unit_price"] == 25.0
+
+
+def test_update_ticket_replaces_materials_used(client, admin_headers):
+    payload = {**TICKET_BASE, "materials_used": [
+        {"material_id": None, "name": "Cat6 Cable", "unit_price": 25.0, "qty": 2},
+    ]}
+    tid = client.post("/api/tickets", json=payload, headers=admin_headers).json()["id"]
+
+    updated = {**TICKET_BASE, "materials_used": [
+        {"material_id": None, "name": "RJ45 Connector", "unit_price": 1.5, "qty": 10},
+    ]}
+    r = client.put(f"/api/tickets/{tid}", json=updated, headers=admin_headers)
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data["materials_used"]) == 1
+    assert data["materials_used"][0]["name"] == "RJ45 Connector"
+    assert data["materials_used"][0]["qty"] == 10
+
+
+def test_ticket_export_includes_materials_total(client, admin_headers):
+    payload = {**TICKET_BASE, "title": "Materials Export Test", "service_lines": [], "hour_logs": [], "materials_used": [
+        {"material_id": None, "name": "Switch", "unit_price": 50.0, "qty": 2},
+    ]}
+    client.post("/api/tickets", json=payload, headers=admin_headers)
+    r = client.get("/api/tickets/export", headers=admin_headers)
+    assert r.status_code == 200
+    body = r.text
+    assert "Materials Total" in body
+    assert "Materials Export Test" in body
+
+
 def test_delete_ticket(client, admin_headers):
     r = client.post("/api/tickets", json=TICKET_BASE, headers=admin_headers)
     tid = r.json()["id"]

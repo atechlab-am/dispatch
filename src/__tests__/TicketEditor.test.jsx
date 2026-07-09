@@ -68,7 +68,7 @@ const baseTicket = () => ({
   title: "Quote QUO-2026-00001 approved — work order",
   description: "", internalNotes: "", travelFee: "travel_none",
   billingStatus: "unbilled",
-  services: [], hourLogs: [],
+  services: [], hourLogs: [], materialsUsed: [],
 });
 
 const APPROVED_QUOTE = {
@@ -154,4 +154,56 @@ test("clicking Not now dismisses the prompt and still proceeds with the save", a
   await waitFor(() => expect(onSave).toHaveBeenCalled());
   expect(convertQuoteToInvoice).not.toHaveBeenCalled();
   expect(screen.queryByText("Convert Quote to Invoice?")).not.toBeInTheDocument();
+});
+
+describe("Materials Used section", () => {
+  const CATALOG = [
+    { id: 1, name: "Cat6 Cable", category: "Networking", description: "", unit_price: 25 },
+  ];
+
+  test("renders the section and adds a row via + Add Material", async () => {
+    render(<TicketEditor ticket={baseTicket()} onSave={vi.fn()} showToast={() => {}} materials={CATALOG} />);
+    expect(screen.getByText("Materials Used")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("+ Add Material"));
+    expect(screen.getByPlaceholderText(/Search materials or type a name/i)).toBeInTheDocument();
+  });
+
+  test("picking a catalog match autofills name and unit price, and rolls into the total", async () => {
+    render(<TicketEditor ticket={baseTicket()} onSave={vi.fn()} showToast={() => {}} materials={CATALOG} />);
+    fireEvent.click(screen.getByText("+ Add Material"));
+
+    const nameInput = screen.getByPlaceholderText(/Search materials or type a name/i);
+    fireEvent.change(nameInput, { target: { value: "Cat6" } });
+    fireEvent.focus(nameInput);
+
+    const match = await screen.findByText("Cat6 Cable");
+    fireEvent.mouseDown(match);
+
+    await waitFor(() => expect(nameInput.value).toBe("Cat6 Cable"));
+    expect(screen.getAllByText("$25.00", { exact: false }).length).toBeGreaterThan(0);
+  });
+
+  test("removing a material row drops it from the section", async () => {
+    const ticket = { ...baseTicket(), materialsUsed: [{ _id: 1, materialId: 1, name: "Cat6 Cable", unitPrice: 25, qty: 2 }] };
+    render(<TicketEditor ticket={ticket} onSave={vi.fn()} showToast={() => {}} materials={CATALOG} />);
+    expect(screen.getByDisplayValue("Cat6 Cable")).toBeInTheDocument();
+
+    const removeButtons = screen.getAllByText("×");
+    fireEvent.click(removeButtons[removeButtons.length - 1]);
+
+    expect(screen.queryByDisplayValue("Cat6 Cable")).not.toBeInTheDocument();
+  });
+
+  test("hides the section when the materials feature is disabled", () => {
+    render(<TicketEditor ticket={baseTicket()} onSave={vi.fn()} showToast={() => {}} features={{ materials: false }} />);
+    expect(screen.queryByText("Materials Used")).not.toBeInTheDocument();
+  });
+
+  test("includes materials subtotal in the Invoice Summary total", async () => {
+    const ticket = { ...baseTicket(), materialsUsed: [{ _id: 1, materialId: null, name: "Cat6 Cable", unitPrice: 25, qty: 2 }] };
+    render(<TicketEditor ticket={ticket} onSave={vi.fn()} showToast={() => {}} materials={CATALOG} />);
+    expect(screen.getByText("Materials")).toBeInTheDocument();
+    expect(screen.getAllByText("$50.00").length).toBeGreaterThan(0);
+  });
 });
