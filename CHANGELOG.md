@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.26.0] — 2026-07-09
+
+### Added — backup & restore to NAS
+- Database + uploads are now backed up to a NAS share over SMB2/3, pushed directly from the backend container using the `smbprotocol` library — no CIFS mount, no elevated container privileges. Configured entirely via new `BACKUP_NAS_*` env vars.
+- Runs on a configurable schedule (`BACKUP_INTERVAL_HOURS`, default 24h) plus a manual **Backup Now** button in a new Settings → Backup tab (admin only). Old backups are pruned automatically beyond `BACKUP_RETENTION_COUNT` (default 14).
+- Each backup archive contains a `pg_dump -Fc` database dump, a full copy of the uploads directory, and a manifest (timestamp, app version, sizes).
+- **Restore from Backup**: admin-only, requires re-entering your password (mirrors the 2FA-disable confirmation flow), shows the exact backup's timestamp/size before the destructive confirm, then restores the database (`pg_restore --clean --if-exists`) and replaces the uploads directory before the backend process exits and restarts under Docker's `restart: unless-stopped`. The app is briefly unavailable during this — by design, since no request can safely keep being served through a mid-flight database replacement.
+- `upgrade.sh` now runs a best-effort backup automatically before every upgrade.
+- New `backup_runs` table (migration `0035`) tracks backup history (status, size, filename, triggered-by) so the Settings tab can show recent activity without querying the NAS on every page load.
+- New `FEATURE_BACKUPS` toggle (default enabled); the feature also requires `BACKUP_NAS_HOST`/`BACKUP_NAS_SHARE` to be set to actually run — otherwise the scheduled loop silently skips every cycle and "Backup Now" fails with a clear error, rather than crash-looping on an unconfigured install.
+
+### Tests
+- New `backend/tests/test_backups.py` (19 tests): router endpoints (history, manual trigger, NAS listing, restore password verification, admin gating, feature toggle), and the `backup` module's own logic (archive building, retention, NAS username/DATABASE_URL parsing, failure handling) — all mocking `subprocess` (pg_dump/pg_restore) and `smbclient` (the network) rather than requiring a real Postgres/NAS.
+- Extended `src/__tests__/SettingsPage.test.jsx` (+7 tests) covering the Backup tab's visibility by role/feature flag, backup history rendering, the Backup Now action, listing NAS backups, and the restore confirmation's password requirement.
+
 ## [1.25.0] — 2026-07-08
 
 ### Added — Quote → Ticket → Invoice workflow

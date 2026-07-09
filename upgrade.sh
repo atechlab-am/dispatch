@@ -7,6 +7,9 @@ cd "$REPO_DIR"
 echo "==> Pulling latest code..."
 git pull
 
+echo "==> Backing up before upgrade (best-effort, requires BACKUP_NAS_HOST in .env)..."
+docker compose exec -T backend python3 -c "from app.backup import run_backup; r = run_backup(); print('Backup:', 'OK' if r.success else f'skipped/failed: {r.error}')" || true
+
 echo "==> Stopping containers (volumes preserved)..."
 docker compose down
 

@@ -4,6 +4,7 @@ import { listPortalAccounts, createPortalAccount, updatePortalAccount, deletePor
 import { listClients } from "./api/clients.js";
 import { listCannedResponses, createCannedResponse, updateCannedResponse, deleteCannedResponse } from "./api/cannedResponses.js";
 import { listMaterials, createMaterial, updateMaterial, deleteMaterial } from "./api/materials.js";
+import { listBackupRuns, triggerBackup, listAvailableBackups, restoreBackup } from "./api/backups.js";
 import { me, setup2fa, enable2fa, disable2fa } from "./api/auth.js";
 
 const brand = {
@@ -743,6 +744,178 @@ function MaterialsTab({ showToast }) {
   );
 }
 
+// ─── Backup tab ────────────────────────────────────────────────────────────────
+const STATUS_BADGE = {
+  running: { bg: "#dbeafe", color: "#1e40af", label: "Running" },
+  success: { bg: "#d1fae5", color: "#065f46", label: "Success" },
+  failed:  { bg: "#fee2e2", color: "#991b1b", label: "Failed" },
+};
+
+function fmtBytes(n) {
+  if (n == null) return "—";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function BackupTab({ showToast }) {
+  const [runs, setRuns] = useState([]);
+  const [loadingRuns, setLoadingRuns] = useState(true);
+  const [running, setRunning] = useState(false);
+  const [available, setAvailable] = useState(null); // null = not loaded yet
+  const [loadingAvailable, setLoadingAvailable] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState(null); // the backup being restored
+  const [restorePassword, setRestorePassword] = useState("");
+  const [restoring, setRestoring] = useState(false);
+
+  const loadRuns = () => {
+    setLoadingRuns(true);
+    listBackupRuns()
+      .then(d => setRuns(d.items))
+      .catch(() => showToast?.("Failed to load backup history.", "err"))
+      .finally(() => setLoadingRuns(false));
+  };
+
+  useEffect(() => { loadRuns(); }, []);
+
+  const handleBackupNow = async () => {
+    setRunning(true);
+    try {
+      await triggerBackup();
+      showToast?.("Backup started.", "ok");
+      setTimeout(loadRuns, 1500);
+    } catch (err) {
+      showToast?.(err?.response?.data?.detail || "Failed to start backup.", "err");
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const loadAvailable = () => {
+    setLoadingAvailable(true);
+    listAvailableBackups()
+      .then(setAvailable)
+      .catch(() => showToast?.("Failed to list backups on the NAS.", "err"))
+      .finally(() => setLoadingAvailable(false));
+  };
+
+  const handleRestoreConfirm = async (e) => {
+    e.preventDefault();
+    setRestoring(true);
+    try {
+      await restoreBackup(restoreTarget.filename, restorePassword);
+      showToast?.("Restoring — the app will be briefly unavailable and reload shortly.", "ok");
+      setRestoreTarget(null);
+      setRestorePassword("");
+    } catch (err) {
+      showToast?.(err?.response?.data?.detail || "Failed to restore backup.", "err");
+      setRestoring(false);
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: 720 }}>
+      {restoreTarget && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(13,27,42,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#fff", borderRadius: 12, padding: "28px 32px", width: 480, maxWidth: "95vw", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}>
+            <div style={{ fontWeight: 800, fontSize: 17, color: brand.text, marginBottom: 6 }}>Restore from Backup?</div>
+            <div style={{ fontSize: 13, color: brand.muted, marginBottom: 16 }}>
+              This will overwrite <strong>all current data</strong> (database and uploaded files) with the backup from{" "}
+              <strong>{new Date(restoreTarget.created_at).toLocaleString()}</strong> ({fmtBytes(restoreTarget.size_bytes)}).
+              The app will briefly restart and be unavailable. This cannot be undone.
+            </div>
+            <form onSubmit={handleRestoreConfirm}>
+              <FieldLabel>Confirm your password to restore</FieldLabel>
+              <input type="password" style={inp} value={restorePassword} onChange={e => setRestorePassword(e.target.value)} required autoFocus disabled={restoring} />
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16 }}>
+                <Btn variant="ghost" onClick={() => { setRestoreTarget(null); setRestorePassword(""); }} disabled={restoring}>Cancel</Btn>
+                <Btn type="submit" variant="danger" disabled={restoring || !restorePassword}>{restoring ? "Restoring…" : "Restore & Overwrite"}</Btn>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 18, gap: 12 }}>
+        <div style={{ fontSize: 13, color: brand.muted }}>
+          Database and file backups are pushed to your configured NAS share on a schedule, plus on demand.
+        </div>
+        <Btn variant="accent" small onClick={handleBackupNow} disabled={running}>{running ? "Starting…" : "Backup Now"}</Btn>
+      </div>
+
+      <div style={{ fontWeight: 700, fontSize: 14, color: brand.text, marginBottom: 10 }}>Recent Backups</div>
+      {loadingRuns ? (
+        <div style={{ color: brand.muted, padding: "20px 0", textAlign: "center" }}>Loading…</div>
+      ) : runs.length === 0 ? (
+        <div style={{ color: brand.muted, padding: "20px 0", textAlign: "center" }}>No backups yet.</div>
+      ) : (
+        <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 28 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: brand.bg }}>
+                {["Started", "Status", "Triggered By", "Filename", "Size"].map(h => (
+                  <th key={h} style={{ padding: "9px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {runs.map(r => {
+                const badge = STATUS_BADGE[r.status] || STATUS_BADGE.running;
+                return (
+                  <tr key={r.id}>
+                    <td style={{ padding: "10px 14px", borderBottom: `1px solid ${brand.border}` }}>{new Date(r.started_at).toLocaleString()}</td>
+                    <td style={{ padding: "10px 14px", borderBottom: `1px solid ${brand.border}` }}>
+                      <span style={{ background: badge.bg, color: badge.color, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{badge.label}</span>
+                    </td>
+                    <td style={{ padding: "10px 14px", borderBottom: `1px solid ${brand.border}`, textTransform: "capitalize" }}>{r.triggered_by}</td>
+                    <td style={{ padding: "10px 14px", borderBottom: `1px solid ${brand.border}`, fontFamily: "monospace", fontSize: 12 }}>{r.filename || "—"}</td>
+                    <td style={{ padding: "10px 14px", borderBottom: `1px solid ${brand.border}` }}>{fmtBytes(r.size_bytes)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: brand.text }}>Restore from Backup</div>
+        <Btn variant="secondary" small onClick={loadAvailable} disabled={loadingAvailable}>{loadingAvailable ? "Loading…" : "List Backups on NAS"}</Btn>
+      </div>
+      {available !== null && (
+        available.length === 0 ? (
+          <div style={{ color: brand.muted, padding: "20px 0", textAlign: "center" }}>No backups found on the NAS share.</div>
+        ) : (
+          <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: brand.bg }}>
+                  {["Created", "Filename", "Size", ""].map(h => (
+                    <th key={h} style={{ padding: "9px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {available.map(b => (
+                  <tr key={b.filename}>
+                    <td style={{ padding: "10px 14px", borderBottom: `1px solid ${brand.border}` }}>{new Date(b.created_at).toLocaleString()}</td>
+                    <td style={{ padding: "10px 14px", borderBottom: `1px solid ${brand.border}`, fontFamily: "monospace", fontSize: 12 }}>{b.filename}</td>
+                    <td style={{ padding: "10px 14px", borderBottom: `1px solid ${brand.border}` }}>{fmtBytes(b.size_bytes)}</td>
+                    <td style={{ padding: "10px 14px", borderBottom: `1px solid ${brand.border}` }}>
+                      <Btn small variant="danger" onClick={() => setRestoreTarget(b)}>Restore</Btn>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
 // ─── Security (2FA) tab ────────────────────────────────────────────────────────
 function SecurityTab({ showToast }) {
   const [totpEnabled, setTotpEnabled] = useState(null); // null = loading
@@ -878,6 +1051,7 @@ export default function SettingsPage({ user, showToast, features }) {
   const showCanned = isAdmin && features?.canned_responses !== false;
   const show2fa = features?.two_factor_auth !== false;
   const showMaterials = isAdmin && features?.materials !== false;
+  const showBackup = isAdmin && features?.backups !== false;
 
   const tabs = [
     ...(isAdmin ? [{ id: "users", label: "Users" }] : []),
@@ -885,6 +1059,7 @@ export default function SettingsPage({ user, showToast, features }) {
     ...(show2fa ? [{ id: "security", label: "Security" }] : []),
     ...(showCanned ? [{ id: "canned", label: "Canned Responses" }] : []),
     ...(showMaterials ? [{ id: "materials", label: "Materials" }] : []),
+    ...(showBackup ? [{ id: "backup", label: "Backup" }] : []),
   ];
 
   return (
@@ -917,6 +1092,9 @@ export default function SettingsPage({ user, showToast, features }) {
       )}
       {tab === "materials" && showMaterials && (
         <MaterialsTab showToast={showToast} />
+      )}
+      {tab === "backup" && showBackup && (
+        <BackupTab showToast={showToast} />
       )}
     </div>
   );

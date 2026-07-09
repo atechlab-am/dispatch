@@ -123,6 +123,14 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Role-based access: admin and technician
 - Self-service password change; minimum 8-character passwords enforced
 
+### Backups (admin only)
+- Database + uploaded files backed up to a NAS share over SMB2/3 — pushed directly over the network from the backend container, no CIFS mount or elevated container privileges required
+- Runs on a configurable schedule (`BACKUP_INTERVAL_HOURS`, default daily) plus an on-demand **Backup Now** button (Settings → Backup)
+- Each backup is a single archive: a `pg_dump -Fc` database dump + a full copy of the uploads directory (ticket attachments, document library) + a manifest with timestamp/version/size
+- Old backups on the NAS are pruned automatically beyond `BACKUP_RETENTION_COUNT` (default 14)
+- **Restore** requires admin role and re-entering your password, shows the exact backup being restored (timestamp, size) before confirming, then briefly restarts the app while the database and uploads are replaced — this is destructive and cannot be undone
+- `upgrade.sh` runs a best-effort backup automatically before every upgrade
+
 ### Security
 - JWT authentication with refresh token rotation; 30/min rate limit on refresh endpoints
 - Staff and portal tokens are isolated — portal tokens are rejected by all staff endpoints
@@ -147,6 +155,7 @@ Each feature below can be turned off independently via env vars. A disabled feat
 - `FEATURE_SLA_ESCALATION` — the background SLA-breach check and its notifications (default enabled)
 - `FEATURE_SLA_TIERS` — per-client SLA tier overrides, gold/silver/bronze (default enabled)
 - `FEATURE_MATERIALS` — the materials catalog (Settings tab + quote line-item autofill) (default enabled)
+- `FEATURE_BACKUPS` — the scheduled/manual backup loop, the Settings → Backup tab, and the restore flow (default enabled; also requires `BACKUP_NAS_HOST`/`BACKUP_NAS_SHARE` to actually run — see `.env.example`)
 - `FEATURE_2FA` — two-factor auth enrollment and enforcement (**default DISABLED** — set to `true` to opt in; unlike every toggle above, this one changes the login flow itself)
 
 ### Setup Wizard

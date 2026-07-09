@@ -174,6 +174,47 @@ async def sla_escalation_loop():
             logger.exception("Error in SLA escalation loop")
 
 
+async def backup_loop():
+    """Run on an interval read from config.BACKUP_INTERVAL_HOURS (unlike every
+    other loop in this module, which hardcodes 300s). Skips the run entirely
+    when the NAS isn't configured, rather than failing loudly every cycle."""
+    from . import config
+
+    while True:
+        await asyncio.sleep(config.BACKUP_INTERVAL_HOURS * 3600)
+        if not (config.BACKUP_NAS_HOST and config.BACKUP_NAS_SHARE):
+            continue
+        try:
+            _run_scheduled_backup()
+        except Exception:
+            logger.exception("Error in backup loop")
+
+
+def _run_scheduled_backup():
+    from .database import SessionLocal
+    from .backup import run_backup
+    from .models.models import BackupRun
+
+    with SessionLocal() as db:
+        run = BackupRun(status="running", triggered_by="schedule")
+        db.add(run)
+        db.commit()
+        db.refresh(run)
+
+        result = run_backup()
+
+        run.status = "success" if result.success else "failed"
+        run.filename = result.filename
+        run.size_bytes = result.size_bytes
+        run.error = result.error
+        run.finished_at = datetime.now(timezone.utc)
+        db.commit()
+        if result.success:
+            logger.info("Scheduled backup succeeded: %s (%d bytes)", result.filename, result.size_bytes or 0)
+        else:
+            logger.error("Scheduled backup failed: %s", result.error)
+
+
 def _check_sla_breaches():
     """Notify the assignee (or all admins, if unassigned) once per breach.
 

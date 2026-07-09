@@ -44,7 +44,7 @@ def test_get_config_returns_all_six_keys(client, admin_headers):
         "audit_log", "timer", "ar_aging", "notifications",
         "recurring_invoicing", "scheduling",
         "quotes", "global_search", "canned_responses", "sla_escalation", "sla_tiers",
-        "two_factor_auth", "materials",
+        "two_factor_auth", "materials", "backups",
     }
 
 

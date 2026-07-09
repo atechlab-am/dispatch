@@ -46,6 +46,13 @@ vi.mock("../api/materials.js", () => ({
   deleteMaterial: vi.fn(),
 }));
 
+vi.mock("../api/backups.js", () => ({
+  listBackupRuns: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+  triggerBackup: vi.fn(),
+  listAvailableBackups: vi.fn().mockResolvedValue([]),
+  restoreBackup: vi.fn(),
+}));
+
 vi.mock("../api/auth.js", () => ({
   me: vi.fn().mockResolvedValue({ id: 1, totp_enabled: false }),
   setup2fa: vi.fn(),
@@ -55,6 +62,7 @@ vi.mock("../api/auth.js", () => ({
 
 import { listUsers, createUser, changeOwnPassword } from "../api/users.js";
 import { me, setup2fa, enable2fa, disable2fa } from "../api/auth.js";
+import { listBackupRuns, triggerBackup, listAvailableBackups, restoreBackup } from "../api/backups.js";
 
 const adminUser = { id: 1, name: "Admin", email: "admin@test.com", role: "admin", active: true };
 const techUser  = { id: 2, name: "Tech",  email: "tech@test.com",  role: "technician", active: true };
@@ -112,6 +120,25 @@ describe("SettingsPage — Users tab (admin)", () => {
   it("hides Materials tab for technician regardless of the feature flag", () => {
     render(<SettingsPage user={techUser} showToast={() => {}} features={{ materials: true }} />);
     expect(screen.queryByRole("button", { name: /Materials/i })).not.toBeInTheDocument();
+  });
+
+  it("shows Backup tab for admin when the feature is enabled", async () => {
+    listUsers.mockResolvedValue([adminUser]);
+    render(<SettingsPage user={adminUser} showToast={() => {}} features={{ backups: true }} />);
+    await screen.findByText("admin@test.com");
+    expect(screen.getByRole("button", { name: /Backup/i })).toBeInTheDocument();
+  });
+
+  it("hides Backup tab when the feature is disabled", async () => {
+    listUsers.mockResolvedValue([adminUser]);
+    render(<SettingsPage user={adminUser} showToast={() => {}} features={{ backups: false }} />);
+    await screen.findByText("admin@test.com");
+    expect(screen.queryByRole("button", { name: /Backup/i })).not.toBeInTheDocument();
+  });
+
+  it("hides Backup tab for technician regardless of the feature flag", () => {
+    render(<SettingsPage user={techUser} showToast={() => {}} features={{ backups: true }} />);
+    expect(screen.queryByRole("button", { name: /Backup/i })).not.toBeInTheDocument();
   });
 
   it("shows Security tab (available to any role) when 2FA is enabled", () => {
@@ -275,5 +302,78 @@ describe("SettingsPage — Security tab (2FA)", () => {
 
     await waitFor(() => expect(disable2fa).toHaveBeenCalledWith("mypassword"));
     expect(showToast).toHaveBeenCalledWith("Two-factor authentication disabled.", "ok");
+  });
+});
+
+describe("SettingsPage — Backup tab", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("shows backup history from the API", async () => {
+    listBackupRuns.mockResolvedValue({
+      items: [
+        { id: 1, started_at: "2026-07-01T00:00:00Z", finished_at: "2026-07-01T00:01:00Z", status: "success", filename: "dispatch-backup-20260701-000000.tar.gz", size_bytes: 2048, error: "", triggered_by: "schedule" },
+      ],
+      total: 1,
+    });
+    render(<SettingsPage user={adminUser} showToast={() => {}} features={{ backups: true }} />);
+    fireEvent.click(screen.getByRole("button", { name: /Backup/i }));
+
+    expect(await screen.findByText("dispatch-backup-20260701-000000.tar.gz")).toBeInTheDocument();
+    expect(screen.getByText("Success")).toBeInTheDocument();
+  });
+
+  it("calls triggerBackup when Backup Now is clicked", async () => {
+    listBackupRuns.mockResolvedValue({ items: [], total: 0 });
+    triggerBackup.mockResolvedValue({ id: 2, status: "running" });
+    const showToast = vi.fn();
+    render(<SettingsPage user={adminUser} showToast={showToast} features={{ backups: true }} />);
+    fireEvent.click(screen.getByRole("button", { name: /Backup/i }));
+    await screen.findByText("No backups yet.");
+
+    fireEvent.click(screen.getByRole("button", { name: /Backup Now/i }));
+
+    await waitFor(() => expect(triggerBackup).toHaveBeenCalled());
+    expect(showToast).toHaveBeenCalledWith("Backup started.", "ok");
+  });
+
+  it("lists backups available on the NAS when requested", async () => {
+    listBackupRuns.mockResolvedValue({ items: [], total: 0 });
+    listAvailableBackups.mockResolvedValue([
+      { filename: "dispatch-backup-20260701-000000.tar.gz", created_at: "2026-07-01T00:00:00Z", size_bytes: 4096 },
+    ]);
+    render(<SettingsPage user={adminUser} showToast={() => {}} features={{ backups: true }} />);
+    fireEvent.click(screen.getByRole("button", { name: /Backup/i }));
+    await screen.findByText("No backups yet.");
+
+    fireEvent.click(screen.getByRole("button", { name: /List Backups on NAS/i }));
+
+    expect(await screen.findByText("dispatch-backup-20260701-000000.tar.gz")).toBeInTheDocument();
+  });
+
+  it("restoring requires a password and calls restoreBackup on confirm", async () => {
+    listBackupRuns.mockResolvedValue({ items: [], total: 0 });
+    listAvailableBackups.mockResolvedValue([
+      { filename: "dispatch-backup-20260701-000000.tar.gz", created_at: "2026-07-01T00:00:00Z", size_bytes: 4096 },
+    ]);
+    restoreBackup.mockResolvedValue({});
+    const showToast = vi.fn();
+    render(<SettingsPage user={adminUser} showToast={showToast} features={{ backups: true }} />);
+    fireEvent.click(screen.getByRole("button", { name: /Backup/i }));
+    await screen.findByText("No backups yet.");
+    fireEvent.click(screen.getByRole("button", { name: /List Backups on NAS/i }));
+    await screen.findByText("dispatch-backup-20260701-000000.tar.gz");
+
+    fireEvent.click(screen.getByRole("button", { name: /^Restore$/i }));
+    expect(await screen.findByText("Restore from Backup?")).toBeInTheDocument();
+
+    const confirmBtn = screen.getByRole("button", { name: /Restore & Overwrite/i });
+    expect(confirmBtn).toBeDisabled();
+
+    const pwInput = document.querySelector('input[type="password"]');
+    fireEvent.change(pwInput, { target: { value: "adminpass" } });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => expect(restoreBackup).toHaveBeenCalledWith("dispatch-backup-20260701-000000.tar.gz", "adminpass"));
+    expect(showToast).toHaveBeenCalledWith("Restoring — the app will be briefly unavailable and reload shortly.", "ok");
   });
 });

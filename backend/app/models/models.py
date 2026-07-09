@@ -1,6 +1,6 @@
 from datetime import datetime, date, timezone
 from sqlalchemy import (
-    Column, String, Integer, Numeric, Boolean, Date,
+    Column, String, Integer, BigInteger, Numeric, Boolean, Date,
     DateTime, ForeignKey, Text, Enum as SAEnum, Table
 )
 from sqlalchemy.orm import relationship
@@ -616,3 +616,18 @@ class Material(Base):
     unit_price = Column(Numeric(12, 2), nullable=False, default=0)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class BackupRun(Base):
+    """History of backup attempts (scheduled or manually triggered), so the
+    Settings UI can show recent status without re-listing the NAS share."""
+    __tablename__ = "backup_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    started_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    finished_at = Column(DateTime, nullable=True)
+    status = Column(String(20), nullable=False, default="running")  # running | success | failed
+    filename = Column(String(255), nullable=True)
+    size_bytes = Column(BigInteger, nullable=True)
+    error = Column(Text, nullable=False, default="")
+    triggered_by = Column(String(20), nullable=False)  # schedule | manual

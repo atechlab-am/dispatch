@@ -18,6 +18,10 @@ CMD ["python3", "-m", "pytest", "tests/", "-v"]
 # ── Production target ──────────────────────────────────────────────────────────
 FROM base AS production
 
+# postgresql-client provides pg_dump/pg_restore, used by the backup feature
+RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

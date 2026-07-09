@@ -44,6 +44,17 @@ PORTAL_URL: str = os.environ.get("PORTAL_URL", "http://localhost").rstrip("/")
 # webhook URL configured in your inbound email provider (e.g. Postmark).
 INBOUND_EMAIL_SECRET: str = os.environ.get("INBOUND_EMAIL_SECRET", "")
 
+# Backups to NAS over SMB — optional; if BACKUP_NAS_HOST is unset, the backup
+# loop silently skips every cycle (no crash-looping on an unconfigured install).
+BACKUP_NAS_HOST: str = os.environ.get("BACKUP_NAS_HOST", "")
+BACKUP_NAS_SHARE: str = os.environ.get("BACKUP_NAS_SHARE", "")
+BACKUP_NAS_PATH: str = os.environ.get("BACKUP_NAS_PATH", "dispatch-backups")
+BACKUP_NAS_USERNAME: str = os.environ.get("BACKUP_NAS_USERNAME", "")
+BACKUP_NAS_PASSWORD: str = os.environ.get("BACKUP_NAS_PASSWORD", "")
+BACKUP_NAS_DOMAIN: str = os.environ.get("BACKUP_NAS_DOMAIN", "")
+BACKUP_INTERVAL_HOURS: int = int(os.environ.get("BACKUP_INTERVAL_HOURS", "24"))
+BACKUP_RETENTION_COUNT: int = int(os.environ.get("BACKUP_RETENTION_COUNT", "14"))
+
 # Feature toggles — all optional, default enabled ("true"). Set to "false" to
 # disable. Disabled endpoints return 503; disabled background loops don't
 # start; write_audit()/create_notification() silently no-op regardless of
@@ -60,6 +71,7 @@ FEATURE_CANNED_RESPONSES: bool = os.environ.get("FEATURE_CANNED_RESPONSES", "tru
 FEATURE_SLA_ESCALATION: bool = os.environ.get("FEATURE_SLA_ESCALATION", "true").lower() == "true"
 FEATURE_SLA_TIERS: bool = os.environ.get("FEATURE_SLA_TIERS", "true").lower() == "true"
 FEATURE_MATERIALS: bool = os.environ.get("FEATURE_MATERIALS", "true").lower() == "true"
+FEATURE_BACKUPS: bool = os.environ.get("FEATURE_BACKUPS", "true").lower() == "true"
 
 # Two-factor auth (TOTP) — unlike every toggle above, this one defaults to
 # DISABLED ("false"). It changes the login flow itself (adds a second step),
