@@ -3,7 +3,6 @@ import { listUsers, createUser, updateUser, deactivateUser, changeOwnPassword } 
 import { listPortalAccounts, createPortalAccount, updatePortalAccount, deletePortalAccount } from "./api/portal.js";
 import { listClients } from "./api/clients.js";
 import { listCannedResponses, createCannedResponse, updateCannedResponse, deleteCannedResponse } from "./api/cannedResponses.js";
-import { listMaterials, createMaterial, updateMaterial, deleteMaterial } from "./api/materials.js";
 import { me, setup2fa, enable2fa, disable2fa } from "./api/auth.js";
 
 const brand = {
@@ -624,125 +623,6 @@ function CannedResponsesTab({ showToast }) {
   );
 }
 
-// ─── Materials tab ─────────────────────────────────────────────────────────────
-function MaterialsTab({ showToast }) {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(null); // null | {} | existing row
-  const [saving, setSaving] = useState(false);
-  const [search, setSearch] = useState("");
-
-  const load = () => {
-    setLoading(true);
-    listMaterials()
-      .then(setItems)
-      .catch(() => showToast("Failed to load materials.", "err"))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const payload = { name: editing.name, description: editing.description, unit_price: Number(editing.unit_price) || 0 };
-      if (editing.id) {
-        await updateMaterial(editing.id, payload);
-      } else {
-        await createMaterial(payload);
-      }
-      showToast("Saved.", "ok");
-      setEditing(null);
-      load();
-    } catch (err) {
-      showToast(err?.response?.data?.detail || "Save failed.", "err");
-    } finally { setSaving(false); }
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm("Delete this material?")) return;
-    try {
-      await deleteMaterial(id);
-      showToast("Deleted.", "ok");
-      load();
-    } catch { showToast("Delete failed.", "err"); }
-  };
-
-  if (editing !== null) {
-    return (
-      <div style={{ maxWidth: 560 }}>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{editing.id ? "Edit Material" : "New Material"}</div>
-        <div style={{ marginBottom: 14 }}>
-          <FieldLabel>Name</FieldLabel>
-          <input style={inp} value={editing.name} onChange={e => setEditing(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Cat6 Cable (per box)" />
-        </div>
-        <div style={{ marginBottom: 14 }}>
-          <FieldLabel>Description (optional)</FieldLabel>
-          <input style={inp} value={editing.description} onChange={e => setEditing(p => ({ ...p, description: e.target.value }))} placeholder="Extra detail shown alongside the name" />
-        </div>
-        <div style={{ marginBottom: 20, maxWidth: 200 }}>
-          <FieldLabel>Default Unit Price</FieldLabel>
-          <input style={inp} type="number" min="0" step="0.01" value={editing.unit_price} onChange={e => setEditing(p => ({ ...p, unit_price: e.target.value }))} placeholder="0.00" />
-        </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <Btn onClick={handleSave} disabled={saving || !editing.name?.trim()}>{saving ? "Saving…" : "Save"}</Btn>
-          <Btn variant="ghost" onClick={() => setEditing(null)}>Cancel</Btn>
-        </div>
-      </div>
-    );
-  }
-
-  const filtered = search.trim()
-    ? items.filter(m => m.name.toLowerCase().includes(search.trim().toLowerCase()))
-    : items;
-
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 18, gap: 12 }}>
-        <div style={{ fontSize: 13, color: brand.muted }}>
-          Frequently used materials/parts. Searchable from quote line items to autofill description and price.
-        </div>
-        <Btn variant="accent" small onClick={() => setEditing({ name: "", description: "", unit_price: 0 })}>+ New Material</Btn>
-      </div>
-      {!loading && items.length > 0 && (
-        <input style={{ ...inp, maxWidth: 280, marginBottom: 14 }} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search materials…" />
-      )}
-      {loading ? (
-        <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>Loading…</div>
-      ) : items.length === 0 ? (
-        <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>No materials yet.</div>
-      ) : (
-        <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: brand.bg }}>
-                {["Name", "Description", "Unit Price", ""].map((h, i) => (
-                  <th key={h} style={{ padding: "10px 14px", textAlign: i === 2 ? "right" : "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(r => (
-                <tr key={r.id}>
-                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, fontWeight: 600 }}>{r.name}</td>
-                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, color: brand.muted, maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.description}</td>
-                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, textAlign: "right", fontWeight: 600 }}>${Number(r.unit_price || 0).toFixed(2)}</td>
-                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, whiteSpace: "nowrap" }}>
-                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                      <Btn small variant="secondary" onClick={() => setEditing(r)}>Edit</Btn>
-                      <Btn small variant="danger" onClick={() => handleDelete(r.id)}>Delete</Btn>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Security (2FA) tab ────────────────────────────────────────────────────────
 function SecurityTab({ showToast }) {
   const [totpEnabled, setTotpEnabled] = useState(null); // null = loading
@@ -877,14 +757,12 @@ export default function SettingsPage({ user, showToast, features }) {
   const [tab, setTab] = useState(isAdmin ? "users" : "password");
   const showCanned = isAdmin && features?.canned_responses !== false;
   const show2fa = features?.two_factor_auth !== false;
-  const showMaterials = isAdmin && features?.materials !== false;
 
   const tabs = [
     ...(isAdmin ? [{ id: "users", label: "Users" }] : []),
     { id: "password", label: "Change Password" },
     ...(show2fa ? [{ id: "security", label: "Security" }] : []),
     ...(showCanned ? [{ id: "canned", label: "Canned Responses" }] : []),
-    ...(showMaterials ? [{ id: "materials", label: "Materials" }] : []),
   ];
 
   return (
@@ -914,9 +792,6 @@ export default function SettingsPage({ user, showToast, features }) {
       )}
       {tab === "canned" && showCanned && (
         <CannedResponsesTab showToast={showToast} />
-      )}
-      {tab === "materials" && showMaterials && (
-        <MaterialsTab showToast={showToast} />
       )}
     </div>
   );
