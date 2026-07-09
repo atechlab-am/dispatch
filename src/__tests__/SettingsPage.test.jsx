@@ -39,6 +39,13 @@ vi.mock("../api/cannedResponses.js", () => ({
   deleteCannedResponse: vi.fn(),
 }));
 
+vi.mock("../api/materials.js", () => ({
+  listMaterials: vi.fn().mockResolvedValue([]),
+  createMaterial: vi.fn(),
+  updateMaterial: vi.fn(),
+  deleteMaterial: vi.fn(),
+}));
+
 vi.mock("../api/auth.js", () => ({
   me: vi.fn().mockResolvedValue({ id: 1, totp_enabled: false }),
   setup2fa: vi.fn(),
@@ -86,6 +93,25 @@ describe("SettingsPage — Users tab (admin)", () => {
   it("hides Canned Responses tab for technician regardless of the feature flag", () => {
     render(<SettingsPage user={techUser} showToast={() => {}} features={{ canned_responses: true }} />);
     expect(screen.queryByRole("button", { name: /Canned Responses/i })).not.toBeInTheDocument();
+  });
+
+  it("shows Materials tab for admin when the feature is enabled", async () => {
+    listUsers.mockResolvedValue([adminUser]);
+    render(<SettingsPage user={adminUser} showToast={() => {}} features={{ materials: true }} />);
+    await screen.findByText("admin@test.com");
+    expect(screen.getByRole("button", { name: /Materials/i })).toBeInTheDocument();
+  });
+
+  it("hides Materials tab when the feature is disabled", async () => {
+    listUsers.mockResolvedValue([adminUser]);
+    render(<SettingsPage user={adminUser} showToast={() => {}} features={{ materials: false }} />);
+    await screen.findByText("admin@test.com");
+    expect(screen.queryByRole("button", { name: /Materials/i })).not.toBeInTheDocument();
+  });
+
+  it("hides Materials tab for technician regardless of the feature flag", () => {
+    render(<SettingsPage user={techUser} showToast={() => {}} features={{ materials: true }} />);
+    expect(screen.queryByRole("button", { name: /Materials/i })).not.toBeInTheDocument();
   });
 
   it("shows Security tab (available to any role) when 2FA is enabled", () => {

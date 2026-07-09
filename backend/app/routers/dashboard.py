@@ -6,9 +6,10 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from ..database import get_db
-from ..models.models import Ticket, TicketStatus, User
+from ..models.models import Ticket, TicketStatus, User, Quote, QuoteStatus
 from ..schemas import TicketListItem
 from ..security import get_current_user
+from .. import config
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -21,8 +22,14 @@ class StatCard(BaseModel):
     color: str = "blue"
 
 
+class FunnelStage(BaseModel):
+    label: str
+    count: int
+
+
 class DashboardOut(BaseModel):
     stats: list[StatCard]
+    funnel: list[FunnelStage]  # Quote -> Ticket -> Invoice workflow stage counts
     my_active: list[TicketListItem]
     sla_urgent: list[TicketListItem]  # breached or < 2h left on resolution
     recent_open: list[TicketListItem]  # newest open tickets not assigned to me
@@ -80,8 +87,17 @@ def get_dashboard(
         reverse=True,
     )[:10]
 
+    funnel: list[FunnelStage] = []
+    if config.FEATURE_QUOTES:
+        funnel = [
+            FunnelStage(label="Quotes Approved", count=db.query(Quote).filter(Quote.status == QuoteStatus.approved).count()),
+            FunnelStage(label="Tickets Created", count=db.query(Quote).filter(Quote.ticket_id.isnot(None)).count()),
+            FunnelStage(label="Invoices Converted", count=db.query(Quote).filter(Quote.converted_invoice_id.isnot(None)).count()),
+        ]
+
     return DashboardOut(
         stats=stats,
+        funnel=funnel,
         my_active=my_active,
         sla_urgent=sla_urgent_tickets,
         recent_open=recent_open,

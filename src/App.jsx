@@ -4,6 +4,7 @@ import { fmt, esc, calcServiceTotal, calcHourTotal } from "./helpers.js";
 import { setTokens, clearTokens, registerLogoutHandler, hasStoredSession, downloadWithAuth } from "./api/client.js";
 import { me, logout as apiLogout } from "./api/auth.js";
 import { listTickets, getTicket, createTicket, updateTicket, deleteTicket } from "./api/tickets.js";
+import { listQuotes, convertQuoteToInvoice } from "./api/quotes.js";
 import { listComments, addComment, deleteComment } from "./api/comments.js";
 import { listCannedResponses } from "./api/cannedResponses.js";
 import { listTicketAudit } from "./api/audit.js";
@@ -1518,15 +1519,18 @@ const AttachmentsSection = ({ ticketId, currentUser }) => {
 };
 
 // ─── Ticket editor ────────────────────────────────────────────────────────────
-const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoice, users, currentUser, onTemplateSaved, showToast, clients = [], onClientUpdated, features }) => {
+export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoice, users, currentUser, onTemplateSaved, showToast, clients = [], onClientUpdated, features }) => {
   const [t, setT] = useState(ticket);
   const [savingTpl, setSavingTpl] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState(null); // null | "saving" | "saved"
   const [holdModal, setHoldModal] = useState(false);
   const [holdJustification, setHoldJustification] = useState("");
   const [postingHold, setPostingHold] = useState(false);
+  const [convertPrompt, setConvertPrompt] = useState(null); // the linked Quote, once found
+  const [converting, setConverting] = useState(false);
   const autoSaveTimer = useRef(null);
   const isNew = !ticket.id;
+  const RESOLVED_STATUSES = ["Resolved", "Closed"];
 
   const up = (field, val) => setT(prev => ({ ...prev, [field]: val }));
 
@@ -1722,6 +1726,48 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
     }
   };
 
+  // Ticket transitioning into Resolved/Closed with an unconverted Approved
+  // quote pointing at it: pause the save behind a prompt (rather than
+  // checking after saving) because a successful save navigates away and
+  // unmounts this component, which would make any post-save modal a no-op.
+  const handleSaveClick = async () => {
+    const prevStatus = ticket.status;
+    const newStatus = t.status;
+    if (t.id && !RESOLVED_STATUSES.includes(prevStatus) && RESOLVED_STATUSES.includes(newStatus)) {
+      try {
+        const { items } = await listQuotes({ ticket_id: t.id });
+        const quote = items.find(q => q.status === "Approved" && !q.converted_invoice_id);
+        if (quote) {
+          setConvertPrompt(quote);
+          return;
+        }
+      } catch {
+        // Non-critical lookup — fall through to the normal save.
+      }
+    }
+    onSave(t);
+  };
+
+  const handleConvertConfirm = async () => {
+    if (!convertPrompt) return;
+    setConverting(true);
+    try {
+      const { invoice_id } = await convertQuoteToInvoice(convertPrompt.id);
+      showToast?.(`Converted to invoice ${invoice_id}.`, "ok");
+    } catch (err) {
+      showToast?.(err?.response?.data?.detail || "Failed to convert quote to invoice.", "err");
+    } finally {
+      setConverting(false);
+      setConvertPrompt(null);
+      onSave(t);
+    }
+  };
+
+  const handleDismissConvertPrompt = () => {
+    setConvertPrompt(null);
+    onSave(t);
+  };
+
   return (
     <div>
       {holdModal && (
@@ -1745,6 +1791,23 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
           </div>
         </div>
       )}
+      {convertPrompt && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(13,27,42,0.45)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div style={{ background:"#fff", borderRadius:12, padding:"28px 32px", width:480, maxWidth:"95vw", boxShadow:"0 8px 32px rgba(0,0,0,0.18)" }}>
+            <div style={{ fontWeight:800, fontSize:17, color:brand.text, marginBottom:6 }}>Convert Quote to Invoice?</div>
+            <div style={{ fontSize:13, color:brand.muted, marginBottom:16 }}>
+              This ticket originated from quote <strong>{convertPrompt.id}</strong> (total ${Number(convertPrompt.total).toFixed(2)}).
+              Now that it's {t.status}, would you like to convert the quote into an invoice?
+            </div>
+            <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+              <Btn onClick={handleDismissConvertPrompt} variant="ghost" disabled={converting}>Not now</Btn>
+              <Btn onClick={handleConvertConfirm} variant="accent" disabled={converting}>
+                {converting ? "Converting…" : "Convert to Invoice"}
+              </Btn>
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20, gap:12 }}>
         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
           <button onClick={onBack} style={{ background:"none", border:`1px solid ${brand.border}`, color:brand.blue, cursor:"pointer", fontSize:18, borderRadius:6, width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center" }}>←</button>
@@ -1763,7 +1826,7 @@ const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoic
           {autoSaveStatus === "saved" && <span style={{ fontSize:12, color:"#16a34a", fontWeight:600 }}>✓ Saved</span>}
           <Btn onClick={handleSaveAsTemplate} variant="ghost" disabled={savingTpl}>{savingTpl ? "Saving…" : "Save as Template"}</Btn>
           <Btn onClick={()=>printTicket(t)} variant="secondary">🖨 Export PDF</Btn>
-          <Btn onClick={()=>onSave(t)} variant="accent" disabled={saving}>{saving ? "Saving…" : "✓ Save Ticket"}</Btn>
+          <Btn onClick={handleSaveClick} variant="accent" disabled={saving}>{saving ? "Saving…" : "✓ Save Ticket"}</Btn>
         </div>
       </div>
 

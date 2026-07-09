@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getRevenueReport, getTechnicianReport, getSLAReport, getARAgingReport, revenueCsvUrl, technicianCsvUrl, slaCsvUrl, arAgingCsvUrl } from "./api/reports.js";
+import { getRevenueReport, getTechnicianReport, getSLAReport, getARAgingReport, getQuoteConversionReport, revenueCsvUrl, technicianCsvUrl, slaCsvUrl, arAgingCsvUrl, quoteConversionCsvUrl } from "./api/reports.js";
 import { downloadWithAuth } from "./api/client.js";
 
 const brand = {
@@ -409,6 +409,107 @@ function ARAgingTab() {
   );
 }
 
+// ─── Quote conversion tab ──────────────────────────────────────────────────────
+
+function QuoteConversionBar({ approved, ticketCreated, invoiceConverted }) {
+  const max = Math.max(approved, 1);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, maxWidth: 420 }}>
+      {[
+        { label: "Quotes Approved", value: approved, color: brand.blue },
+        { label: "Tickets Created", value: ticketCreated, color: brand.amber },
+        { label: "Invoices Converted", value: invoiceConverted, color: brand.success },
+      ].map(row => (
+        <div key={row.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 130, fontSize: 11, color: brand.muted, textAlign: "right" }}>{row.label}</div>
+          <div style={{ flex: 1, height: 14, background: brand.bg, borderRadius: 3, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${(row.value / max) * 100}%`, background: row.color, borderRadius: 3 }} />
+          </div>
+          <div style={{ width: 28, fontSize: 11, fontWeight: 700, color: brand.text }}>{row.value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function QuoteConversionTab() {
+  const [filters, setFilters] = useState({ date_from: "", date_to: "" });
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v));
+
+  useEffect(() => {
+    setLoading(true);
+    getQuoteConversionReport(params)
+      .then(setData)
+      .finally(() => setLoading(false));
+  }, [filters.date_from, filters.date_to]);
+
+  return (
+    <div>
+      <DateFilter filters={filters} setFilters={setFilters} csvHref={quoteConversionCsvUrl(params)} csvFilename="quote-conversion-report.csv" />
+
+      {loading && <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>Loading…</div>}
+
+      {!loading && data && (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
+            {[
+              { label: "Quotes Approved", value: data.approved_count, color: brand.blue },
+              { label: "Tickets Created", value: data.ticket_created_count, color: brand.amber },
+              { label: "Invoices Converted", value: data.invoice_converted_count, color: brand.success },
+              { label: "Approval → Invoice Rate", value: `${data.approval_to_invoice_rate}%`, color: brand.success },
+            ].map(card => (
+              <div key={card.label} style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>{card.label}</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: card.color }}>{card.value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: brand.text, marginBottom: 10 }}>Funnel</div>
+            <QuoteConversionBar approved={data.approved_count} ticketCreated={data.ticket_created_count} invoiceConverted={data.invoice_converted_count} />
+          </div>
+
+          <div style={{ marginBottom: 28, display: "flex", gap: 40, fontSize: 13, color: brand.muted }}>
+            <div>Avg. Approval → Ticket: <strong style={{ color: brand.text }}>{data.avg_approval_to_ticket_hours != null ? `${data.avg_approval_to_ticket_hours} h` : "—"}</strong></div>
+            <div>Avg. Ticket → Invoice: <strong style={{ color: brand.text }}>{data.avg_ticket_to_invoice_hours != null ? `${data.avg_ticket_to_invoice_hours} h` : "—"}</strong></div>
+            <div>Approved Value: <strong style={{ color: brand.text }}>${fmt(data.approved_value)}</strong></div>
+            <div>Invoiced Value: <strong style={{ color: brand.text }}>${fmt(data.invoiced_value)}</strong></div>
+          </div>
+
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: brand.text, marginBottom: 10 }}>By Status</div>
+            {data.by_status.length === 0
+              ? <div style={{ color: brand.muted, fontSize: 13 }}>No data for selected period.</div>
+              : (
+                <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr>{["Status", "Count", "Total Value"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {data.by_status.map(row => (
+                        <tr key={row.status} style={{ background: brand.surface }}>
+                          <td style={{ ...cellStyle, fontWeight: 600 }}>{row.status}</td>
+                          <td style={cellStyle}>{row.count}</td>
+                          <td style={cellStyle}>${fmt(row.total_value)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            }
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Page shell ───────────────────────────────────────────────────────────────
 
 const ALL_TABS = [
@@ -416,11 +517,14 @@ const ALL_TABS = [
   { id: "technician", label: "Technician" },
   { id: "sla",        label: "SLA Compliance" },
   { id: "ar-aging",   label: "AR Aging" },
+  { id: "quote-conversion", label: "Quote Conversion" },
 ];
 
 export default function ReportsPage({ features }) {
   const [tab, setTab] = useState("revenue");
-  const TABS = ALL_TABS.filter(t => t.id !== "ar-aging" || features?.ar_aging !== false);
+  const TABS = ALL_TABS
+    .filter(t => t.id !== "ar-aging" || features?.ar_aging !== false)
+    .filter(t => t.id !== "quote-conversion" || features?.quotes !== false);
 
   return (
     <div>
@@ -442,6 +546,7 @@ export default function ReportsPage({ features }) {
       {tab === "technician" && <TechnicianTab />}
       {tab === "sla"        && <SLATab />}
       {tab === "ar-aging"   && features?.ar_aging !== false && <ARAgingTab />}
+      {tab === "quote-conversion" && features?.quotes !== false && <QuoteConversionTab />}
     </div>
   );
 }

@@ -219,3 +219,85 @@ def test_ar_aging_csv_returns_csv(client, admin_headers):
     assert r.status_code == 200
     assert "text/csv" in r.headers.get("content-type", "")
     assert "ar_aging_report.csv" in r.headers.get("content-disposition", "")
+
+
+# ─── Quote conversion report ──────────────────────────────────────────────────
+
+_QC_QUOTE = {
+    "client_name": "Reports Test Co",
+    "client_email": "billing@reportstest.example.com",
+    "client_address": "",
+    "tax_rate": 0,
+    "notes": "",
+    "lines": [{"description": "Setup", "item_type": "Labor", "qty": 1, "unit_price": 300, "amount": 300}],
+}
+
+
+def _approve_quote(client, admin_headers, qid):
+    client.patch(f"/api/quotes/{qid}/status", headers=admin_headers, json={"status": "Sent"})
+    return client.patch(f"/api/quotes/{qid}/status", headers=admin_headers, json={"status": "Approved"})
+
+
+def test_quote_conversion_report_shape(client, admin_headers):
+    r = client.get("/api/reports/quote-conversion", headers=admin_headers)
+    assert r.status_code == 200
+    data = r.json()
+    assert "by_status" in data
+    assert "approved_count" in data
+    assert "ticket_created_count" in data
+    assert "invoice_converted_count" in data
+    assert "approval_to_ticket_rate" in data
+    assert "approval_to_invoice_rate" in data
+    assert "approved_value" in data
+    assert "invoiced_value" in data
+
+
+def test_quote_conversion_report_counts_after_approval(client, admin_headers):
+    before = client.get("/api/reports/quote-conversion", headers=admin_headers).json()
+
+    r = client.post("/api/quotes", headers=admin_headers, json=_QC_QUOTE)
+    qid = r.json()["id"]
+    _approve_quote(client, admin_headers, qid)
+
+    after = client.get("/api/reports/quote-conversion", headers=admin_headers).json()
+    assert after["approved_count"] == before["approved_count"] + 1
+    assert after["ticket_created_count"] == before["ticket_created_count"] + 1
+    assert after["ticket_created_count"] <= after["approved_count"]
+
+
+def test_quote_conversion_rate_is_100_after_convert_to_invoice(client, admin_headers):
+    r = client.post("/api/quotes", headers=admin_headers, json=_QC_QUOTE)
+    qid = r.json()["id"]
+    _approve_quote(client, admin_headers, qid)
+    client.post(f"/api/quotes/{qid}/convert", headers=admin_headers)
+
+    data = client.get("/api/reports/quote-conversion", headers=admin_headers).json()
+    assert data["invoice_converted_count"] >= 1
+    assert data["approval_to_invoice_rate"] > 0
+
+
+def test_quote_conversion_report_requires_admin(client, tech_headers):
+    r = client.get("/api/reports/quote-conversion", headers=tech_headers)
+    assert r.status_code in (403, 401)
+
+
+def test_quote_conversion_report_requires_auth(client):
+    r = client.get("/api/reports/quote-conversion")
+    assert r.status_code in (401, 403)
+
+
+def test_quote_conversion_csv_returns_csv(client, admin_headers):
+    r = client.get("/api/reports/quote-conversion/csv", headers=admin_headers)
+    assert r.status_code == 200
+    assert "text/csv" in r.headers.get("content-type", "")
+    assert "quote_conversion_report.csv" in r.headers.get("content-disposition", "")
+
+
+def test_quote_conversion_disabled_returns_503(client, admin_headers, monkeypatch):
+    from app import config
+    monkeypatch.setattr(config, "FEATURE_QUOTES", False)
+    try:
+        r = client.get("/api/reports/quote-conversion", headers=admin_headers)
+        assert r.status_code == 503
+    finally:
+        monkeypatch.setattr(config, "FEATURE_QUOTES", True)

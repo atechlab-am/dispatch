@@ -1,10 +1,11 @@
 """Phase 10 — Reporting endpoints.
 
-Four reports, all admin-only:
-  GET /reports/revenue    — total billed per month, breakdown by client and service type (date-range filtered)
-  GET /reports/technician — tickets resolved and hours logged per technician (date-range filtered)
-  GET /reports/sla        — SLA compliance % per priority over a date range (date-range filtered)
-  GET /reports/ar-aging   — 30/60/90 overdue receivables breakdown, as of a point in time
+Five reports, all admin-only:
+  GET /reports/revenue          — total billed per month, breakdown by client and service type (date-range filtered)
+  GET /reports/technician       — tickets resolved and hours logged per technician (date-range filtered)
+  GET /reports/sla              — SLA compliance % per priority over a date range (date-range filtered)
+  GET /reports/ar-aging         — 30/60/90 overdue receivables breakdown, as of a point in time
+  GET /reports/quote-conversion — Quote -> Ticket -> Invoice funnel counts, conversion rates, and timing (date-range filtered)
 
 All responses include a CSV download URL with the same filters baked in via query params.
 The CSV is streamed directly via GET /reports/<type>/csv with identical params.
@@ -22,7 +23,7 @@ from .. import config
 from ..database import get_db
 from ..models.models import (
     HourLog, Invoice, InvoicePayment, InvoiceLine, Ticket,
-    TicketStatus, User,
+    TicketStatus, User, Quote, QuoteStatus,
 )
 from ..security import get_current_user, require_admin
 
@@ -440,4 +441,134 @@ def ar_aging_csv(
         iter([out.getvalue()]),
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=ar_aging_report.csv"},
+    )
+
+
+# ─── Quote conversion report ──────────────────────────────────────────────────
+
+class QuoteConversionByStatus(BaseModel):
+    status: str
+    count: int
+    total_value: float
+
+
+class QuoteConversionReport(BaseModel):
+    by_status: list[QuoteConversionByStatus]
+    approved_count: int
+    ticket_created_count: int
+    invoice_converted_count: int
+    approval_to_ticket_rate: float
+    approval_to_invoice_rate: float
+    avg_approval_to_ticket_hours: Optional[float]
+    avg_ticket_to_invoice_hours: Optional[float]
+    approved_value: float
+    invoiced_value: float
+
+
+@router.get("/quote-conversion", response_model=QuoteConversionReport)
+def quote_conversion_report(
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    if not config.FEATURE_QUOTES:
+        raise HTTPException(status_code=503, detail="This feature is disabled")
+    df = _parse_date(date_from)
+    dt = _parse_date(date_to)
+
+    quotes = db.query(Quote).all()
+    if df:
+        quotes = [q for q in quotes if q.issue_date >= df]
+    if dt:
+        quotes = [q for q in quotes if q.issue_date <= dt]
+
+    by_status_map: dict[str, dict] = {}
+    for q in quotes:
+        row = by_status_map.setdefault(str(q.status), {"status": str(q.status), "count": 0, "total_value": 0.0})
+        row["count"] += 1
+        row["total_value"] += float(q.total)
+
+    approved = [q for q in quotes if q.status == QuoteStatus.approved]
+    ticket_created = [q for q in quotes if q.ticket_id]
+    invoice_converted = [q for q in quotes if q.converted_invoice_id]
+
+    approved_count = len(approved)
+    ticket_created_count = len(ticket_created)
+    invoice_converted_count = len(invoice_converted)
+
+    approval_to_ticket_rate = round(ticket_created_count / approved_count * 100, 1) if approved_count else 0.0
+    approval_to_invoice_rate = round(invoice_converted_count / approved_count * 100, 1) if approved_count else 0.0
+
+    tickets_by_id = {t.id: t for t in db.query(Ticket).all()}
+    invoices_by_id = {i.id: i for i in db.query(Invoice).all()}
+
+    approval_to_ticket_deltas = []
+    for q in ticket_created:
+        t = tickets_by_id.get(q.ticket_id)
+        if not t:
+            continue
+        q_updated = q.updated_at.replace(tzinfo=timezone.utc) if q.updated_at.tzinfo is None else q.updated_at
+        t_created = t.created_at.replace(tzinfo=timezone.utc) if t.created_at.tzinfo is None else t.created_at
+        approval_to_ticket_deltas.append((t_created - q_updated).total_seconds() / 3600.0)
+
+    ticket_to_invoice_deltas = []
+    for q in invoice_converted:
+        if not q.ticket_id:
+            continue
+        t = tickets_by_id.get(q.ticket_id)
+        inv = invoices_by_id.get(q.converted_invoice_id)
+        if not t or not inv:
+            continue
+        t_created = t.created_at.replace(tzinfo=timezone.utc) if t.created_at.tzinfo is None else t.created_at
+        inv_created = inv.created_at.replace(tzinfo=timezone.utc) if inv.created_at.tzinfo is None else inv.created_at
+        ticket_to_invoice_deltas.append((inv_created - t_created).total_seconds() / 3600.0)
+
+    avg_approval_to_ticket_hours = round(sum(approval_to_ticket_deltas) / len(approval_to_ticket_deltas), 1) if approval_to_ticket_deltas else None
+    avg_ticket_to_invoice_hours = round(sum(ticket_to_invoice_deltas) / len(ticket_to_invoice_deltas), 1) if ticket_to_invoice_deltas else None
+
+    return QuoteConversionReport(
+        by_status=sorted([QuoteConversionByStatus(**{**v, "total_value": round(v["total_value"], 2)}) for v in by_status_map.values()], key=lambda r: r.status),
+        approved_count=approved_count,
+        ticket_created_count=ticket_created_count,
+        invoice_converted_count=invoice_converted_count,
+        approval_to_ticket_rate=approval_to_ticket_rate,
+        approval_to_invoice_rate=approval_to_invoice_rate,
+        avg_approval_to_ticket_hours=avg_approval_to_ticket_hours,
+        avg_ticket_to_invoice_hours=avg_ticket_to_invoice_hours,
+        approved_value=round(sum(float(q.total) for q in approved), 2),
+        invoiced_value=round(sum(float(q.total) for q in invoice_converted), 2),
+    )
+
+
+@router.get("/quote-conversion/csv")
+def quote_conversion_csv(
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    data = quote_conversion_report(date_from=date_from, date_to=date_to, db=db, _=_)
+
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(["Status", "Count", "Total Value"])
+    for r in data.by_status:
+        w.writerow([r.status, r.count, f"{r.total_value:.2f}"])
+    w.writerow([])
+    w.writerow(["Quotes Approved", data.approved_count])
+    w.writerow(["Tickets Created", data.ticket_created_count])
+    w.writerow(["Invoices Converted", data.invoice_converted_count])
+    w.writerow(["Approval -> Ticket Rate", f"{data.approval_to_ticket_rate:.1f}%"])
+    w.writerow(["Approval -> Invoice Rate", f"{data.approval_to_invoice_rate:.1f}%"])
+    w.writerow(["Avg Approval -> Ticket (hours)", data.avg_approval_to_ticket_hours if data.avg_approval_to_ticket_hours is not None else ""])
+    w.writerow(["Avg Ticket -> Invoice (hours)", data.avg_ticket_to_invoice_hours if data.avg_ticket_to_invoice_hours is not None else ""])
+    w.writerow(["Approved Value", f"{data.approved_value:.2f}"])
+    w.writerow(["Invoiced Value", f"{data.invoiced_value:.2f}"])
+
+    out.seek(0)
+    return StreamingResponse(
+        iter([out.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=quote_conversion_report.csv"},
     )

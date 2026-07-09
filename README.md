@@ -71,6 +71,8 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Send a quote (Draft → Sent → Approved/Rejected/Expired) with the same line-item/tax/PDF/email shape as invoices
 - One-click **Convert to Invoice** on an Approved quote — copies client, line items, and totals into a new Draft invoice
 - Draft is the only editable state; Sent/Approved/Rejected/Expired are locked to preserve what the client actually saw
+- **Materials catalog** — each quote line is tagged Labor or Material; Material lines search a reusable parts catalog (Settings → Materials, admin-managed) to autofill description and unit price, and round quantity up to the nearest whole unit
+- **Quote → Ticket → Invoice workflow** — approving a quote automatically creates and links a Ticket, seeded with the quote's line items as hour-log entries (dollar-value preserved, no manual step). When that ticket is marked Resolved or Closed, the ticket editor prompts to convert the originating quote into an invoice.
 
 ### Client Portal
 - Per-client portal at `/p/<slug>` — clients log in to view their tickets and invoices
@@ -98,6 +100,7 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 
 ### Dashboard
 - Stat cards: total, active, resolved, urgent, SLA breached, SLA at risk
+- **Quote → Ticket → Invoice funnel** — stage counts (quotes approved, tickets created, invoices converted) shown as a compact widget
 - Priority and status charts
 - My Active Tickets, SLA at Risk, Recent Open sections
 - All cards and sections are clickable and navigate to a filtered ticket list
@@ -107,7 +110,8 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Technician performance: tickets resolved, hours logged, labour revenue
 - SLA compliance % by priority
 - AR aging — outstanding receivables bucketed 30/60/90 days overdue, as of a chosen date
-- All reports have CSV export; revenue/technician/SLA also support date-range filters
+- Quote conversion — approval/ticket/invoice stage counts, conversion rates, average approval→ticket and ticket→invoice time, and $ value per stage
+- All reports have CSV export; revenue/technician/SLA/quote conversion also support date-range filters
 
 ### Notifications
 - Bell icon in the topbar with unread badge (polls every 30s); dropdown of recent notifications, click to jump to the ticket and mark read
@@ -137,11 +141,12 @@ Each feature below can be turned off independently via env vars. A disabled feat
 - `FEATURE_NOTIFICATIONS` — the in-app notification bell, also stops its purge background loop (default enabled)
 - `FEATURE_RECURRING_INVOICING` — the Recurring tab on Invoices, also stops its generation background loop (default enabled)
 - `FEATURE_SCHEDULING` — the Schedule/dispatch calendar page (default enabled)
-- `FEATURE_QUOTES` — the Quotes/Estimates page and convert-to-invoice action (default enabled)
+- `FEATURE_QUOTES` — the Quotes/Estimates page, convert-to-invoice action, auto-ticket-creation-on-approval, the Dashboard funnel widget, and the Quote Conversion report (default enabled)
 - `FEATURE_GLOBAL_SEARCH` — the topbar global search box across tickets/clients/invoices/quotes (default enabled)
 - `FEATURE_CANNED_RESPONSES` — the reusable canned-response picker in ticket comments (default enabled)
 - `FEATURE_SLA_ESCALATION` — the background SLA-breach check and its notifications (default enabled)
 - `FEATURE_SLA_TIERS` — per-client SLA tier overrides, gold/silver/bronze (default enabled)
+- `FEATURE_MATERIALS` — the materials catalog (Settings tab + quote line-item autofill) (default enabled)
 - `FEATURE_2FA` — two-factor auth enrollment and enforcement (**default DISABLED** — set to `true` to opt in; unlike every toggle above, this one changes the login flow itself)
 
 ### Setup Wizard

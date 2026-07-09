@@ -202,12 +202,18 @@ class Quote(Base):
     converted_invoice = relationship("Invoice")
 
 
+class QuoteLineType(str, enum.Enum):
+    labor = "Labor"
+    material = "Material"
+
+
 class QuoteLine(Base):
     __tablename__ = "quote_lines"
 
     id = Column(Integer, primary_key=True, index=True)
     quote_id = Column(String(32), ForeignKey("quotes.id", ondelete="CASCADE"), nullable=False)
     description = Column(String(500), nullable=False, default="")
+    item_type = Column(String(20), nullable=False, default=QuoteLineType.labor)
     qty = Column(Numeric(10, 2), nullable=False, default=1)
     unit_price = Column(Numeric(12, 2), nullable=False, default=0)
     amount = Column(Numeric(12, 2), nullable=False, default=0)
@@ -595,5 +601,18 @@ class CannedResponse(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
     body = Column(Text, nullable=False, default="")
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class Material(Base):
+    """Frequently-used material/parts catalog — searched from quote line items
+    to autofill a description and unit price."""
+    __tablename__ = "materials"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(String(500), nullable=False, default="")
+    unit_price = Column(Numeric(12, 2), nullable=False, default=0)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))

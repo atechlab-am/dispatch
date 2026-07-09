@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.25.0] — 2026-07-08
+
+### Added — Quote → Ticket → Invoice workflow
+- Approving a quote now automatically creates and links a Ticket, seeded with the quote's line items as hour-log entries (one entry per line, `hours=1` and `rate=line amount` so the ticket's computed total matches the quote's total exactly without inflating the Technician Report's logged-hours stat). No manual step required.
+- When a ticket linked to an Approved, not-yet-converted quote is marked Resolved or Closed, the ticket editor prompts to convert the originating quote into an invoice — reuses the existing Convert to Invoice action, and defers the save until the prompt is resolved (converted or dismissed) so the modal isn't skipped by navigation.
+- Ticket auto-creation is tolerant of failure: if it errors for any reason, the quote's approval still succeeds — the derived ticket is a side effect, not a precondition.
+- New Dashboard funnel widget: **Quotes Approved → Tickets Created → Invoices Converted** stage counts.
+- New admin-only Reports tab: **Quote Conversion** — counts per quote status, approval-to-ticket and ticket-to-invoice timing, conversion rates, and $ value per stage, with CSV export.
+- No schema changes required (migration `0034` is a no-op, kept only to preserve sequential numbering) — the workflow runs entirely on the existing `Quote.ticket_id`/`converted_invoice_id` columns plus a new `ticket_id` filter on `GET /quotes`. Bundled under the existing `FEATURE_QUOTES` toggle — no new toggle introduced.
+
+### Tests
+- New `backend/tests/test_quote_ticket_workflow.py` (8 tests): auto-creation on approval, hour-log seeding and value-preservation, zero-line quotes, the `ticket_id` filter, tolerant failure handling, the `FEATURE_QUOTES` gate, and dashboard funnel counts.
+- Extended `backend/tests/test_reports.py` (+7 tests): the new quote-conversion report and its CSV export, admin gating, date filtering.
+- New `src/__tests__/TicketEditor.test.jsx` (5 tests), `src/__tests__/DashboardPage.test.jsx` (3 tests — first dedicated Dashboard frontend tests); extended `src/__tests__/ReportsPage.test.jsx` (+2 tests).
+
+## [1.24.0] — 2026-07-08
+
+### Added — materials catalog for quotes
+- Quote line items can now be tagged **Labor** or **Material**. Material lines get a searchable autocomplete (typing filters a reusable parts catalog) that autofills the description and unit price, and rounds quantity up to the nearest whole unit on pick or on switching a line's type to Material.
+- New admin-managed **Materials** tab in Settings (Settings → Materials): create/edit/delete catalog entries (name, optional description, default unit price), with a search box to filter the list.
+- New `Material` model/table and `quote_lines.item_type` column (migration `0033`). New `FEATURE_MATERIALS` toggle (default enabled) — disabling it 503s the materials API and hides the Settings tab; existing quote lines keep whatever type they were saved with.
+
+### Tests
+- New `backend/tests/test_materials.py` (9 tests): admin-only create/update/delete, technician read access, 404 on unknown id, and the `FEATURE_MATERIALS` toggle.
+- Extended `backend/tests/test_quotes.py` (+1 test) covering a quote created with a Material-type line.
+- Extended `src/__tests__/SettingsPage.test.jsx` (+3 tests) covering the Materials tab's visibility by role and feature flag.
+
 ## [1.23.0] — 2026-07-06
 
 ### Added — two-factor authentication (2FA)

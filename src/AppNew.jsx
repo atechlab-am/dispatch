@@ -268,7 +268,7 @@ export default function AppNew({
         <div style={{ flex: 1, padding: 28, overflowY: "auto" }}>
           <Routes>
             <Route path="/" element={
-              <DashboardPage user={user} showToast={showToast} onSelectTicket={handleSelect} onNavigate={handleDashboardNav} />
+              <DashboardPage user={user} showToast={showToast} onSelectTicket={handleSelect} onNavigate={handleDashboardNav} features={features} />
             } />
             <Route path="/tickets" element={
               <TicketList

@@ -1,3 +1,4 @@
+import sys
 from datetime import datetime, date, timezone
 from typing import Optional
 
@@ -7,7 +8,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models.models import Quote, QuoteLine, QuoteLineType, QuoteStatus, Invoice, InvoiceLine, InvoiceStatus, User
+from ..models.models import (
+    Quote, QuoteLine, QuoteLineType, QuoteStatus, Invoice, InvoiceLine, InvoiceStatus, User,
+    Ticket, HourLog, TicketType, TicketStatus, TicketPriority, ClientType, TravelFee,
+)
 from ..security import get_current_user
 from .. import email as mail
 from ..audit import write_audit
@@ -144,6 +148,7 @@ def list_quotes(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     status_filter: Optional[str] = Query(None, alias="status"),
+    ticket_id: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -151,6 +156,8 @@ def list_quotes(
     q = db.query(Quote)
     if status_filter and status_filter != "All":
         q = q.filter(Quote.status == status_filter)
+    if ticket_id:
+        q = q.filter(Quote.ticket_id == ticket_id)
     total = q.count()
     items = q.order_by(Quote.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     return QuotesPage(items=items, total=total, page=page, page_size=page_size)
@@ -250,12 +257,74 @@ def delete_quote(quote_id: str, db: Session = Depends(get_db), _: User = Depends
     db.commit()
 
 
+def _make_ticket_id(db: Session) -> str:
+    year = datetime.now(timezone.utc).year
+    prefix = f"TKT-{year}-"
+    last = (
+        db.query(Ticket)
+        .filter(Ticket.id.like(f"{prefix}%"))
+        .order_by(Ticket.id.desc())
+        .first()
+    )
+    n = 1
+    if last:
+        try:
+            n = int(last.id.replace(prefix, "")) + 1
+        except ValueError:
+            pass
+    return f"{prefix}{n:05d}"
+
+
+def _auto_create_ticket_from_quote(db: Session, q: Quote, current_user: User):
+    """Approving a quote spins up the work order automatically. This is a
+    derived side effect of the approval the user actually requested, so a
+    failure here must never block or roll back the quote's own status
+    change — caught, logged, and the quote still reaches Approved."""
+    try:
+        now = datetime.now(timezone.utc)
+        ticket = Ticket(
+            id=_make_ticket_id(db),
+            ticket_type=TicketType.request,
+            status=TicketStatus.open,
+            priority=TicketPriority.medium,
+            client_type=ClientType.business,
+            client_id=q.client_id,
+            client_name=q.client_name,
+            client_email=q.client_email,
+            client_address=q.client_address,
+            title=f"Quote {q.id} approved — work order",
+            description=q.notes,
+            travel_fee=TravelFee.none,
+            created_at=now,
+            updated_at=now,
+            created_by=current_user.id,
+        )
+        db.add(ticket)
+        db.flush()
+        for line in q.lines:
+            db.add(HourLog(
+                ticket_id=ticket.id,
+                date=date.today(),
+                hours=1,
+                rate=line.amount,
+                description=f"[{line.item_type}] {line.description}",
+            ))
+        write_audit(db, ticket_id=ticket.id, actor_id=current_user.id, actor_label=current_user.name,
+                    action="created", field="quote", new_value=q.id)
+        q.ticket_id = ticket.id
+    except Exception as e:
+        db.rollback()
+        q.status = QuoteStatus.approved
+        q.updated_at = datetime.now(timezone.utc)
+        print(f"[quote-ticket-autocreate] failed for {q.id}: {e}", file=sys.stderr)
+
+
 @router.patch("/{quote_id}/status", response_model=QuoteOut)
 def update_quote_status(
     quote_id: str,
     body: StatusIn,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     _require_quotes_enabled()
     q = db.query(Quote).filter(Quote.id == quote_id).first()
@@ -266,6 +335,8 @@ def update_quote_status(
         raise HTTPException(status_code=400, detail=f"Cannot move quote from {q.status} to {body.status}")
     q.status = body.status
     q.updated_at = datetime.now(timezone.utc)
+    if body.status == QuoteStatus.approved and not q.ticket_id:
+        _auto_create_ticket_from_quote(db, q, current_user)
     db.commit()
     db.refresh(q)
     return q

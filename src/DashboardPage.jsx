@@ -151,6 +151,36 @@ function PriorityChart({ tickets }) {
   );
 }
 
+// ─── Quote -> Ticket -> Invoice funnel ────────────────────────────────────────
+function FunnelWidget({ stages }) {
+  const max = Math.max(...stages.map(s => s.count), 1);
+  return (
+    <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 12, padding: "16px 20px", marginBottom: 24 }}>
+      <div style={{ fontWeight: 700, fontSize: 13, color: brand.text, marginBottom: 14 }}>Quote → Ticket → Invoice</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        {stages.map((s, i) => (
+          <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{
+                width: `${Math.max(20, (s.count / max) * 100)}%`,
+                minWidth: 60,
+                background: brand.bg,
+                border: `1.5px solid ${brand.border}`,
+                borderRadius: 8,
+                padding: "10px 14px",
+              }}>
+                <div style={{ fontSize: 24, fontWeight: 800, color: brand.blue, lineHeight: 1 }}>{s.count}</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: brand.muted, marginTop: 2, whiteSpace: "nowrap" }}>{s.label}</div>
+              </div>
+            </div>
+            {i < stages.length - 1 && <div style={{ color: brand.muted, fontSize: 18, flexShrink: 0 }}>→</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function StatusChart({ tickets }) {
   const statuses = ["Open", "In Progress", "Awaiting Client", "Resolved", "Closed"];
   const counts = Object.fromEntries(statuses.map(s => [s, 0]));
@@ -174,7 +204,7 @@ function StatusChart({ tickets }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 const ACTIVE_STATUSES = new Set(["Open", "In Progress", "Awaiting Client"]);
 
-export default function DashboardPage({ user, onSelectTicket, onNavigate, showToast }) {
+export default function DashboardPage({ user, onSelectTicket, onNavigate, showToast, features }) {
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
   const [tick,    setTick]    = useState(0);
@@ -202,7 +232,7 @@ export default function DashboardPage({ user, onSelectTicket, onNavigate, showTo
 
   if (!data) return null;
 
-  const { stats, my_active, sla_urgent, recent_open } = data;
+  const { stats, funnel, my_active, sla_urgent, recent_open } = data;
   const allTickets = [...new Map([...my_active, ...sla_urgent, ...recent_open].map(t => [t.id, t])).values()];
 
   const nav = (label, quick) => onNavigate && onNavigate({ quick: quick ? { label, fn: quick } : null });
@@ -245,6 +275,9 @@ export default function DashboardPage({ user, onSelectTicket, onNavigate, showTo
       <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12, marginBottom: 24 }}>
         {stats.map(s => <StatCard key={s.label} {...s} onClick={statNav[s.label]} />)}
       </div>
+
+      {/* Quote -> Ticket -> Invoice funnel */}
+      {features?.quotes !== false && funnel?.length > 0 && <FunnelWidget stages={funnel} />}
 
       {/* Charts row */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
