@@ -78,7 +78,7 @@ test("hides the funnel widget when the quotes feature is disabled, even with fun
   expect(screen.queryByText("Quote → Ticket → Invoice")).not.toBeInTheDocument();
 });
 
-test("clicking + New Project navigates to /quotes/new", async () => {
+test("clicking + New Project navigates to /projects", async () => {
   getDashboard.mockResolvedValue({
     ...BASE_DATA,
     funnel: [
@@ -91,11 +91,11 @@ test("clicking + New Project navigates to /quotes/new", async () => {
     <MemoryRouter initialEntries={["/"]}>
       <Routes>
         <Route path="/" element={<DashboardPage user={user} showToast={() => {}} features={{ quotes: true }} />} />
-        <Route path="/quotes/new" element={<div>New Quote Page</div>} />
+        <Route path="/projects" element={<div>Projects Page</div>} />
       </Routes>
     </MemoryRouter>
   );
 
   fireEvent.click(await screen.findByText("+ New Project"));
-  expect(await screen.findByText("New Quote Page")).toBeInTheDocument();
+  expect(await screen.findByText("Projects Page")).toBeInTheDocument();
 });

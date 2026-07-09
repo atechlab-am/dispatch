@@ -68,6 +68,11 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - PDF generation per invoice
 - **Recurring/retainer invoicing** — schedule an invoice to auto-generate on a daily/weekly/monthly/quarterly interval, with an optional auto-send toggle (admin only)
 
+### Projects
+- A **Project** is a top-level container wrapping one Quote → Ticket → Invoice chain — distinct from the Quotes list, which also includes quotes created without a project (creating a quote never requires a project)
+- **+ New Project** prompts for a project name, then creates the project and a linked Draft quote in one step and takes you straight into the quote editor to fill in the client and line items
+- The Projects list shows one row per project with its Quote/Ticket/Invoice status (once each stage exists) and a derived Stage badge, each linking straight through to the underlying record — status is always derived by following the linked quote's own `ticket_id`/`converted_invoice_id`, the same automatic Quote→Ticket→Invoice flow described below
+
 ### Quotes/Estimates
 - Send a quote (Draft → Sent → Approved/Rejected/Expired) with the same line-item/tax/PDF/email shape as invoices
 - One-click **Convert to Invoice** on an Approved quote — copies client, line items, and totals into a new Draft invoice
@@ -102,7 +107,7 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 
 ### Dashboard
 - Stat cards: total, active, resolved, urgent, SLA breached, SLA at risk
-- **Quote → Ticket → Invoice funnel** — stage counts (quotes approved, tickets created, invoices converted) shown as a compact widget, with a **+ New Project** button that opens the quote form to kick off the workflow
+- **Quote → Ticket → Invoice funnel** — stage counts (quotes approved, tickets created, invoices converted) shown as a compact widget, with a **+ New Project** button that opens the Projects page to kick off the workflow
 - Priority and status charts
 - My Active Tickets, SLA at Risk, Recent Open sections
 - All cards and sections are clickable and navigate to a filtered ticket list

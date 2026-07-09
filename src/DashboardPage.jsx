@@ -281,7 +281,7 @@ export default function DashboardPage({ user, onSelectTicket, onNavigate, showTo
       </div>
 
       {/* Quote -> Ticket -> Invoice funnel */}
-      {features?.quotes !== false && funnel?.length > 0 && <FunnelWidget stages={funnel} onNewProject={() => navigate("/quotes/new")} />}
+      {features?.quotes !== false && funnel?.length > 0 && <FunnelWidget stages={funnel} onNewProject={() => navigate("/projects")} />}
 
       {/* Charts row */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>

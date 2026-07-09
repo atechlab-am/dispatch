@@ -9,6 +9,7 @@ import DashboardPage from "./DashboardPage.jsx";
 import ClientsPage from "./ClientsPage.jsx";
 import InvoicesPage, { InvoiceEditorRoute } from "./InvoicesPage.jsx";
 import QuotesPage, { QuoteEditorRoute } from "./QuotesPage.jsx";
+import ProjectsPage from "./ProjectsPage.jsx";
 import SettingsPage from "./SettingsPage.jsx";
 import DocumentsPage from "./DocumentsPage.jsx";
 import ReportsPage from "./ReportsPage.jsx";
@@ -34,6 +35,7 @@ const ICONS = {
   clients:   "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2 M23 21v-2a4 4 0 00-3-3.87 M9 11a4 4 0 100-8 4 4 0 000 8z M16 3.13a4 4 0 010 7.75",
   invoices:  "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8",
   quotes:    "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M9 15l2 2 4-4",
+  projects:  "M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z",
   recurring: "M1 4v6h6 M23 20v-6h-6 M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15",
   documents: "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M12 18v-6 M9 15h6",
   schedule:  "M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z",
@@ -141,6 +143,7 @@ export default function AppNew({
     { path: "/tickets",   label: "Tickets",    icon: ICONS.tickets },
     { path: "/clients",   label: "Clients",    icon: ICONS.clients },
     { path: "/invoices",  label: "Invoices",   icon: ICONS.invoices },
+    ...(features?.quotes !== false ? [{ path: "/projects", label: "Projects", icon: ICONS.projects }] : []),
     ...(features?.quotes !== false ? [{ path: "/quotes", label: "Quotes", icon: ICONS.quotes }] : []),
     { path: "/recurring", label: "Recurring",  icon: ICONS.recurring },
     ...(features?.scheduling !== false ? [{ path: "/schedule", label: "Schedule", icon: ICONS.schedule }] : []),
@@ -164,6 +167,7 @@ export default function AppNew({
     if (location.pathname === "/invoices") return "Invoices";
     if (location.pathname.startsWith("/quotes/")) return "Quote";
     if (location.pathname === "/quotes") return "Quotes";
+    if (location.pathname === "/projects") return "Projects";
     if (location.pathname === "/recurring") return "Recurring Tickets";
     if (location.pathname === "/schedule") return "Schedule";
     if (location.pathname === "/documents") return "Documents";
@@ -302,6 +306,7 @@ export default function AppNew({
             <Route path="/invoices"      element={<InvoicesPage showToast={showToast} features={features} />} />
             <Route path="/invoices/new"  element={<InvoiceEditorRoute showToast={showToast} prefill={invoiceDraft} onDraftConsumed={() => setInvoiceDraft(null)} />} />
             <Route path="/invoices/:invoiceId" element={<InvoiceEditorRoute showToast={showToast} />} />
+            {features?.quotes !== false && <Route path="/projects" element={<ProjectsPage showToast={showToast} />} />}
             {features?.quotes !== false && <Route path="/quotes" element={<QuotesPage showToast={showToast} />} />}
             {features?.quotes !== false && <Route path="/quotes/new" element={<QuoteEditorRoute showToast={showToast} />} />}
             {features?.quotes !== false && <Route path="/quotes/:quoteId" element={<QuoteEditorRoute showToast={showToast} />} />}

@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.31.0] — 2026-07-09
+
+### Added — Projects, a top-level entity wrapping Quote → Ticket → Invoice
+- New **Projects** nav item and `/projects` page, gated by `FEATURE_QUOTES` — until now the only way to see "the things I'm running as projects" was the Quotes list, which also includes every quote created without a project name. A Project is a distinct entity.
+- **+ New Project** now prompts for a project name first (small modal), then creates the Project and a linked Draft Quote in one step and takes you straight into the quote editor to fill in the client and line items — replacing the previous behavior of just opening a blank `/quotes/new` form. The Dashboard funnel's "+ New Project" button now opens this same page instead.
+- The Projects list shows one row per project with its Quote status, Ticket status (once the quote is approved — the existing auto-create-ticket-on-approval flow is unchanged), and Invoice status (once that ticket is converted — the existing flow is also unchanged), each linking straight through to the underlying record. A derived **Stage** badge (Quote / Ticket / Invoice) shows how far along the project is.
+- New `projects` table and `quotes.project_id` column (migration `0039`). `Quote.project_name` (the existing free-text label used on the quote/PDF/email) is unchanged and still works exactly as before for quotes created outside this flow — Project is an additional, optional wrapper, not a replacement.
+- New endpoints: `POST /projects` (creates project + draft quote), `GET /projects` (list with derived status), `GET /projects/{id}`.
+
+### Tests
+- New `backend/tests/test_projects.py` (+9): project creation links a draft quote, stage derivation at each point in the lifecycle (quote-only, ticket-created, invoice-converted), 404/503/validation handling, and confirms quotes created without a project are unaffected.
+- New `src/__tests__/ProjectsPage.test.jsx` (+4): list rendering with derived statuses, empty state, the new-project modal's create-and-navigate flow, and its failure-toast path.
+- Updated `src/__tests__/DashboardPage.test.jsx`'s existing "+ New Project" test to assert navigation to `/projects` instead of `/quotes/new`.
+
 ## [1.30.0] — 2026-07-09
 
 ### Added — Material categories, bulk edit, and a ticket Materials Used section

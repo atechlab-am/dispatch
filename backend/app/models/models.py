@@ -175,6 +175,22 @@ class QuoteStatus(str, enum.Enum):
     expired = "Expired"
 
 
+class Project(Base):
+    """Top-level container for a Quote -> Ticket -> Invoice chain. Created with
+    just a name; a Draft Quote is created alongside it and linked via
+    Quote.project_id. Status is always derived by following that quote's own
+    ticket_id / converted_invoice_id, same as the Dashboard funnel already does
+    — Project itself carries no status of its own."""
+    __tablename__ = "projects"
+
+    id = Column(String(32), primary_key=True)          # PRJ-YYYY-NNNNN
+    name = Column(String(255), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    quote = relationship("Quote", back_populates="project", uselist=False)
+
+
 class Quote(Base):
     __tablename__ = "quotes"
 
@@ -185,6 +201,7 @@ class Quote(Base):
     client_email = Column(String(255), nullable=False, default="")
     client_address = Column(Text, nullable=False, default="")
     project_name = Column(String(255), nullable=False, default="")
+    project_id = Column(String(32), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True)
     status = Column(String(20), nullable=False, default=QuoteStatus.draft)
     issue_date = Column(Date, nullable=False, default=date.today)
     expiry_date = Column(Date, nullable=True)
@@ -202,6 +219,7 @@ class Quote(Base):
     client = relationship("Client")
     lines = relationship("QuoteLine", back_populates="quote", cascade="all, delete-orphan")
     converted_invoice = relationship("Invoice")
+    project = relationship("Project", back_populates="quote")
 
 
 class QuoteLineType(str, enum.Enum):

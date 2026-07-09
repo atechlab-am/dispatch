@@ -63,6 +63,7 @@ class QuoteOut(BaseModel):
     client_email: str
     client_address: str
     project_name: str
+    project_id: Optional[str] = None
     status: QuoteStatus
     issue_date: date
     expiry_date: Optional[date]
