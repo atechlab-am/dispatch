@@ -59,6 +59,7 @@ FEATURE_GLOBAL_SEARCH: bool = os.environ.get("FEATURE_GLOBAL_SEARCH", "true").lo
 FEATURE_CANNED_RESPONSES: bool = os.environ.get("FEATURE_CANNED_RESPONSES", "true").lower() == "true"
 FEATURE_SLA_ESCALATION: bool = os.environ.get("FEATURE_SLA_ESCALATION", "true").lower() == "true"
 FEATURE_SLA_TIERS: bool = os.environ.get("FEATURE_SLA_TIERS", "true").lower() == "true"
+FEATURE_MATERIALS: bool = os.environ.get("FEATURE_MATERIALS", "true").lower() == "true"
 
 # Two-factor auth (TOTP) — unlike every toggle above, this one defaults to
 # DISABLED ("false"). It changes the login flow itself (adds a second step),

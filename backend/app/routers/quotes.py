@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models.models import Quote, QuoteLine, QuoteStatus, Invoice, InvoiceLine, InvoiceStatus, User
+from ..models.models import Quote, QuoteLine, QuoteLineType, QuoteStatus, Invoice, InvoiceLine, InvoiceStatus, User
 from ..security import get_current_user
 from .. import email as mail
 from ..audit import write_audit
@@ -20,6 +20,7 @@ router = APIRouter(prefix="/quotes", tags=["quotes"])
 
 class QuoteLineIn(BaseModel):
     description: str = Field("", max_length=500)
+    item_type: QuoteLineType = QuoteLineType.labor
     qty: float = 1
     unit_price: float = 0
     amount: float = 0
@@ -28,6 +29,7 @@ class QuoteLineIn(BaseModel):
 class QuoteLineOut(BaseModel):
     id: int
     description: str
+    item_type: QuoteLineType
     qty: float
     unit_price: float
     amount: float
@@ -185,7 +187,7 @@ def create_quote(
     db.add(q)
     db.flush()
     for l in body.lines:
-        db.add(QuoteLine(quote_id=q.id, description=l.description, qty=l.qty, unit_price=l.unit_price, amount=l.amount))
+        db.add(QuoteLine(quote_id=q.id, description=l.description, item_type=l.item_type, qty=l.qty, unit_price=l.unit_price, amount=l.amount))
     db.commit()
     db.refresh(q)
     return q
@@ -232,7 +234,7 @@ def update_quote(
     db.query(QuoteLine).filter(QuoteLine.quote_id == quote_id).delete()
     db.flush()
     for l in body.lines:
-        db.add(QuoteLine(quote_id=q.id, description=l.description, qty=l.qty, unit_price=l.unit_price, amount=l.amount))
+        db.add(QuoteLine(quote_id=q.id, description=l.description, item_type=l.item_type, qty=l.qty, unit_price=l.unit_price, amount=l.amount))
     db.commit()
     db.refresh(q)
     return q

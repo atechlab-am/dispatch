@@ -20,6 +20,7 @@ vi.mock("../api/quotes.js", () => ({
   quotePdfUrl: vi.fn((id) => `/quotes/${id}/pdf`),
 }));
 vi.mock("../api/clients.js", () => ({ listClients: vi.fn().mockResolvedValue([]) }));
+vi.mock("../api/materials.js", () => ({ listMaterials: vi.fn().mockResolvedValue([]) }));
 vi.mock("../api/client.js", () => ({ openPdfWithAuth: vi.fn() }));
 
 import { getQuote } from "../api/quotes.js";

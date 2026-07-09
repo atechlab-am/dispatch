@@ -23,6 +23,21 @@ def test_create_quote(client, admin_headers):
     assert data["tax_amount"] == 20
     assert data["total"] == 220
     assert len(data["lines"]) == 1
+    assert data["lines"][0]["item_type"] == "Labor"  # default when omitted
+
+
+def test_create_quote_with_material_line(client, admin_headers):
+    body = {
+        **QUOTE_BASE,
+        "lines": [
+            {"description": "Cat6 Cable", "item_type": "Material", "qty": 3, "unit_price": 50, "amount": 150},
+        ],
+    }
+    r = client.post("/api/quotes", headers=admin_headers, json=body)
+    assert r.status_code == 201
+    data = r.json()
+    assert data["lines"][0]["item_type"] == "Material"
+    assert data["lines"][0]["qty"] == 3
 
 
 def test_list_quotes(client, admin_headers):

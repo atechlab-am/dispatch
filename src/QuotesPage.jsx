@@ -5,6 +5,7 @@ import {
   setQuoteStatus, convertQuoteToInvoice, sendQuoteEmail, quotePdfUrl,
 } from "./api/quotes.js";
 import { listClients } from "./api/clients.js";
+import { listMaterials } from "./api/materials.js";
 import { openPdfWithAuth } from "./api/client.js";
 
 const brand = {
@@ -59,7 +60,8 @@ const TAX_PRESETS = [
   { label: "AB (5% GST)", value: 0.05 },
 ];
 
-const EMPTY_LINE = { description: "", qty: 1, unit_price: 0, amount: 0 };
+const ITEM_TYPES = ["Labor", "Material"];
+const EMPTY_LINE = { description: "", item_type: "Labor", qty: 1, unit_price: 0, amount: 0 };
 const EMPTY_QUOTE = {
   client_id: null, client_name: "", client_email: "", client_address: "",
   issue_date: new Date().toISOString().slice(0, 10),
@@ -113,7 +115,7 @@ function SendEmailModal({ quote, showToast, onClose, onSent }) {
 }
 
 // ─── Quote editor (create / edit) ────────────────────────────────────────────
-export function QuoteEditor({ quote, clients, onSave, onCancel, showToast }) {
+export function QuoteEditor({ quote, clients, materials = [], onSave, onCancel, showToast }) {
   const isNew = !quote;
   const [form, setForm] = useState(() => {
     if (!quote) return { ...EMPTY_QUOTE };
@@ -126,7 +128,7 @@ export function QuoteEditor({ quote, clients, onSave, onCancel, showToast }) {
       expiry_date: quote.expiry_date ?? "",
       notes: quote.notes,
       tax_rate: quote.tax_rate,
-      lines: quote.lines.length ? quote.lines.map(l => ({ description: l.description, qty: l.qty, unit_price: l.unit_price, amount: l.amount })) : [{ ...EMPTY_LINE }],
+      lines: quote.lines.length ? quote.lines.map(l => ({ description: l.description, item_type: l.item_type || "Labor", qty: l.qty, unit_price: l.unit_price, amount: l.amount })) : [{ ...EMPTY_LINE }],
     };
   });
   const [saving, setSaving] = useState(false);
@@ -135,6 +137,7 @@ export function QuoteEditor({ quote, clients, onSave, onCancel, showToast }) {
   const [clientSearch, setClientSearch] = useState("");
   const [transitioning, setTransitioning] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [openMaterialRow, setOpenMaterialRow] = useState(null);
 
   const up = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -164,6 +167,10 @@ export function QuoteEditor({ quote, clients, onSave, onCancel, showToast }) {
       const lines = p.lines.map((l, idx) => {
         if (idx !== i) return l;
         const updated = { ...l, [k]: raw };
+        // Materials are whole units — switching a line to Material rounds qty up to the nearest full unit.
+        if (k === "item_type" && raw === "Material") {
+          updated.qty = Math.max(1, Math.round(Number(updated.qty) || 1));
+        }
         const qty = k === "qty" ? Number(raw) : Number(updated.qty);
         const up2 = k === "unit_price" ? Number(raw) : Number(updated.unit_price);
         updated.amount = parseFloat((qty * up2).toFixed(2));
@@ -171,6 +178,19 @@ export function QuoteEditor({ quote, clients, onSave, onCancel, showToast }) {
       });
       return { ...p, lines };
     });
+  };
+
+  const pickMaterial = (i, m) => {
+    setForm(p => {
+      const lines = p.lines.map((l, idx) => {
+        if (idx !== i) return l;
+        const qty = Math.max(1, Math.round(Number(l.qty) || 1));
+        const unit_price = Number(m.unit_price) || 0;
+        return { ...l, description: m.name, item_type: "Material", qty, unit_price, amount: parseFloat((qty * unit_price).toFixed(2)) };
+      });
+      return { ...p, lines };
+    });
+    setOpenMaterialRow(null);
   };
 
   const addLine = () => setForm(p => ({ ...p, lines: [...p.lines, { ...EMPTY_LINE }] }));
@@ -341,19 +361,53 @@ export function QuoteEditor({ quote, clients, onSave, onCancel, showToast }) {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: brand.bg }}>
-                {["Description", "Qty", "Unit Price", "Amount", ""].map((h, i) => (
-                  <th key={i} style={{ padding: "8px 10px", textAlign: i > 0 ? "right" : "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
+                {["Description", "Type", "Qty", "Unit Price", "Amount", ""].map((h, i) => (
+                  <th key={i} style={{ padding: "8px 10px", textAlign: i > 1 ? "right" : "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {form.lines.map((l, i) => (
+              {form.lines.map((l, i) => {
+                const isMaterial = l.item_type === "Material";
+                const materialMatches = isMaterial && l.description.trim()
+                  ? materials.filter(m => m.name.toLowerCase().includes(l.description.trim().toLowerCase()))
+                  : [];
+                return (
                 <tr key={i}>
-                  <td style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}` }}>
-                    <input style={inp} disabled={!canEdit} value={l.description} onChange={e => upLine(i, "description", e.target.value)} placeholder="Description of service or product" />
+                  <td style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}`, position: "relative" }}>
+                    <input
+                      style={inp}
+                      disabled={!canEdit}
+                      value={l.description}
+                      onChange={e => upLine(i, "description", e.target.value)}
+                      onFocus={() => isMaterial && setOpenMaterialRow(i)}
+                      onBlur={() => setTimeout(() => setOpenMaterialRow(o => (o === i ? null : o)), 150)}
+                      placeholder={isMaterial ? "Search materials or type a name…" : "Description of service or product"}
+                    />
+                    {canEdit && isMaterial && openMaterialRow === i && l.description.trim() && (
+                      <div style={{ border: `1px solid ${brand.border}`, borderRadius: 6, marginTop: 4, maxHeight: 180, overflowY: "auto", background: "#fff", boxShadow: "0 4px 12px rgba(0,0,0,0.10)", zIndex: 10, position: "absolute", left: 10, right: 10 }}>
+                        {materialMatches.length === 0 ? (
+                          <div style={{ padding: "9px 12px", fontSize: 13, color: brand.muted }}>No matches</div>
+                        ) : (
+                          materialMatches.map(m => (
+                            <div key={m.id}
+                              onMouseDown={e => { e.preventDefault(); pickMaterial(i, m); }}
+                              style={{ padding: "9px 12px", fontSize: 13, cursor: "pointer", borderBottom: `1px solid ${brand.border}`, display: "flex", justifyContent: "space-between", gap: 10 }}>
+                              <span style={{ fontWeight: 600 }}>{m.name}</span>
+                              <span style={{ color: brand.muted }}>${fmt(m.unit_price)}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}`, width: 110 }}>
+                    <select style={inp} disabled={!canEdit} value={l.item_type || "Labor"} onChange={e => upLine(i, "item_type", e.target.value)}>
+                      {ITEM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
                   </td>
                   <td style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}`, width: 90 }}>
-                    <input style={{ ...inp, textAlign: "right" }} disabled={!canEdit} type="number" min="0" step="0.01" value={l.qty} onChange={e => upLine(i, "qty", e.target.value)} />
+                    <input style={{ ...inp, textAlign: "right" }} disabled={!canEdit} type="number" min={isMaterial ? "1" : "0"} step={isMaterial ? "1" : "0.01"} value={l.qty} onChange={e => upLine(i, "qty", e.target.value)} />
                   </td>
                   <td style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}`, width: 130 }}>
                     <input style={{ ...inp, textAlign: "right" }} disabled={!canEdit} type="number" min="0" step="0.01" value={l.unit_price} onChange={e => upLine(i, "unit_price", e.target.value)} />
@@ -368,7 +422,8 @@ export function QuoteEditor({ quote, clients, onSave, onCancel, showToast }) {
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
           {canEdit && (
@@ -406,9 +461,11 @@ export function QuoteEditorRoute({ showToast }) {
   const isNew = !quoteId;
   const [quote, setQuote] = useState(null);
   const [clients, setClients] = useState([]);
+  const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(!isNew);
 
   useEffect(() => { listClients().then(setClients).catch(() => {}); }, []);
+  useEffect(() => { listMaterials().then(setMaterials).catch(() => {}); }, []);
 
   useEffect(() => {
     if (isNew) { setLoading(false); return; }
@@ -432,6 +489,7 @@ export function QuoteEditorRoute({ showToast }) {
     <QuoteEditor
       quote={isNew ? null : quote}
       clients={clients}
+      materials={materials}
       onSave={handleSave}
       onCancel={handleCancel}
       showToast={showToast}
