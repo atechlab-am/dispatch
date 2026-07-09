@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { vi } from "vitest";
 import DashboardPage from "../DashboardPage.jsx";
 
@@ -34,7 +35,11 @@ test("renders the funnel widget when funnel data is present and quotes feature i
       { label: "Invoices Converted", count: 1 },
     ],
   });
-  render(<DashboardPage user={user} showToast={() => {}} features={{ quotes: true }} />);
+  render(
+    <MemoryRouter>
+      <DashboardPage user={user} showToast={() => {}} features={{ quotes: true }} />
+    </MemoryRouter>
+  );
 
   expect(await screen.findByText("Quote → Ticket → Invoice")).toBeInTheDocument();
   expect(screen.getByText("Quotes Approved")).toBeInTheDocument();
@@ -44,7 +49,11 @@ test("renders the funnel widget when funnel data is present and quotes feature i
 
 test("hides the funnel widget when funnel data is empty", async () => {
   getDashboard.mockResolvedValue({ ...BASE_DATA, funnel: [] });
-  render(<DashboardPage user={user} showToast={() => {}} features={{ quotes: true }} />);
+  render(
+    <MemoryRouter>
+      <DashboardPage user={user} showToast={() => {}} features={{ quotes: true }} />
+    </MemoryRouter>
+  );
 
   expect(await screen.findByText("Total Tickets")).toBeInTheDocument();
   expect(screen.queryByText("Quote → Ticket → Invoice")).not.toBeInTheDocument();
@@ -59,8 +68,34 @@ test("hides the funnel widget when the quotes feature is disabled, even with fun
       { label: "Invoices Converted", count: 1 },
     ],
   });
-  render(<DashboardPage user={user} showToast={() => {}} features={{ quotes: false }} />);
+  render(
+    <MemoryRouter>
+      <DashboardPage user={user} showToast={() => {}} features={{ quotes: false }} />
+    </MemoryRouter>
+  );
 
   expect(await screen.findByText("Total Tickets")).toBeInTheDocument();
   expect(screen.queryByText("Quote → Ticket → Invoice")).not.toBeInTheDocument();
+});
+
+test("clicking + New Project navigates to /quotes/new", async () => {
+  getDashboard.mockResolvedValue({
+    ...BASE_DATA,
+    funnel: [
+      { label: "Quotes Approved", count: 4 },
+      { label: "Tickets Created", count: 3 },
+      { label: "Invoices Converted", count: 1 },
+    ],
+  });
+  render(
+    <MemoryRouter initialEntries={["/"]}>
+      <Routes>
+        <Route path="/" element={<DashboardPage user={user} showToast={() => {}} features={{ quotes: true }} />} />
+        <Route path="/quotes/new" element={<div>New Quote Page</div>} />
+      </Routes>
+    </MemoryRouter>
+  );
+
+  fireEvent.click(await screen.findByText("+ New Project"));
+  expect(await screen.findByText("New Quote Page")).toBeInTheDocument();
 });

@@ -1,12 +1,25 @@
 # Changelog
 
+## [1.28.0] — 2026-07-09
+
+### Fixed — invoice PDF/email XSS gap, Dashboard funnel layout
+- Closed the invoice-side counterpart of the XSS gap fixed for quotes in 1.27.0: `_build_invoice_html` and `_send_invoice_email` (`backend/app/routers/invoices.py`) were interpolating `client_name`, `client_email`, `client_address`, `notes`, line-item descriptions, payment method/note, and the send-invoice recipient/message into HTML unescaped. All are now HTML-escaped via `html.escape()`.
+- Fixed the Dashboard's Quote → Ticket → Invoice funnel widget: each stage was rendered inside its own equal-width flex item with a percentage-width bar computed against that item's own width rather than the row's, so all three stages rendered at roughly the same size regardless of actual counts, with uneven gaps between them. Replaced with a 3-column grid where each cell shows a genuinely proportional bar, the count, an "of N" context hint for stages 2/3, and the label — no more mismatched spacing.
+
+### Added — "+ New Project" button
+- The Dashboard's Quote → Ticket → Invoice funnel card now has a **+ New Project** button that opens the quote creation form (`/quotes/new`) — a clear, direct entry point into the workflow the funnel visualizes.
+
+### Tests
+- Extended `backend/tests/test_invoices.py` (+3 tests): invoice PDF escaping (client fields, line-item descriptions, notes), payment method/note escaping, and send-invoice email escaping — mirroring the quote-side regression tests from 1.27.0.
+- Extended `src/__tests__/DashboardPage.test.jsx` (+1 test, and wrapped existing tests in `MemoryRouter` since the widget now navigates): clicking + New Project routes to `/quotes/new`.
+
 ## [1.27.0] — 2026-07-09
 
 ### Added — project name on quotes
 - Quotes now have an optional **Project Name** field (e.g. "Office Network Upgrade"), shown in the quote form, the quote list, the PDF, and the send-by-email view.
 - When an approved quote's auto-created ticket is generated, its title uses the project name (`"{Project Name} — Quote {id} approved"`) instead of the generic fallback, when a project name is set.
 - New `quotes.project_name` column (migration `0036`), nullable-free with an empty-string default so existing quotes are unaffected.
-- Fixed a pre-existing XSS gap while touching the quote PDF/email templates: `client_name`, `client_email`, line-item descriptions, notes, and the send-quote recipient/message were being interpolated into the HTML unescaped. All are now HTML-escaped, matching the security-standards requirement already enforced elsewhere (e.g. `printTicket()`). The equivalent gap still exists in the invoice PDF/email templates (`backend/app/routers/invoices.py`) — out of scope for this change but worth a follow-up.
+- Fixed a pre-existing XSS gap while touching the quote PDF/email templates: `client_name`, `client_email`, line-item descriptions, notes, and the send-quote recipient/message were being interpolated into the HTML unescaped. All are now HTML-escaped, matching the security-standards requirement already enforced elsewhere (e.g. `printTicket()`). The equivalent gap in the invoice PDF/email templates was fixed in 1.28.0.
 
 ### Tests
 - Extended `backend/tests/test_quotes.py` (+4 tests): project name round-trips through create/list, appears in the PDF, is HTML-escaped (regression test for the fix above, using `<script>`/`<b>` payloads in `client_name`/`project_name`), and flows into the auto-created ticket's title.

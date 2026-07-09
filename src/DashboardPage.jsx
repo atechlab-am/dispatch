@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { getDashboard } from "./api/dashboard.js";
 
 const brand = {
@@ -152,30 +153,32 @@ function PriorityChart({ tickets }) {
 }
 
 // ─── Quote -> Ticket -> Invoice funnel ────────────────────────────────────────
-function FunnelWidget({ stages }) {
+function FunnelWidget({ stages, onNewProject }) {
   const max = Math.max(...stages.map(s => s.count), 1);
   return (
     <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 12, padding: "16px 20px", marginBottom: 24 }}>
-      <div style={{ fontWeight: 700, fontSize: 13, color: brand.text, marginBottom: 14 }}>Quote → Ticket → Invoice</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        {stages.map((s, i) => (
-          <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{
-                width: `${Math.max(20, (s.count / max) * 100)}%`,
-                minWidth: 60,
-                background: brand.bg,
-                border: `1.5px solid ${brand.border}`,
-                borderRadius: 8,
-                padding: "10px 14px",
-              }}>
-                <div style={{ fontSize: 24, fontWeight: 800, color: brand.blue, lineHeight: 1 }}>{s.count}</div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: brand.muted, marginTop: 2, whiteSpace: "nowrap" }}>{s.label}</div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: brand.text }}>Quote → Ticket → Invoice</div>
+        <button onClick={onNewProject} style={{ background: brand.blue, color: "#fff", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+          + New Project
+        </button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${stages.length}, 1fr)`, gap: 0 }}>
+        {stages.map((s, i) => {
+          const pct = Math.round((s.count / max) * 100);
+          return (
+            <div key={s.label} style={{ position: "relative", padding: "14px 16px", borderLeft: i > 0 ? `1px solid ${brand.border}` : "none" }}>
+              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: brand.bg, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${pct}%`, background: brand.blue }} />
               </div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 10 }}>
+                <span style={{ fontSize: 26, fontWeight: 800, color: brand.text, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{s.count}</span>
+                {i > 0 && <span style={{ fontSize: 11, color: brand.muted, fontWeight: 600 }}>of {stages[0].count}</span>}
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: brand.muted, marginTop: 3, whiteSpace: "nowrap", textTransform: "uppercase", letterSpacing: "0.3px" }}>{s.label}</div>
             </div>
-            {i < stages.length - 1 && <div style={{ color: brand.muted, fontSize: 18, flexShrink: 0 }}>→</div>}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -205,6 +208,7 @@ function StatusChart({ tickets }) {
 const ACTIVE_STATUSES = new Set(["Open", "In Progress", "Awaiting Client"]);
 
 export default function DashboardPage({ user, onSelectTicket, onNavigate, showToast, features }) {
+  const navigate = useNavigate();
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
   const [tick,    setTick]    = useState(0);
@@ -277,7 +281,7 @@ export default function DashboardPage({ user, onSelectTicket, onNavigate, showTo
       </div>
 
       {/* Quote -> Ticket -> Invoice funnel */}
-      {features?.quotes !== false && funnel?.length > 0 && <FunnelWidget stages={funnel} />}
+      {features?.quotes !== false && funnel?.length > 0 && <FunnelWidget stages={funnel} onNewProject={() => navigate("/quotes/new")} />}
 
       {/* Charts row */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>

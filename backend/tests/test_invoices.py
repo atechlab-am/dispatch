@@ -182,6 +182,36 @@ def test_invoice_pdf_not_found(client, admin_headers):
     assert r.status_code == 404
 
 
+def test_invoice_pdf_escapes_user_supplied_fields(client, admin_headers):
+    body = {
+        **INVOICE_BASE,
+        "client_name": "<script>alert(1)</script>",
+        "client_address": "<img src=x onerror=alert(1)>",
+        "notes": "<b>Evil</b> notes",
+        "lines": [{"description": "<i>Evil</i> line", "qty": 1, "unit_price": 10, "amount": 10}],
+    }
+    r = client.post("/api/invoices", json=body, headers=admin_headers)
+    iid = r.json()["id"]
+    pdf = client.get(f"/api/invoices/{iid}/pdf", headers=admin_headers)
+    assert "<script>alert(1)</script>" not in pdf.text
+    assert "&lt;script&gt;" in pdf.text
+    assert "<img src=x onerror=alert(1)>" not in pdf.text
+    assert "<b>Evil</b>" not in pdf.text
+    assert "<i>Evil</i>" not in pdf.text
+
+
+def test_invoice_pdf_escapes_payment_method_and_note(client, admin_headers):
+    r = client.post("/api/invoices", json={**INVOICE_BASE, "status": "Sent"}, headers=admin_headers)
+    iid = r.json()["id"]
+    client.post(f"/api/invoices/{iid}/payments", json={
+        "amount": 10, "method": "<b>cash</b>", "note": "<script>alert(2)</script>", "payment_date": "2026-06-15",
+    }, headers=admin_headers)
+    pdf = client.get(f"/api/invoices/{iid}/pdf", headers=admin_headers)
+    assert "<script>alert(2)</script>" not in pdf.text
+    assert "<b>cash</b>" not in pdf.text
+    assert "&lt;b&gt;cash&lt;/b&gt;" in pdf.text
+
+
 def test_send_invoice_no_smtp(client, admin_headers, invoice_id):
     # SMTP_HOST not set in test env → returns 204 (silently skips send)
     r = client.post(f"/api/invoices/{invoice_id}/send", json={
@@ -196,6 +226,19 @@ def test_send_invoice_marks_sent(client, admin_headers):
     client.post(f"/api/invoices/{iid}/send", json={"to": "x@x.com", "message": ""}, headers=admin_headers)
     r = client.get(f"/api/invoices/{iid}", headers=admin_headers)
     assert r.json()["status"] == "Sent"
+
+
+def test_send_invoice_email_escapes_user_supplied_fields(client, admin_headers, monkeypatch):
+    sent = {}
+    monkeypatch.setattr("app.routers.invoices.mail._send", lambda to, subject, html: sent.update(html=html))
+    body = {**INVOICE_BASE, "client_name": "<script>alert(1)</script>"}
+    r = client.post("/api/invoices", json=body, headers=admin_headers)
+    iid = r.json()["id"]
+    r2 = client.post(f"/api/invoices/{iid}/send", json={"to": "x@x.com", "message": "<b>Evil</b> message"}, headers=admin_headers)
+    assert r2.status_code == 204
+    assert "<script>alert(1)</script>" not in sent["html"]
+    assert "&lt;script&gt;" in sent["html"]
+    assert "<b>Evil</b>" not in sent["html"]
 
 
 # ─── Client statement tests ───────────────────────────────────────────────────

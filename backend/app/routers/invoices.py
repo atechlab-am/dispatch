@@ -1,3 +1,4 @@
+import html as html_lib
 from datetime import datetime, date, timezone
 from typing import Optional
 
@@ -595,7 +596,7 @@ def _build_invoice_html(inv: Invoice) -> str:
     tax_pct = round(float(inv.tax_rate) * 100, 3)
 
     lines_html = "".join(
-        f"<tr><td style='padding:8px 12px;border-bottom:1px solid #e2e8f0'>{l.description}</td>"
+        f"<tr><td style='padding:8px 12px;border-bottom:1px solid #e2e8f0'>{html_lib.escape(l.description)}</td>"
         f"<td style='padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center'>{float(l.qty):g}</td>"
         f"<td style='padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right'>${float(l.unit_price):,.2f}</td>"
         f"<td style='padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right'>${float(l.amount):,.2f}</td></tr>"
@@ -605,9 +606,9 @@ def _build_invoice_html(inv: Invoice) -> str:
     if inv.payments:
         rows = "".join(
             f"<tr><td style='padding:6px 12px'>{p.payment_date}</td>"
-            f"<td style='padding:6px 12px'>{p.method or '—'}</td>"
+            f"<td style='padding:6px 12px'>{html_lib.escape(p.method) or '—'}</td>"
             f"<td style='padding:6px 12px;text-align:right'>${float(p.amount):,.2f}</td>"
-            f"<td style='padding:6px 12px;color:#64748b'>{p.note or ''}</td></tr>"
+            f"<td style='padding:6px 12px;color:#64748b'>{html_lib.escape(p.note)}</td></tr>"
             for p in inv.payments
         )
         payments_html = f"""
@@ -624,7 +625,10 @@ def _build_invoice_html(inv: Invoice) -> str:
 
     status_color = {"Draft": "#64748b", "Sent": "#1A5CBA", "Paid": "#059669", "Void": "#dc2626"}.get(str(inv.status), "#64748b")
     due_html = f"<p><strong>Due Date:</strong> {inv.due_date}</p>" if inv.due_date else ""
-    address_html = f"<p style='white-space:pre-line'>{inv.client_address}</p>" if inv.client_address else ""
+    client_name_safe = html_lib.escape(inv.client_name or "—")
+    client_email_safe = html_lib.escape(inv.client_email)
+    notes_safe = html_lib.escape(inv.notes)
+    address_html = f"<p style='white-space:pre-line'>{html_lib.escape(inv.client_address)}</p>" if inv.client_address else ""
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -672,8 +676,8 @@ def _build_invoice_html(inv: Invoice) -> str:
     <div class="meta">
       <div class="meta-block">
         <strong>Bill To</strong>
-        <p style="font-weight:600">{inv.client_name or '—'}</p>
-        {f"<p>{inv.client_email}</p>" if inv.client_email else ""}
+        <p style="font-weight:600">{client_name_safe}</p>
+        {f"<p>{client_email_safe}</p>" if inv.client_email else ""}
         {address_html}
       </div>
       <div class="meta-block">
@@ -708,7 +712,7 @@ def _build_invoice_html(inv: Invoice) -> str:
 
     {payments_html}
 
-    {f'<div class="notes">{inv.notes}</div>' if inv.notes else ""}
+    {f'<div class="notes">{notes_safe}</div>' if inv.notes else ""}
   </div>
   <div class="footer">ATechSolutions &nbsp;|&nbsp; atechsolutions.org &nbsp;|&nbsp; Thank you for your business</div>
 </div>
@@ -742,14 +746,15 @@ def _send_invoice_email(inv: Invoice, to: str, message: str, db: Session) -> Non
     tax_pct = round(float(inv.tax_rate) * 100, 3)
 
     lines_html = "".join(
-        f"<tr><td style='padding:6px 10px;border-bottom:1px solid #e2e8f0'>{l.description}</td>"
+        f"<tr><td style='padding:6px 10px;border-bottom:1px solid #e2e8f0'>{html_lib.escape(l.description)}</td>"
         f"<td style='padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right'>{float(l.qty):g} × ${float(l.unit_price):,.2f}</td>"
         f"<td style='padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right'>${float(l.amount):,.2f}</td></tr>"
         for l in inv.lines
     )
 
-    note_block = f"<div style='background:#f8fafc;border-left:3px solid #1A5CBA;padding:12px;border-radius:0 6px 6px 0;margin:16px 0;font-size:13px;white-space:pre-wrap'>{message}</div>" if message else ""
+    note_block = f"<div style='background:#f8fafc;border-left:3px solid #1A5CBA;padding:12px;border-radius:0 6px 6px 0;margin:16px 0;font-size:13px;white-space:pre-wrap'>{html_lib.escape(message)}</div>" if message else ""
     due_line = f"<p style='margin:4px 0'><strong>Due:</strong> {inv.due_date}</p>" if inv.due_date else ""
+    client_display_safe = html_lib.escape(inv.client_name or to)
 
     html = f"""<!DOCTYPE html><html><head><style>
     body{{font-family:'Segoe UI',Arial,sans-serif;font-size:14px;color:#0f172a;background:#f4f7fc;margin:0;padding:0}}
@@ -763,7 +768,7 @@ def _send_invoice_email(inv: Invoice, to: str, message: str, db: Session) -> Non
       <div class="header"><div class="logo">ATech<span>Solutions</span></div></div>
       <div class="body">
         <p style="font-size:16px;font-weight:700;margin:0 0 8px">Invoice {inv.id}</p>
-        <p style="margin:4px 0"><strong>To:</strong> {inv.client_name or to}</p>
+        <p style="margin:4px 0"><strong>To:</strong> {client_display_safe}</p>
         <p style="margin:4px 0"><strong>Issued:</strong> {inv.issue_date}</p>
         {due_line}
         {note_block}

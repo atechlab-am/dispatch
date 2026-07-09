@@ -101,7 +101,7 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 
 ### Dashboard
 - Stat cards: total, active, resolved, urgent, SLA breached, SLA at risk
-- **Quote → Ticket → Invoice funnel** — stage counts (quotes approved, tickets created, invoices converted) shown as a compact widget
+- **Quote → Ticket → Invoice funnel** — stage counts (quotes approved, tickets created, invoices converted) shown as a compact widget, with a **+ New Project** button that opens the quote form to kick off the workflow
 - Priority and status charts
 - My Active Tickets, SLA at Risk, Recent Open sections
 - All cards and sections are clickable and navigate to a filtered ticket list
