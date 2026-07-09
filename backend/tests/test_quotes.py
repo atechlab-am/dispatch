@@ -24,6 +24,50 @@ def test_create_quote(client, admin_headers):
     assert data["total"] == 220
     assert len(data["lines"]) == 1
     assert data["lines"][0]["item_type"] == "Labor"  # default when omitted
+    assert data["project_name"] == ""  # default when omitted
+
+
+def test_create_quote_with_project_name(client, admin_headers):
+    body = {**QUOTE_BASE, "project_name": "Office Network Upgrade"}
+    r = client.post("/api/quotes", headers=admin_headers, json=body)
+    assert r.status_code == 201
+    data = r.json()
+    assert data["project_name"] == "Office Network Upgrade"
+
+    r2 = client.get("/api/quotes", headers=admin_headers)
+    match = next(q for q in r2.json()["items"] if q["id"] == data["id"])
+    assert match["project_name"] == "Office Network Upgrade"
+
+
+def test_project_name_appears_in_pdf(client, admin_headers):
+    body = {**QUOTE_BASE, "project_name": "Office Network Upgrade"}
+    r = client.post("/api/quotes", headers=admin_headers, json=body)
+    qid = r.json()["id"]
+    pdf = client.get(f"/api/quotes/{qid}/pdf", headers=admin_headers)
+    assert "Office Network Upgrade" in pdf.text
+
+
+def test_project_name_and_client_name_escaped_in_pdf(client, admin_headers):
+    body = {**QUOTE_BASE, "client_name": "<script>alert(1)</script>", "project_name": "<b>Evil</b> Project"}
+    r = client.post("/api/quotes", headers=admin_headers, json=body)
+    qid = r.json()["id"]
+    pdf = client.get(f"/api/quotes/{qid}/pdf", headers=admin_headers)
+    assert "<script>alert(1)</script>" not in pdf.text
+    assert "&lt;script&gt;" in pdf.text
+    assert "<b>Evil</b>" not in pdf.text
+    assert "&lt;b&gt;Evil&lt;/b&gt;" in pdf.text
+
+
+def test_approved_quote_with_project_name_sets_ticket_title(client, admin_headers):
+    body = {**QUOTE_BASE, "project_name": "Office Network Upgrade"}
+    r = client.post("/api/quotes", headers=admin_headers, json=body)
+    qid = r.json()["id"]
+    client.patch(f"/api/quotes/{qid}/status", headers=admin_headers, json={"status": "Sent"})
+    r2 = client.patch(f"/api/quotes/{qid}/status", headers=admin_headers, json={"status": "Approved"})
+    ticket_id = r2.json()["ticket_id"]
+
+    t = client.get(f"/api/tickets/{ticket_id}", headers=admin_headers)
+    assert t.json()["title"] == f"Office Network Upgrade — Quote {qid} approved"
 
 
 def test_create_quote_with_material_line(client, admin_headers):

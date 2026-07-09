@@ -183,6 +183,7 @@ class Quote(Base):
     client_name = Column(String(255), nullable=False, default="")
     client_email = Column(String(255), nullable=False, default="")
     client_address = Column(Text, nullable=False, default="")
+    project_name = Column(String(255), nullable=False, default="")
     status = Column(String(20), nullable=False, default=QuoteStatus.draft)
     issue_date = Column(Date, nullable=False, default=date.today)
     expiry_date = Column(Date, nullable=True)

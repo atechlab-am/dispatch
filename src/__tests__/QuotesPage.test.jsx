@@ -5,13 +5,13 @@ import QuotesPage, { QuoteEditorRoute } from "../QuotesPage.jsx";
 
 vi.mock("../api/quotes.js", () => ({
   listQuotes: vi.fn().mockResolvedValue({
-    items: [{ id: "QUO-2026-00001", client_name: "Acme Corp", status: "Draft",
+    items: [{ id: "QUO-2026-00001", client_name: "Acme Corp", project_name: "Office Network Upgrade", status: "Draft",
       issue_date: "2026-06-01", expiry_date: null, total: 100 }],
     total: 1,
   }),
   getQuote: vi.fn().mockResolvedValue({
     id: "QUO-2026-00042", client_id: null, client_name: "Acme Corp",
-    client_email: "", client_address: "", status: "Draft", issue_date: "2026-06-01",
+    client_email: "", client_address: "", project_name: "Office Network Upgrade", status: "Draft", issue_date: "2026-06-01",
     expiry_date: "", notes: "", tax_rate: 0, subtotal: 100, tax_amount: 0, total: 100,
     converted_invoice_id: null, lines: [],
   }),
@@ -35,6 +35,7 @@ test("quote list renders rows from the API", async () => {
   );
   expect(await screen.findByText("QUO-2026-00001")).toBeInTheDocument();
   expect(screen.getByText("Acme Corp")).toBeInTheDocument();
+  expect(screen.getByText("Office Network Upgrade")).toBeInTheDocument();
 });
 
 test("/quotes/new renders the create form (no fetch)", async () => {
@@ -60,4 +61,15 @@ test("/quotes/:id fetches and renders the quote", async () => {
   );
   expect(await screen.findByText("Quote QUO-2026-00042")).toBeInTheDocument();
   expect(getQuote).toHaveBeenCalledWith("QUO-2026-00042");
+});
+
+test("/quotes/:id populates the Project Name field from the fetched quote", async () => {
+  render(
+    <MemoryRouter initialEntries={["/quotes/QUO-2026-00042"]}>
+      <Routes>
+        <Route path="/quotes/:quoteId" element={<QuoteEditorRoute showToast={noop} />} />
+      </Routes>
+    </MemoryRouter>
+  );
+  expect(await screen.findByDisplayValue("Office Network Upgrade")).toBeInTheDocument();
 });

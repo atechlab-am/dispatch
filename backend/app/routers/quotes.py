@@ -1,3 +1,4 @@
+import html as html_lib
 import sys
 from datetime import datetime, date, timezone
 from typing import Optional
@@ -46,6 +47,7 @@ class QuoteIn(BaseModel):
     client_name: str = Field("", max_length=255)
     client_email: str = Field("", max_length=255)
     client_address: str = Field("", max_length=1000)
+    project_name: str = Field("", max_length=255)
     issue_date: date = Field(default_factory=date.today)
     expiry_date: Optional[date] = None
     notes: str = Field("", max_length=5000)
@@ -60,6 +62,7 @@ class QuoteOut(BaseModel):
     client_name: str
     client_email: str
     client_address: str
+    project_name: str
     status: QuoteStatus
     issue_date: date
     expiry_date: Optional[date]
@@ -79,6 +82,7 @@ class QuoteOut(BaseModel):
 class QuoteListItem(BaseModel):
     id: str
     client_name: str
+    project_name: str
     status: QuoteStatus
     issue_date: date
     expiry_date: Optional[date]
@@ -179,6 +183,7 @@ def create_quote(
         client_name=body.client_name,
         client_email=body.client_email,
         client_address=body.client_address,
+        project_name=body.project_name,
         status=QuoteStatus.draft,
         issue_date=body.issue_date,
         expiry_date=body.expiry_date,
@@ -229,6 +234,7 @@ def update_quote(
     q.client_name = body.client_name
     q.client_email = body.client_email
     q.client_address = body.client_address
+    q.project_name = body.project_name
     q.issue_date = body.issue_date
     q.expiry_date = body.expiry_date
     q.notes = body.notes
@@ -292,7 +298,7 @@ def _auto_create_ticket_from_quote(db: Session, q: Quote, current_user: User):
             client_name=q.client_name,
             client_email=q.client_email,
             client_address=q.client_address,
-            title=f"Quote {q.id} approved — work order",
+            title=f"{q.project_name} — Quote {q.id} approved" if q.project_name else f"Quote {q.id} approved — work order",
             description=q.notes,
             travel_fee=TravelFee.none,
             created_at=now,
@@ -414,7 +420,7 @@ def convert_quote_to_invoice(
 def _build_quote_html(q: Quote) -> str:
     tax_pct = round(float(q.tax_rate) * 100, 3)
     lines_html = "".join(
-        f"<tr><td style='padding:8px 12px;border-bottom:1px solid #e2e8f0'>{l.description}</td>"
+        f"<tr><td style='padding:8px 12px;border-bottom:1px solid #e2e8f0'>{html_lib.escape(l.description)}</td>"
         f"<td style='padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center'>{float(l.qty):g}</td>"
         f"<td style='padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right'>${float(l.unit_price):,.2f}</td>"
         f"<td style='padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right'>${float(l.amount):,.2f}</td></tr>"
@@ -422,6 +428,10 @@ def _build_quote_html(q: Quote) -> str:
     )
     status_color = {"Draft": "#64748b", "Sent": "#1A5CBA", "Approved": "#059669", "Rejected": "#dc2626", "Expired": "#94a3b8"}.get(str(q.status), "#64748b")
     expiry_html = f"<p><strong>Expires:</strong> {q.expiry_date}</p>" if q.expiry_date else ""
+    client_name_safe = html_lib.escape(q.client_name or "—")
+    client_email_safe = html_lib.escape(q.client_email)
+    project_name_html = f"<p><strong>Project:</strong> {html_lib.escape(q.project_name)}</p>" if q.project_name else ""
+    notes_safe = html_lib.escape(q.notes)
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -467,11 +477,12 @@ def _build_quote_html(q: Quote) -> str:
     <div class="meta">
       <div class="meta-block">
         <strong>Quote For</strong>
-        <p style="font-weight:600">{q.client_name or '—'}</p>
-        {f"<p>{q.client_email}</p>" if q.client_email else ""}
+        <p style="font-weight:600">{client_name_safe}</p>
+        {f"<p>{client_email_safe}</p>" if q.client_email else ""}
       </div>
       <div class="meta-block">
         <strong>Quote Details</strong>
+        {project_name_html}
         <p><strong>Issue Date:</strong> {q.issue_date}</p>
         {expiry_html}
       </div>
@@ -494,7 +505,7 @@ def _build_quote_html(q: Quote) -> str:
         <tr class="grand"><td>Total</td><td style="text-align:right">${float(q.total):,.2f}</td></tr>
       </table>
     </div>
-    {f'<div class="notes">{q.notes}</div>' if q.notes else ""}
+    {f'<div class="notes">{notes_safe}</div>' if q.notes else ""}
   </div>
   <div class="footer">ATechSolutions &nbsp;|&nbsp; atechsolutions.org</div>
 </div>
@@ -536,13 +547,15 @@ def send_quote(
 
     tax_pct = round(float(q.tax_rate) * 100, 3)
     lines_html = "".join(
-        f"<tr><td style='padding:6px 10px;border-bottom:1px solid #e2e8f0'>{l.description}</td>"
+        f"<tr><td style='padding:6px 10px;border-bottom:1px solid #e2e8f0'>{html_lib.escape(l.description)}</td>"
         f"<td style='padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right'>{float(l.qty):g} × ${float(l.unit_price):,.2f}</td>"
         f"<td style='padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right'>${float(l.amount):,.2f}</td></tr>"
         for l in q.lines
     )
-    note_block = f"<div style='background:#f8fafc;border-left:3px solid #1A5CBA;padding:12px;border-radius:0 6px 6px 0;margin:16px 0;font-size:13px;white-space:pre-wrap'>{body.message}</div>" if body.message else ""
+    note_block = f"<div style='background:#f8fafc;border-left:3px solid #1A5CBA;padding:12px;border-radius:0 6px 6px 0;margin:16px 0;font-size:13px;white-space:pre-wrap'>{html_lib.escape(body.message)}</div>" if body.message else ""
     expiry_line = f"<p style='margin:4px 0'><strong>Expires:</strong> {q.expiry_date}</p>" if q.expiry_date else ""
+    project_line = f"<p style='margin:4px 0'><strong>Project:</strong> {html_lib.escape(q.project_name)}</p>" if q.project_name else ""
+    client_display_safe = html_lib.escape(q.client_name or body.to)
 
     html = f"""<!DOCTYPE html><html><head><style>
     body{{font-family:'Segoe UI',Arial,sans-serif;font-size:14px;color:#0f172a;background:#f4f7fc;margin:0;padding:0}}
@@ -556,7 +569,8 @@ def send_quote(
       <div class="header"><div class="logo">ATech<span>Solutions</span></div></div>
       <div class="body">
         <p style="font-size:16px;font-weight:700;margin:0 0 8px">Quote {q.id}</p>
-        <p style="margin:4px 0"><strong>To:</strong> {q.client_name or body.to}</p>
+        <p style="margin:4px 0"><strong>To:</strong> {client_display_safe}</p>
+        {project_line}
         <p style="margin:4px 0"><strong>Issued:</strong> {q.issue_date}</p>
         {expiry_line}
         {note_block}

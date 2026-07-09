@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.27.0] — 2026-07-09
+
+### Added — project name on quotes
+- Quotes now have an optional **Project Name** field (e.g. "Office Network Upgrade"), shown in the quote form, the quote list, the PDF, and the send-by-email view.
+- When an approved quote's auto-created ticket is generated, its title uses the project name (`"{Project Name} — Quote {id} approved"`) instead of the generic fallback, when a project name is set.
+- New `quotes.project_name` column (migration `0036`), nullable-free with an empty-string default so existing quotes are unaffected.
+- Fixed a pre-existing XSS gap while touching the quote PDF/email templates: `client_name`, `client_email`, line-item descriptions, notes, and the send-quote recipient/message were being interpolated into the HTML unescaped. All are now HTML-escaped, matching the security-standards requirement already enforced elsewhere (e.g. `printTicket()`). The equivalent gap still exists in the invoice PDF/email templates (`backend/app/routers/invoices.py`) — out of scope for this change but worth a follow-up.
+
+### Tests
+- Extended `backend/tests/test_quotes.py` (+4 tests): project name round-trips through create/list, appears in the PDF, is HTML-escaped (regression test for the fix above, using `<script>`/`<b>` payloads in `client_name`/`project_name`), and flows into the auto-created ticket's title.
+- Extended `src/__tests__/QuotesPage.test.jsx` (+1 test): project name renders in the list and populates the edit form.
+
 ## [1.26.0] — 2026-07-09
 
 ### Added — backup & restore to NAS

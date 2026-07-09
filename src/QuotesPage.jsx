@@ -63,7 +63,7 @@ const TAX_PRESETS = [
 const ITEM_TYPES = ["Labor", "Material"];
 const EMPTY_LINE = { description: "", item_type: "Labor", qty: 1, unit_price: 0, amount: 0 };
 const EMPTY_QUOTE = {
-  client_id: null, client_name: "", client_email: "", client_address: "",
+  client_id: null, client_name: "", client_email: "", client_address: "", project_name: "",
   issue_date: new Date().toISOString().slice(0, 10),
   expiry_date: "", notes: "", tax_rate: 0, lines: [{ ...EMPTY_LINE }],
 };
@@ -124,6 +124,7 @@ export function QuoteEditor({ quote, clients, materials = [], onSave, onCancel, 
       client_name: quote.client_name,
       client_email: quote.client_email,
       client_address: quote.client_address,
+      project_name: quote.project_name ?? "",
       issue_date: quote.issue_date,
       expiry_date: quote.expiry_date ?? "",
       notes: quote.notes,
@@ -333,6 +334,10 @@ export function QuoteEditor({ quote, clients, materials = [], onSave, onCancel, 
 
           <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px" }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>Quote Details</div>
+            <div style={{ marginBottom: 10 }}>
+              <FieldLabel>Project Name</FieldLabel>
+              <input style={inp} disabled={!canEdit} value={form.project_name} onChange={e => up("project_name", e.target.value)} placeholder="e.g. Office Network Upgrade" />
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
               <div>
                 <FieldLabel>Tax</FieldLabel>
@@ -562,14 +567,14 @@ export default function QuotesPage({ showToast }) {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: brand.bg }}>
-                {["Quote #", "Client", "Status", "Issue Date", "Expiry Date", "Total", ""].map((h, i) => (
-                  <th key={i} style={{ padding: "10px 14px", textAlign: i === 5 ? "right" : "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
+                {["Quote #", "Client", "Project", "Status", "Issue Date", "Expiry Date", "Total", ""].map((h, i) => (
+                  <th key={i} style={{ padding: "10px 14px", textAlign: i === 6 ? "right" : "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {quotes.length === 0 && (
-                <tr><td colSpan={7} style={{ ...cell, textAlign: "center", color: brand.muted, padding: 40 }}>
+                <tr><td colSpan={8} style={{ ...cell, textAlign: "center", color: brand.muted, padding: 40 }}>
                   No quotes yet.
                 </td></tr>
               )}
@@ -579,6 +584,7 @@ export default function QuotesPage({ showToast }) {
                   <tr key={q.id} style={{ cursor: "pointer" }} onClick={() => handleEdit(q)}>
                     <td style={{ ...cell, fontWeight: 700, color: brand.blue }}>{q.id}</td>
                     <td style={{ ...cell, fontWeight: 600 }}>{q.client_name || "—"}</td>
+                    <td style={{ ...cell, color: brand.muted }}>{q.project_name || "—"}</td>
                     <td style={cell}>
                       <span style={{ background: sc.bg, color: sc.color, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{q.status}</span>
                     </td>
