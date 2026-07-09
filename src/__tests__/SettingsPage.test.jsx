@@ -44,6 +44,7 @@ vi.mock("../api/materials.js", () => ({
   createMaterial: vi.fn(),
   updateMaterial: vi.fn(),
   deleteMaterial: vi.fn(),
+  importMaterialsCsv: vi.fn(),
 }));
 
 vi.mock("../api/backups.js", () => ({
@@ -63,6 +64,7 @@ vi.mock("../api/auth.js", () => ({
 import { listUsers, createUser, changeOwnPassword } from "../api/users.js";
 import { me, setup2fa, enable2fa, disable2fa } from "../api/auth.js";
 import { listBackupRuns, triggerBackup, listAvailableBackups, restoreBackup } from "../api/backups.js";
+import { listMaterials, importMaterialsCsv } from "../api/materials.js";
 
 const adminUser = { id: 1, name: "Admin", email: "admin@test.com", role: "admin", active: true };
 const techUser  = { id: 2, name: "Tech",  email: "tech@test.com",  role: "technician", active: true };
@@ -375,5 +377,60 @@ describe("SettingsPage — Backup tab", () => {
 
     await waitFor(() => expect(restoreBackup).toHaveBeenCalledWith("dispatch-backup-20260701-000000.tar.gz", "adminpass"));
     expect(showToast).toHaveBeenCalledWith("Restoring — the app will be briefly unavailable and reload shortly.", "ok");
+  });
+});
+
+describe("SettingsPage — Materials tab CSV import", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const openMaterialsTab = async () => {
+    listUsers.mockResolvedValue([adminUser]);
+    listMaterials.mockResolvedValue([]);
+    render(<SettingsPage user={adminUser} showToast={vi.fn()} features={{ materials: true }} />);
+    fireEvent.click(await screen.findByRole("button", { name: /Materials/i }));
+    await screen.findByText(/No materials yet/i);
+  };
+
+  const csvFile = (name = "materials.csv") =>
+    new File(["name,description,unit_price\nWidget,,1.00\n"], name, { type: "text/csv" });
+
+  it("uploads the selected file via importMaterialsCsv and refreshes the list on success", async () => {
+    importMaterialsCsv.mockResolvedValue({ created: 1, errors: [] });
+    await openMaterialsTab();
+
+    const input = document.querySelector('input[type="file"]');
+    fireEvent.change(input, { target: { files: [csvFile()] } });
+
+    await waitFor(() => expect(importMaterialsCsv).toHaveBeenCalledWith(expect.any(File)));
+    await waitFor(() => expect(listMaterials).toHaveBeenCalledTimes(2)); // initial load + post-import refresh
+  });
+
+  it("shows a per-row error summary when the import partially fails", async () => {
+    importMaterialsCsv.mockResolvedValue({
+      created: 1,
+      errors: [{ row: 3, message: "Missing name" }],
+    });
+    await openMaterialsTab();
+
+    const input = document.querySelector('input[type="file"]');
+    fireEvent.change(input, { target: { files: [csvFile()] } });
+
+    expect(await screen.findByText(/Imported 1, 1 row skipped/i)).toBeInTheDocument();
+    expect(screen.getByText(/Row 3: Missing name/i)).toBeInTheDocument();
+  });
+
+  it("shows an error toast when the import request fails", async () => {
+    importMaterialsCsv.mockRejectedValue({ response: { data: { detail: "Missing required column(s): name" } } });
+    const showToast = vi.fn();
+    listUsers.mockResolvedValue([adminUser]);
+    listMaterials.mockResolvedValue([]);
+    render(<SettingsPage user={adminUser} showToast={showToast} features={{ materials: true }} />);
+    fireEvent.click(await screen.findByRole("button", { name: /Materials/i }));
+    await screen.findByText(/No materials yet/i);
+
+    const input = document.querySelector('input[type="file"]');
+    fireEvent.change(input, { target: { files: [csvFile()] } });
+
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("Missing required column(s): name", "err"));
   });
 });

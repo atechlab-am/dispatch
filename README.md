@@ -71,7 +71,7 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Send a quote (Draft → Sent → Approved/Rejected/Expired) with the same line-item/tax/PDF/email shape as invoices
 - One-click **Convert to Invoice** on an Approved quote — copies client, line items, and totals into a new Draft invoice
 - Draft is the only editable state; Sent/Approved/Rejected/Expired are locked to preserve what the client actually saw
-- **Materials catalog** — each quote line is tagged Labor or Material; Material lines search a reusable parts catalog (Settings → Materials, admin-managed) to autofill description and unit price, and round quantity up to the nearest whole unit
+- **Materials catalog** — each quote line is tagged Labor or Material; Material lines search a reusable parts catalog (Settings → Materials, admin-managed) to autofill description and unit price, and round quantity up to the nearest whole unit. Bulk-add entries via **Import CSV** (columns: `name`, `description`, `unit_price`) — validates every row before writing anything and reports per-row errors (e.g. missing name, invalid price) without blocking the valid rows
 - **Quote → Ticket → Invoice workflow** — approving a quote automatically creates and links a Ticket, seeded with the quote's line items as hour-log entries (dollar-value preserved, no manual step). When that ticket is marked Resolved or Closed, the ticket editor prompts to convert the originating quote into an invoice.
 - **Project Name** — optional free-text label (e.g. "Office Network Upgrade") shown in the quote list, PDF, and send-by-email view, and carried into the title of the auto-created ticket on approval
 

@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { listUsers, createUser, updateUser, deactivateUser, changeOwnPassword } from "./api/users.js";
 import { listPortalAccounts, createPortalAccount, updatePortalAccount, deletePortalAccount } from "./api/portal.js";
 import { listClients } from "./api/clients.js";
 import { listCannedResponses, createCannedResponse, updateCannedResponse, deleteCannedResponse } from "./api/cannedResponses.js";
-import { listMaterials, createMaterial, updateMaterial, deleteMaterial } from "./api/materials.js";
+import { listMaterials, createMaterial, updateMaterial, deleteMaterial, importMaterialsCsv } from "./api/materials.js";
 import { listBackupRuns, triggerBackup, listAvailableBackups, restoreBackup } from "./api/backups.js";
 import { me, setup2fa, enable2fa, disable2fa } from "./api/auth.js";
 
@@ -632,6 +632,9 @@ function MaterialsTab({ showToast }) {
   const [editing, setEditing] = useState(null); // null | {} | existing row
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null); // { created, errors } after a run
+  const fileInputRef = useRef(null);
 
   const load = () => {
     setLoading(true);
@@ -642,6 +645,30 @@ function MaterialsTab({ showToast }) {
   };
 
   useEffect(() => { load(); }, []);
+
+  const handleImportClick = () => fileInputRef.current?.click();
+
+  const handleImportFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file next time
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const result = await importMaterialsCsv(file);
+      setImportResult(result);
+      if (result.errors.length === 0) {
+        showToast(`Imported ${result.created} material${result.created === 1 ? "" : "s"}.`, "ok");
+      } else {
+        showToast(`Imported ${result.created}, ${result.errors.length} row${result.errors.length === 1 ? "" : "s"} skipped — see details below.`, "err");
+      }
+      load();
+    } catch (err) {
+      showToast(err?.response?.data?.detail || "Import failed.", "err");
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -703,15 +730,33 @@ function MaterialsTab({ showToast }) {
         <div style={{ fontSize: 13, color: brand.muted }}>
           Frequently used materials/parts. Searchable from quote line items to autofill description and price.
         </div>
-        <Btn variant="accent" small onClick={() => setEditing({ name: "", description: "", unit_price: 0 })}>+ New Material</Btn>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={handleImportFile} style={{ display: "none" }} />
+          <Btn variant="secondary" small onClick={handleImportClick} disabled={importing}>{importing ? "Importing…" : "Import CSV"}</Btn>
+          <Btn variant="accent" small onClick={() => setEditing({ name: "", description: "", unit_price: 0 })}>+ New Material</Btn>
+        </div>
       </div>
+      {importResult && importResult.errors.length > 0 && (
+        <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "12px 16px", marginBottom: 14, fontSize: 13 }}>
+          <div style={{ fontWeight: 700, color: "#991b1b", marginBottom: 6 }}>
+            Imported {importResult.created}, {importResult.errors.length} row{importResult.errors.length === 1 ? "" : "s"} skipped:
+          </div>
+          <ul style={{ margin: 0, paddingLeft: 18, color: "#991b1b" }}>
+            {importResult.errors.map((e, i) => (
+              <li key={i}>Row {e.row}: {e.message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {!loading && items.length > 0 && (
         <input style={{ ...inp, maxWidth: 280, marginBottom: 14 }} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search materials…" />
       )}
       {loading ? (
         <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>Loading…</div>
       ) : items.length === 0 ? (
-        <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>No materials yet.</div>
+        <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>
+          No materials yet. Add one, or import a CSV with <code>name</code>, <code>description</code>, <code>unit_price</code> columns.
+        </div>
       ) : (
         <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>

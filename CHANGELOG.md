@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.29.0] — 2026-07-09
+
+### Added — CSV import for Materials
+- New **Import CSV** button on Settings → Materials (admin only): upload a CSV with `name` (required), `description`, `unit_price` columns to bulk-create catalog entries. Previously the only way to add materials was one at a time via the "+ New Material" form.
+- Validates every row before writing anything — a single malformed file can't half-import. Per-row errors (missing name, name/description too long, unrecognized `unit_price`, negative `unit_price`) are collected and returned alongside a count of successfully created rows, so valid rows still get created even when some rows fail; the row number in each error matches what the user sees in a spreadsheet (header = row 1).
+- `unit_price` tolerates common spreadsheet formatting — a leading `$` and thousands-separator commas (e.g. `"$1,234.56"`) are accepted.
+- Limits: 2 MB file size, 5000 rows, UTF-8 (BOM tolerated) encoded CSV with a header row.
+- New `POST /materials/import` endpoint (admin-only, gated by the existing `FEATURE_MATERIALS` toggle); new `importMaterialsCsv()` in `src/api/materials.js` using the same `FormData` upload pattern as document uploads.
+
+### Tests
+- New tests in `backend/tests/test_materials.py` (+8): successful import, missing required column, default description/price when omitted, per-row error reporting without blocking valid rows, `$`/comma price parsing, empty file rejection, admin gating, feature-toggle gating.
+- Extended `src/__tests__/SettingsPage.test.jsx` (+3): file selection triggers the upload and refreshes the list, partial-failure error summary renders per row, request failure shows a toast.
+
 ## [1.28.0] — 2026-07-09
 
 ### Fixed — invoice PDF/email XSS gap, Dashboard funnel layout
