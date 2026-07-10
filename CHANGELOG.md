@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.33.0] — 2026-07-10
+
+### Changed — Services are now selected the same way as Materials
+- The ticket editor's Services section previously used a plain dropdown listing the entire ~30/10-item service catalogue with no search. It now uses the same type-to-search input + filtered dropdown that Materials already use — type a few letters, see matching services with a preview price, click to autofill. Selection behavior (flat/per-unit/hourly pricing fields) is unchanged, only the picker UI.
+- **Quotes gained a third line type, "Service"** (alongside the existing Labor/Material), searchable against the same service catalogue the ticket editor uses, filtered by the quote's client type (business/residential) — falls back to business if no client is picked yet. Picking a service autofills the line's description and a starting price (flat-fee services use their base price; per-unit and hourly services use their rate) into the line's existing qty/unit_price/amount fields — freely editable afterward, same as Material lines. No schema/database change — quote lines still only carry qty × unit_price = amount.
+- Internal: extracted the `SERVICES` catalogue out of `App.jsx` into its own `src/services.js` module so both `App.jsx` and `QuotesPage.jsx` can import it without a circular dependency.
+
+### Tests
+- Extended `src/__tests__/TicketEditor.test.jsx` (+3): the Services section renders a search input instead of a dropdown, typing filters matches and picking one autofills the row, and a non-matching search shows "No matches".
+- Extended `src/__tests__/QuotesPage.test.jsx` (+3): switching a line to "Service" shows the search input, typing shows matching catalogue entries, and picking a flat-fee service autofills qty/unit_price/amount.
+
 ## [1.32.0] — 2026-07-09
 
 ### Changed — Branding/Appearance now saved server-side

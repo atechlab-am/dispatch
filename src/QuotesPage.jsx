@@ -7,6 +7,7 @@ import {
 import { listClients } from "./api/clients.js";
 import { listMaterials } from "./api/materials.js";
 import { openPdfWithAuth } from "./api/client.js";
+import { SERVICES } from "./services.js";
 
 const brand = {
   blue: "#1A5CBA", accent: "#E8A020", bg: "#F4F7FC", surface: "#FFFFFF",
@@ -60,7 +61,7 @@ const TAX_PRESETS = [
   { label: "AB (5% GST)", value: 0.05 },
 ];
 
-const ITEM_TYPES = ["Labor", "Material"];
+const ITEM_TYPES = ["Labor", "Material", "Service"];
 const EMPTY_LINE = { description: "", item_type: "Labor", qty: 1, unit_price: 0, amount: 0 };
 const EMPTY_QUOTE = {
   client_id: null, client_name: "", client_email: "", client_address: "", project_name: "",
@@ -115,7 +116,7 @@ function SendEmailModal({ quote, showToast, onClose, onSent }) {
 }
 
 // ─── Quote editor (create / edit) ────────────────────────────────────────────
-export function QuoteEditor({ quote, clients, materials = [], onSave, onCancel, showToast }) {
+export function QuoteEditor({ quote, clients = [], materials = [], onSave, onCancel, showToast }) {
   const isNew = !quote;
   const [form, setForm] = useState(() => {
     if (!quote) return { ...EMPTY_QUOTE };
@@ -139,6 +140,10 @@ export function QuoteEditor({ quote, clients, materials = [], onSave, onCancel, 
   const [transitioning, setTransitioning] = useState(false);
   const [converting, setConverting] = useState(false);
   const [openMaterialRow, setOpenMaterialRow] = useState(null);
+  const [openServiceRow, setOpenServiceRow] = useState(null);
+
+  const clientType = clients.find(c => c.id === form.client_id)?.client_type || "business";
+  const serviceCatalogue = SERVICES[clientType] || [];
 
   const up = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -168,8 +173,8 @@ export function QuoteEditor({ quote, clients, materials = [], onSave, onCancel, 
       const lines = p.lines.map((l, idx) => {
         if (idx !== i) return l;
         const updated = { ...l, [k]: raw };
-        // Materials are whole units — switching a line to Material rounds qty up to the nearest full unit.
-        if (k === "item_type" && raw === "Material") {
+        // Materials/Services are whole units — switching a line to either rounds qty up to the nearest full unit.
+        if (k === "item_type" && (raw === "Material" || raw === "Service")) {
           updated.qty = Math.max(1, Math.round(Number(updated.qty) || 1));
         }
         const qty = k === "qty" ? Number(raw) : Number(updated.qty);
@@ -192,6 +197,19 @@ export function QuoteEditor({ quote, clients, materials = [], onSave, onCancel, 
       return { ...p, lines };
     });
     setOpenMaterialRow(null);
+  };
+
+  const pickService = (i, svc) => {
+    setForm(p => {
+      const lines = p.lines.map((l, idx) => {
+        if (idx !== i) return l;
+        const qty = 1;
+        const unit_price = svc.type === "flat" ? (svc.base || 0) : (svc.rate || 0);
+        return { ...l, description: svc.name, item_type: "Service", qty, unit_price, amount: parseFloat((qty * unit_price).toFixed(2)) };
+      });
+      return { ...p, lines };
+    });
+    setOpenServiceRow(null);
   };
 
   const addLine = () => setForm(p => ({ ...p, lines: [...p.lines, { ...EMPTY_LINE }] }));
@@ -374,8 +392,12 @@ export function QuoteEditor({ quote, clients, materials = [], onSave, onCancel, 
             <tbody>
               {form.lines.map((l, i) => {
                 const isMaterial = l.item_type === "Material";
+                const isService = l.item_type === "Service";
                 const materialMatches = isMaterial && l.description.trim()
                   ? materials.filter(m => m.name.toLowerCase().includes(l.description.trim().toLowerCase()))
+                  : [];
+                const serviceMatches = isService && l.description.trim()
+                  ? serviceCatalogue.filter(c => c.name.toLowerCase().includes(l.description.trim().toLowerCase()))
                   : [];
                 return (
                 <tr key={i}>
@@ -385,9 +407,9 @@ export function QuoteEditor({ quote, clients, materials = [], onSave, onCancel, 
                       disabled={!canEdit}
                       value={l.description}
                       onChange={e => upLine(i, "description", e.target.value)}
-                      onFocus={() => isMaterial && setOpenMaterialRow(i)}
-                      onBlur={() => setTimeout(() => setOpenMaterialRow(o => (o === i ? null : o)), 150)}
-                      placeholder={isMaterial ? "Search materials or type a name…" : "Description of service or product"}
+                      onFocus={() => { if (isMaterial) setOpenMaterialRow(i); if (isService) setOpenServiceRow(i); }}
+                      onBlur={() => { setTimeout(() => setOpenMaterialRow(o => (o === i ? null : o)), 150); setTimeout(() => setOpenServiceRow(o => (o === i ? null : o)), 150); }}
+                      placeholder={isMaterial ? "Search materials or type a name…" : isService ? "Search services…" : "Description of service or product"}
                     />
                     {canEdit && isMaterial && openMaterialRow === i && l.description.trim() && (
                       <div style={{ border: `1px solid ${brand.border}`, borderRadius: 6, marginTop: 4, maxHeight: 180, overflowY: "auto", background: "#fff", boxShadow: "0 4px 12px rgba(0,0,0,0.10)", zIndex: 10, position: "absolute", left: 10, right: 10 }}>
@@ -405,6 +427,22 @@ export function QuoteEditor({ quote, clients, materials = [], onSave, onCancel, 
                         )}
                       </div>
                     )}
+                    {canEdit && isService && openServiceRow === i && l.description.trim() && (
+                      <div style={{ border: `1px solid ${brand.border}`, borderRadius: 6, marginTop: 4, maxHeight: 180, overflowY: "auto", background: "#fff", boxShadow: "0 4px 12px rgba(0,0,0,0.10)", zIndex: 10, position: "absolute", left: 10, right: 10 }}>
+                        {serviceMatches.length === 0 ? (
+                          <div style={{ padding: "9px 12px", fontSize: 13, color: brand.muted }}>No matches</div>
+                        ) : (
+                          serviceMatches.map(c => (
+                            <div key={c.id}
+                              onMouseDown={e => { e.preventDefault(); pickService(i, c); }}
+                              style={{ padding: "9px 12px", fontSize: 13, cursor: "pointer", borderBottom: `1px solid ${brand.border}`, display: "flex", justifyContent: "space-between", gap: 10 }}>
+                              <span style={{ fontWeight: 600 }}>{c.name}</span>
+                              <span style={{ color: brand.muted }}>{c.type === "hourly" ? `$${fmt(c.rate)}/hr` : `$${fmt(c.type === "flat" ? c.base : c.rate)}`}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}`, width: 110 }}>
                     <select style={inp} disabled={!canEdit} value={l.item_type || "Labor"} onChange={e => upLine(i, "item_type", e.target.value)}>
@@ -412,7 +450,7 @@ export function QuoteEditor({ quote, clients, materials = [], onSave, onCancel, 
                     </select>
                   </td>
                   <td style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}`, width: 90 }}>
-                    <input style={{ ...inp, textAlign: "right" }} disabled={!canEdit} type="number" min={isMaterial ? "1" : "0"} step={isMaterial ? "1" : "0.01"} value={l.qty} onChange={e => upLine(i, "qty", e.target.value)} />
+                    <input style={{ ...inp, textAlign: "right" }} disabled={!canEdit} type="number" min={isMaterial || isService ? "1" : "0"} step={isMaterial || isService ? "1" : "0.01"} value={l.qty} onChange={e => upLine(i, "qty", e.target.value)} />
                   </td>
                   <td style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}`, width: 130 }}>
                     <input style={{ ...inp, textAlign: "right" }} disabled={!canEdit} type="number" min="0" step="0.01" value={l.unit_price} onChange={e => upLine(i, "unit_price", e.target.value)} />

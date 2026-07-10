@@ -207,3 +207,38 @@ describe("Materials Used section", () => {
     expect(screen.getAllByText("$50.00").length).toBeGreaterThan(0);
   });
 });
+
+describe("Services section", () => {
+  test("renders a type-to-search input instead of a dropdown", async () => {
+    render(<TicketEditor ticket={baseTicket()} onSave={vi.fn()} showToast={() => {}} />);
+    fireEvent.click(screen.getByText("+ Add Service"));
+    expect(screen.getByPlaceholderText("Search services…")).toBeInTheDocument();
+    expect(screen.queryByText("— Select service —")).not.toBeInTheDocument();
+  });
+
+  test("typing shows matching catalogue entries, and picking one autofills the row", async () => {
+    render(<TicketEditor ticket={baseTicket()} onSave={vi.fn()} showToast={() => {}} />);
+    fireEvent.click(screen.getByText("+ Add Service"));
+
+    const nameInput = screen.getByPlaceholderText("Search services…");
+    fireEvent.change(nameInput, { target: { value: "Server Health" } });
+    fireEvent.focus(nameInput);
+
+    const match = await screen.findByText("Server Health Check");
+    fireEvent.mouseDown(match);
+
+    await waitFor(() => expect(nameInput.value).toBe("Server Health Check"));
+    expect(screen.getAllByText("$300.00", { exact: false }).length).toBeGreaterThan(0);
+  });
+
+  test("shows no matches for a non-matching search", async () => {
+    render(<TicketEditor ticket={baseTicket()} onSave={vi.fn()} showToast={() => {}} />);
+    fireEvent.click(screen.getByText("+ Add Service"));
+
+    const nameInput = screen.getByPlaceholderText("Search services…");
+    fireEvent.change(nameInput, { target: { value: "Nonexistent Service Zzz" } });
+    fireEvent.focus(nameInput);
+
+    expect(await screen.findByText("No matches")).toBeInTheDocument();
+  });
+});

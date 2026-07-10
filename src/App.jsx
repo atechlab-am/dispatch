@@ -18,6 +18,7 @@ import { listClients, createClient, updateClient, deleteClient } from "./api/cli
 import { listDocuments, downloadUrl as docDownloadUrl } from "./api/documents.js";
 import { listTicketDocuments, attachDocument, updateTicketDocument, detachDocument } from "./api/ticketDocuments.js";
 import { listMaterials } from "./api/materials.js";
+import { SERVICES } from "./services.js";
 import FormsSection from "./FormsSection.jsx";
 import LoginPage from "./LoginPage.jsx";
 import SettingsPage from "./SettingsPage.jsx";
@@ -43,56 +44,6 @@ const brand = {
   muted: "#5B6D82",
   success: "#1a8f4a",
   danger: "#c0392b",
-};
-
-// ─── Service catalogue ────────────────────────────────────────────────────────
-const SERVICES = {
-  business: [
-    { id: "health_check",           name: "IT Health Check",                            type: "flat",     base: 250, unit: "up to 5 users/devices", perUnit: 25,  perUnitLabel: "per additional user/device" },
-    { id: "email_domain",           name: "Professional Email & Custom Domain",          type: "flat",     base: 200, unit: "per domain",            perUnit: 40,  perUnitLabel: "per user/mailbox" },
-    { id: "email_migration_10",     name: "Email Migration (up to 10 GB/mailbox)",       type: "per_unit", rate: 150, unitLabel: "mailbox" },
-    { id: "email_migration_50",     name: "Email Migration (10–50 GB/mailbox)",          type: "per_unit", rate: 200, unitLabel: "mailbox" },
-    { id: "email_migration_50p",    name: "Email Migration (50 GB+/mailbox)",            type: "per_unit", rate: 250, unitLabel: "mailbox" },
-    { id: "win11_assessment",       name: "Windows 11 Compatibility Assessment",         type: "per_unit", rate: 75,  unitLabel: "device" },
-    { id: "win11_upgrade",          name: "Windows 11 In-Place Upgrade",                 type: "per_unit", rate: 200, unitLabel: "device" },
-    { id: "new_pc_setup",           name: "New PC Setup & Data Migration",               type: "per_unit", rate: 300, unitLabel: "device" },
-    { id: "network_assessment",     name: "Network Assessment (small office)",           type: "flat",     base: 250, unit: "flat" },
-    { id: "network_assessment_cx",  name: "Network Assessment (complex)",                type: "flat",     base: 350, unit: "flat" },
-    { id: "basic_network_setup",    name: "Basic Network Setup",                         type: "flat",     base: 250, unit: "router + up to 2 APs", perUnit: 75, perUnitLabel: "per additional AP" },
-    { id: "advanced_network_setup", name: "Advanced Network Setup",                      type: "flat",     base: 500, unit: "flat" },
-    { id: "backup_setup",           name: "Backup Setup & Verification",                 type: "flat",     base: 400, unit: "first data source",    perUnit: 150, perUnitLabel: "per additional source" },
-    { id: "backup_restore",         name: "Backup Restore Test (optional add-on)",       type: "flat",     base: 150, unit: "flat" },
-    { id: "server_health",          name: "Server Health Check",                         type: "per_unit", rate: 300, unitLabel: "server" },
-    { id: "server_health_cx",       name: "Server Health Check (complex)",               type: "per_unit", rate: 450, unitLabel: "server" },
-    { id: "server_maintenance",     name: "Server Maintenance",                          type: "hourly",   rate: 120 },
-    { id: "server_maintenance_ah",  name: "Server Maintenance (after-hours)",            type: "hourly",   rate: 150 },
-    { id: "hourly_remote",          name: "Hourly IT Support – Remote",                  type: "hourly",   rate: 110 },
-    { id: "hourly_onsite",          name: "Hourly IT Support – On-Site",                 type: "hourly",   rate: 130 },
-    { id: "hourly_ah_remote",       name: "Hourly IT Support – After-Hours Remote",      type: "hourly",   rate: 150 },
-    { id: "hourly_ah_onsite",       name: "Hourly IT Support – After-Hours On-Site",     type: "hourly",   rate: 175 },
-    { id: "it_consulting",          name: "IT Consulting",                               type: "hourly",   rate: 125 },
-    { id: "cloudflare_zt",          name: "Cloudflare Zero Trust Setup",                 type: "hourly",   rate: 175 },
-    { id: "site_to_site",           name: "Site-to-Site Network Connectivity",           type: "hourly",   rate: 175 },
-    { id: "remote_monitoring",      name: "Remote Monitoring Setup",                     type: "hourly",   rate: 175 },
-    { id: "pos_support",            name: "POS Setup & IT Support",                      type: "hourly",   rate: 130 },
-    { id: "managed_starter",        name: "Managed Support – Starter",                   type: "flat",     base: 150, unit: "per month" },
-    { id: "managed_small",          name: "Managed Support – Small Business",            type: "flat",     base: 300, unit: "per month" },
-    { id: "managed_growing",        name: "Managed Support – Growing Business",          type: "flat",     base: 500, unit: "per month" },
-    { id: "basic_it_setup",         name: "Basic IT Setup",                              type: "per_unit", rate: 150, unitLabel: "device" },
-    { id: "advanced_it_setup",      name: "Advanced IT Setup",                           type: "per_unit", rate: 275, unitLabel: "device" },
-  ],
-  residential: [
-    { id: "res_remote",    name: "Remote Support",              type: "hourly",   rate: 85 },
-    { id: "res_onsite",    name: "On-Site Support",             type: "hourly",   rate: 85 },
-    { id: "res_new_pc",    name: "New PC Setup & Data Transfer",type: "per_unit", rate: 300, unitLabel: "device" },
-    { id: "res_email",     name: "Email & Account Setup",       type: "hourly",   rate: 85 },
-    { id: "res_wifi",      name: "Wi-Fi & Network Setup",       type: "hourly",   rate: 85 },
-    { id: "res_backup",    name: "Backup Setup",                type: "flat",     base: 400, unit: "flat" },
-    { id: "res_virus",     name: "Virus & Malware Removal",     type: "hourly",   rate: 85 },
-    { id: "res_general",   name: "General IT Support",          type: "hourly",   rate: 85 },
-    { id: "res_printer",   name: "Printer & Peripheral Setup",  type: "hourly",   rate: 85 },
-    { id: "res_software",  name: "Software Install & Setup",    type: "hourly",   rate: 85 },
-  ],
 };
 
 const TRAVEL_FEES = [
@@ -478,23 +429,51 @@ const Toast = ({ msg, type, onClose }) => {
 };
 
 // ─── Service row ──────────────────────────────────────────────────────────────
-const ServiceRow = ({ svc, catalogue, onChange, onRemove }) => {
+const ServiceRow = ({ svc, catalogue, open, onOpenChange, onChange, onRemove }) => {
   const def = catalogue.find(c => c.id === svc.serviceId);
   const handleChange = (id) => {
     const d = catalogue.find(c => c.id === id);
     if (!d) return onChange({ ...svc, serviceId:"", name:"", type:"" });
     onChange({ ...svc, serviceId:id, name:d.name, type:d.type, rate:d.rate||0, base:d.base||0, perUnit:d.perUnit||0, perUnitLabel:d.perUnitLabel||"", unitLabel:d.unitLabel||"unit", qty:1, extraQty:0 });
   };
+  const pick = (d) => {
+    handleChange(d.id);
+    onOpenChange(false);
+  };
+  const matches = svc.name && !svc.serviceId
+    ? catalogue.filter(c => c.name.toLowerCase().includes(svc.name.trim().toLowerCase()))
+    : [];
   const cellStyle = { padding:"8px 10px", border:`1px solid ${brand.border}`, borderRadius:6, fontSize:12, color:brand.text, background:"#fff", width:"100%" };
   return (
     <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
       <div style={{ display:"flex", gap:8, alignItems:"flex-start" }}>
-        <div style={{ flex:2 }}>
+        <div style={{ flex:2, position:"relative" }}>
           <FieldLabel>Service</FieldLabel>
-          <select value={svc.serviceId||""} onChange={e=>handleChange(e.target.value)} style={cellStyle}>
-            <option value="">— Select service —</option>
-            {catalogue.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <input
+            type="text"
+            value={svc.name||""}
+            onChange={e => onChange({ ...svc, serviceId:"", name:e.target.value, type:"" })}
+            onFocus={() => onOpenChange(true)}
+            onBlur={() => setTimeout(() => onOpenChange(false), 150)}
+            placeholder="Search services…"
+            style={cellStyle}
+          />
+          {open && svc.name?.trim() && !svc.serviceId && (
+            <div style={{ border:`1px solid ${brand.border}`, borderRadius:6, marginTop:4, maxHeight:180, overflowY:"auto", background:"#fff", boxShadow:"0 4px 12px rgba(0,0,0,0.10)", zIndex:10, position:"absolute", left:0, right:0 }}>
+              {matches.length === 0 ? (
+                <div style={{ padding:"9px 12px", fontSize:13, color:brand.muted }}>No matches</div>
+              ) : (
+                matches.map(c => (
+                  <div key={c.id}
+                    onMouseDown={e => { e.preventDefault(); pick(c); }}
+                    style={{ padding:"9px 12px", fontSize:13, cursor:"pointer", borderBottom:`1px solid ${brand.border}`, display:"flex", justifyContent:"space-between", gap:10 }}>
+                    <span style={{ fontWeight:600 }}>{c.name}</span>
+                    <span style={{ color:brand.muted }}>{c.type === "hourly" ? `${fmt(c.rate)}/hr` : fmt(c.type === "flat" ? c.base : c.rate)}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
         {def?.type === "per_unit" && (
           <div style={{ width:110 }}>
@@ -1621,6 +1600,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
   const [convertPrompt, setConvertPrompt] = useState(null); // the linked Quote, once found
   const [converting, setConverting] = useState(false);
   const [openMaterialRow, setOpenMaterialRow] = useState(null);
+  const [openServiceRow, setOpenServiceRow] = useState(null);
   const autoSaveTimer = useRef(null);
   const isNew = !ticket.id;
   const RESOLVED_STATUSES = ["Resolved", "Closed"];
@@ -2047,7 +2027,15 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
           <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
             <SectionHeader>Services</SectionHeader>
             {t.services.map((sv,i) => (
-              <ServiceRow key={sv._id||i} svc={sv} catalogue={catalogue} onChange={v=>updSvc(i,v)} onRemove={()=>remSvc(i)} />
+              <ServiceRow
+                key={sv._id||i}
+                svc={sv}
+                catalogue={catalogue}
+                open={openServiceRow === i}
+                onOpenChange={(v) => setOpenServiceRow(v ? i : null)}
+                onChange={v=>updSvc(i,v)}
+                onRemove={()=>remSvc(i)}
+              />
             ))}
             <Btn onClick={addSvc} variant="secondary" small>+ Add Service</Btn>
           </div>

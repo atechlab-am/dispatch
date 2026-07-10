@@ -1,7 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { vi } from "vitest";
-import QuotesPage, { QuoteEditorRoute } from "../QuotesPage.jsx";
+import QuotesPage, { QuoteEditorRoute, QuoteEditor } from "../QuotesPage.jsx";
 
 vi.mock("../api/quotes.js", () => ({
   listQuotes: vi.fn().mockResolvedValue({
@@ -72,4 +72,40 @@ test("/quotes/:id populates the Project Name field from the fetched quote", asyn
     </MemoryRouter>
   );
   expect(await screen.findByDisplayValue("Office Network Upgrade")).toBeInTheDocument();
+});
+
+describe("Service line type", () => {
+  const businessClient = { id: 1, name: "Acme Corp", company: "Acme Corp", client_type: "business", email: "", address: "" };
+
+  test("switching a line to Service shows a type-to-search input", () => {
+    render(<QuoteEditor clients={[businessClient]} onSave={noop} onCancel={noop} showToast={noop} />);
+    fireEvent.change(screen.getByDisplayValue("Labor"), { target: { value: "Service" } });
+    expect(screen.getByPlaceholderText("Search services…")).toBeInTheDocument();
+  });
+
+  test("typing shows matching catalogue entries with a preview price", async () => {
+    render(<QuoteEditor clients={[businessClient]} onSave={noop} onCancel={noop} showToast={noop} />);
+    fireEvent.change(screen.getByDisplayValue("Labor"), { target: { value: "Service" } });
+
+    const descInput = screen.getByPlaceholderText("Search services…");
+    fireEvent.change(descInput, { target: { value: "Server Health" } });
+    fireEvent.focus(descInput);
+
+    expect(await screen.findByText("Server Health Check")).toBeInTheDocument();
+  });
+
+  test("picking a flat-fee service autofills qty/unit_price/amount", async () => {
+    render(<QuoteEditor clients={[businessClient]} onSave={noop} onCancel={noop} showToast={noop} />);
+    fireEvent.change(screen.getByDisplayValue("Labor"), { target: { value: "Service" } });
+
+    const descInput = screen.getByPlaceholderText("Search services…");
+    fireEvent.change(descInput, { target: { value: "IT Health Check" } });
+    fireEvent.focus(descInput);
+
+    const match = await screen.findByText("IT Health Check");
+    fireEvent.mouseDown(match);
+
+    await waitFor(() => expect(descInput.value).toBe("IT Health Check"));
+    expect(screen.getAllByText("250.00", { exact: false }).length).toBeGreaterThan(0);
+  });
 });
