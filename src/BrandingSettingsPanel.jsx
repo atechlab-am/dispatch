@@ -58,7 +58,7 @@ const PRESET_PALETTES = [
   { name: "Midnight",     primary: "#0369a1", accent: "#06b6d4" },
 ];
 
-export default function BrandingSettingsPanel({ onClose }) {
+export default function BrandingSettingsPanel({ onClose, showToast }) {
   const branding = useBranding();
 
   // Snapshot of branding when panel opened — used to revert on cancel
@@ -73,18 +73,26 @@ export default function BrandingSettingsPanel({ onClose }) {
   }));
   const [form, setForm] = useState({ ...original });
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // Apply every change live so the sidebar/UI updates instantly
   const up = (k, v) => {
     const next = { ...form, [k]: v };
     setForm(next);
-    branding.update(next);   // live preview — not yet persisted to localStorage
+    branding.update(next);   // live preview only — not yet persisted
   };
 
-  const handleSave = () => {
-    branding.update(form);   // persist to localStorage
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await branding.save(form);   // persists server-side, shared by everyone
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      showToast?.("Failed to save appearance settings.", "err");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -106,7 +114,7 @@ export default function BrandingSettingsPanel({ onClose }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#0f172a" }}>Appearance Settings</h2>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: "#64748b" }}>Customize branding for the New UI. Changes are saved locally in this browser.</p>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: "#64748b" }}>Customize branding for the New UI. Changes apply to everyone using this app.</p>
         </div>
         <button onClick={handleCancel} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#94a3b8", lineHeight: 1 }}>×</button>
       </div>
@@ -234,8 +242,8 @@ export default function BrandingSettingsPanel({ onClose }) {
         <button onClick={handleCancel} style={{ padding: "9px 20px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", color: "#64748b" }}>
           Cancel (revert)
         </button>
-        <button onClick={handleSave} style={{ padding: "9px 24px", borderRadius: 8, border: "none", background: form.primaryColor, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: `0 2px 8px ${form.primaryColor}44` }}>
-          {saved ? "✓ Saved!" : "Save Changes"}
+        <button onClick={handleSave} disabled={saving} style={{ padding: "9px 24px", borderRadius: 8, border: "none", background: form.primaryColor, color: "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit", boxShadow: `0 2px 8px ${form.primaryColor}44`, opacity: saving ? 0.7 : 1 }}>
+          {saving ? "Saving…" : saved ? "✓ Saved!" : "Save Changes"}
         </button>
       </div>
     </div>

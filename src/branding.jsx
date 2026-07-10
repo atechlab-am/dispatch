@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
-
-const STORAGE_KEY = "dispatch_branding";
+import { getBranding, updateBranding } from "./api/branding.js";
 
 const DEFAULTS = {
   primaryColor:   "#1A5CBA",
@@ -12,17 +11,28 @@ const DEFAULTS = {
   sidebarDark:    true,     // sidebar style: dark=true, light=false
 };
 
-export function loadBranding() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return { ...DEFAULTS, ...JSON.parse(raw) };
-  } catch {}
-  return { ...DEFAULTS };
+function apiToBranding(data) {
+  return {
+    companyName: data.company_name,
+    tagline:     data.tagline,
+    primaryColor: data.primary_color,
+    accentColor:  data.accent_color,
+    logoUrl:      data.logo_url,
+    faviconUrl:   data.favicon_url,
+    sidebarDark:  data.sidebar_dark,
+  };
 }
 
-export function saveBranding(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  applyFavicon(data.faviconUrl);
+function brandingToApi(data) {
+  return {
+    company_name: data.companyName,
+    tagline:      data.tagline,
+    primary_color: data.primaryColor,
+    accent_color:  data.accentColor,
+    logo_url:      data.logoUrl,
+    favicon_url:   data.faviconUrl,
+    sidebar_dark:  data.sidebarDark,
+  };
 }
 
 export function applyFavicon(url) {
@@ -43,20 +53,31 @@ export function useBranding() {
 }
 
 export function BrandingProvider({ children }) {
-  const [branding, setBranding] = useState(loadBranding);
+  const [branding, setBranding] = useState(DEFAULTS);
+
+  useEffect(() => {
+    getBranding()
+      .then(data => setBranding(apiToBranding(data)))
+      .catch(() => {}); // fresh install / not-yet-configured — keep serving DEFAULTS
+  }, []);
 
   useEffect(() => {
     applyFavicon(branding.faviconUrl);
   }, [branding.faviconUrl]);
 
+  // Live preview only — does not persist. Callers that need to persist call
+  // save() explicitly (see BrandingSettingsPanel.jsx's handleSave).
   const update = (data) => {
-    const next = { ...branding, ...data };
-    setBranding(next);
-    saveBranding(next);
+    setBranding(prev => ({ ...prev, ...data }));
+  };
+
+  const save = async (data) => {
+    const saved = await updateBranding(brandingToApi(data));
+    setBranding(apiToBranding(saved));
   };
 
   return (
-    <BrandingContext.Provider value={{ ...branding, update }}>
+    <BrandingContext.Provider value={{ ...branding, update, save }}>
       {children}
     </BrandingContext.Provider>
   );

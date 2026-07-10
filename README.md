@@ -130,6 +130,11 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Role-based access: admin and technician
 - Self-service password change; minimum 8-character passwords enforced
 
+### Appearance (admin only)
+- Company-wide branding — company name, tagline, logo, favicon, primary/accent colors, sidebar dark/light style (New UI → Settings → ✦ Appearance)
+- Saved server-side and shared by everyone who uses the app — not a per-browser or per-user setting
+- Live preview while editing; Save persists it for everyone, Cancel reverts without saving
+
 ### Backups (admin only)
 - Database + uploaded files backed up to a NAS share over SMB2/3 — pushed directly over the network from the backend container, no CIFS mount or elevated container privileges required
 - Runs on a configurable schedule (`BACKUP_INTERVAL_HOURS`, default daily) plus an on-demand **Backup Now** button (Settings → Backup)

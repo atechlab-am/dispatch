@@ -320,7 +320,7 @@ export default function AppNew({
                 <div style={{ display: "flex", gap: 6, marginBottom: 24, borderBottom: "2px solid #e2e8f0", paddingBottom: 0 }}>
                   {[
                     { id: false, label: "Users & Account" },
-                    { id: true,  label: "✦ Appearance" },
+                    ...(isAdmin ? [{ id: true, label: "✦ Appearance" }] : []),
                   ].map(tab => (
                     <button key={String(tab.id)} onClick={() => setShowBranding(tab.id)}
                       style={{ padding: "8px 18px", border: "none", borderBottom: `3px solid ${showBranding === tab.id ? primary : "transparent"}`, background: "none", fontWeight: showBranding === tab.id ? 700 : 500, fontSize: 13, color: showBranding === tab.id ? primary : "#64748b", cursor: "pointer", fontFamily: "inherit", marginBottom: -2, transition: "all 0.12s" }}>
@@ -328,8 +328,8 @@ export default function AppNew({
                     </button>
                   ))}
                 </div>
-                {showBranding
-                  ? <BrandingSettingsPanel onClose={() => setShowBranding(false)} />
+                {showBranding && isAdmin
+                  ? <BrandingSettingsPanel onClose={() => setShowBranding(false)} showToast={showToast} />
                   : <SettingsPage user={user} showToast={showToast} features={features} />
                 }
               </div>

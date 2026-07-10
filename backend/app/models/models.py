@@ -669,3 +669,20 @@ class BackupRun(Base):
     size_bytes = Column(BigInteger, nullable=True)
     error = Column(Text, nullable=False, default="")
     triggered_by = Column(String(20), nullable=False)  # schedule | manual
+
+
+class Branding(Base):
+    """Company-wide appearance settings — a single row (id=1), admin-managed.
+    Replaces what used to live only in browser localStorage."""
+    __tablename__ = "branding"
+
+    id = Column(Integer, primary_key=True, default=1)
+    company_name = Column(String(255), nullable=False, default="ATech Solutions")
+    tagline = Column(String(255), nullable=False, default="IT Support & Managed Services")
+    primary_color = Column(String(20), nullable=False, default="#1A5CBA")
+    accent_color = Column(String(20), nullable=False, default="#E8A020")
+    logo_url = Column(Text, nullable=False, default="")      # may hold a data: URL from file upload
+    favicon_url = Column(Text, nullable=False, default="")   # same reasoning
+    sidebar_dark = Column(Boolean, nullable=False, default=True)
+    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)

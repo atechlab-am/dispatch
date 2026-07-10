@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.32.0] — 2026-07-09
+
+### Changed — Branding/Appearance now saved server-side
+- The Appearance settings panel (New UI → Settings → ✦ Appearance) previously saved company name, tagline, logo, favicon, colors, and sidebar style **only in that browser's `localStorage`** — the panel literally said so. That meant the look didn't survive a cache clear, wasn't shared across devices, and different users/browsers could see different branding for what's supposed to be one company identity.
+- Branding is now a single company-wide row in the database, fetched on load and shown to every logged-in user the same way. New `GET /branding` (any authenticated user) / `PUT /branding` (admin-only) endpoints; new `branding` table (migration `0040`).
+- **The Appearance tab is now admin-only** — previously any logged-in user could open and change it; non-admins now only see "Users & Account" under Settings.
+- Uploaded logos/favicons are still stored as data URLs (same upload mechanism as before), just persisted in the new `branding` table instead of `localStorage`.
+- Live preview while editing is unchanged (colors/logo update instantly as you type/pick), only what happens on **Save** changed — it now calls the API instead of writing to `localStorage`, and shows an error toast if the save fails instead of silently succeeding.
+
+### Tests
+- New `backend/tests/test_branding.py` (+5): default values on a fresh install, admin update + persistence across reads, technician update rejected (403), repeated updates don't clobber unrelated fields.
+- New `src/__tests__/BrandingSettingsPanel.test.jsx` (+3): save calls the API and shows the confirmation, a failed save shows an error toast instead of a false "Saved", cancel reverts the live preview without calling the API.
+
 ## [1.31.0] — 2026-07-09
 
 ### Added — Projects, a top-level entity wrapping Quote → Ticket → Invoice
