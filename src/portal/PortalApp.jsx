@@ -4,6 +4,7 @@ import {
   getClientBySlug, portalLogin, portalLogout, portalMe, portalChangePassword,
   listMyTickets, getMyTicket, submitTicket,
   listMyInvoices, getMyInvoice, portalInvoicePdfUrl, createCheckoutSession,
+  getPortalBrandingPublic,
 } from "./api.js";
 import { setTokens, clearTokens, hasStoredSession, registerLogoutHandler, openPdfWithAuth } from "./client.js";
 import { isInvoicePayable } from "./helpers.js";
@@ -18,6 +19,13 @@ const brand = {
   white: "#fff",
   border: "#e2e8f0",
   text: "#0f172a",
+};
+
+const DEFAULT_PORTAL_BRANDING = {
+  company_name: "ATech Solutions",
+  primary_color: brand.primary,
+  accent_color: brand.accent,
+  logo_url: "",
 };
 
 const STATUS_COLORS = {
@@ -135,7 +143,7 @@ function Toast({ message, type, onClose }) {
 
 // ─── Login Page ───────────────────────────────────────────────────────────────
 
-function LoginPage({ slug, onLogin }) {
+function LoginPage({ slug, onLogin, branding = DEFAULT_PORTAL_BRANDING }) {
   const [clientInfo, setClientInfo] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [email, setEmail] = useState("");
@@ -199,9 +207,13 @@ function LoginPage({ slug, onLogin }) {
         boxShadow: "0 4px 24px rgba(0,0,0,0.10)", width: "100%", maxWidth: 420,
       }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ fontSize: 26, fontWeight: 800, color: brand.primary, letterSpacing: -0.5 }}>
-            ATech<span style={{ color: brand.accent }}>Solutions</span>
-          </div>
+          {branding.logo_url ? (
+            <img src={branding.logo_url} alt={branding.company_name} style={{ maxHeight: 40, maxWidth: 220, objectFit: "contain", marginBottom: 4 }} />
+          ) : (
+            <div style={{ fontSize: 26, fontWeight: 800, color: branding.primary_color, letterSpacing: -0.5 }}>
+              {branding.company_name.split(" ")[0]}<span style={{ color: branding.accent_color }}>{branding.company_name.slice(branding.company_name.split(" ")[0].length)}</span>
+            </div>
+          )}
           <div style={{ fontSize: 18, fontWeight: 700, color: brand.text, marginTop: 12 }}>
             {clientInfo.name}
           </div>
@@ -259,7 +271,7 @@ function LoginPage({ slug, onLogin }) {
 
 // ─── Change Password Page ─────────────────────────────────────────────────────
 
-function ChangePasswordPage({ user, onChanged, onSkip, forced, showToast }) {
+function ChangePasswordPage({ user, onChanged, onSkip, forced, showToast, branding = DEFAULT_PORTAL_BRANDING }) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -301,9 +313,13 @@ function ChangePasswordPage({ user, onChanged, onSkip, forced, showToast }) {
         boxShadow: "0 4px 24px rgba(0,0,0,0.10)", width: "100%", maxWidth: 420,
       }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ fontSize: 26, fontWeight: 800, color: brand.primary, letterSpacing: -0.5 }}>
-            ATech<span style={{ color: brand.accent }}>Solutions</span>
-          </div>
+          {branding.logo_url ? (
+            <img src={branding.logo_url} alt={branding.company_name} style={{ maxHeight: 40, maxWidth: 220, objectFit: "contain", marginBottom: 4 }} />
+          ) : (
+            <div style={{ fontSize: 26, fontWeight: 800, color: branding.primary_color, letterSpacing: -0.5 }}>
+              {branding.company_name.split(" ")[0]}<span style={{ color: branding.accent_color }}>{branding.company_name.slice(branding.company_name.split(" ")[0].length)}</span>
+            </div>
+          )}
           <div style={{ fontSize: 18, fontWeight: 700, color: brand.text, marginTop: 12 }}>
             {forced ? "Set Your Password" : "Change Password"}
           </div>
@@ -363,7 +379,7 @@ function ChangePasswordPage({ user, onChanged, onSkip, forced, showToast }) {
 
 // ─── Shell ────────────────────────────────────────────────────────────────────
 
-function Shell({ user, slug, onLogout, onChangePassword, children }) {
+function Shell({ user, slug, onLogout, onChangePassword, children, branding = DEFAULT_PORTAL_BRANDING }) {
   const navigate = useNavigate();
   const location = useLocation();
   const base = `/p/${slug}`;
@@ -382,7 +398,7 @@ function Shell({ user, slug, onLogout, onChangePassword, children }) {
   return (
     <div style={{ minHeight: "100vh", background: brand.bg, fontFamily: "'Inter', Arial, sans-serif" }}>
       <header style={{
-        background: brand.primary, color: brand.white,
+        background: branding.primary_color, color: brand.white,
         padding: "0 32px", height: 56,
         display: "flex", alignItems: "center", justifyContent: "space-between",
         boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
@@ -390,10 +406,14 @@ function Shell({ user, slug, onLogout, onChangePassword, children }) {
         <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
           <div
             onClick={() => navigate(`${base}/tickets`)}
-            style={{ fontSize: 20, fontWeight: 800, cursor: "pointer", letterSpacing: -0.5 }}
+            style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 20, fontWeight: 800, cursor: "pointer", letterSpacing: -0.5 }}
           >
-            ATech<span style={{ color: brand.accent }}>Solutions</span>
-            <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.75, marginLeft: 10 }}>Client Portal</span>
+            {branding.logo_url ? (
+              <img src={branding.logo_url} alt={branding.company_name} style={{ maxHeight: 28, maxWidth: 160, objectFit: "contain" }} />
+            ) : (
+              <span>{branding.company_name.split(" ")[0]}<span style={{ color: branding.accent_color }}>{branding.company_name.slice(branding.company_name.split(" ")[0].length)}</span></span>
+            )}
+            <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.75 }}>Client Portal</span>
           </div>
           <nav style={{ display: "flex", gap: 4 }}>
             {navItems.map(({ path, label }) => {
@@ -974,10 +994,15 @@ function SlugPortal() {
   const [checking, setChecking] = useState(true);
   const [changingPassword, setChangingPassword] = useState(false);
   const [toast, setToast] = useState(null);
+  const [branding, setBranding] = useState(DEFAULT_PORTAL_BRANDING);
   const navigate = useNavigate();
   const INACTIVITY_MS = 30 * 60 * 1000;
 
   const showToast = useCallback((message, type = "success") => setToast({ message, type }), []);
+
+  useEffect(() => {
+    getPortalBrandingPublic().then(setBranding).catch(() => {}); // offline/first paint — keep DEFAULT_PORTAL_BRANDING
+  }, []);
 
   const handleLogout = useCallback(() => {
     portalLogout().catch(() => {});
@@ -1026,7 +1051,7 @@ function SlugPortal() {
 
   if (!user) return (
     <>
-      <LoginPage slug={slug} onLogin={me => {
+      <LoginPage slug={slug} branding={branding} onLogin={me => {
         setUser(me);
         // must_change_password is handled below — no navigate here, let the render decide
         if (!me.must_change_password) navigate(`/p/${slug}/tickets`, { replace: true });
@@ -1043,6 +1068,7 @@ function SlugPortal() {
           user={user}
           forced={user.must_change_password}
           showToast={showToast}
+          branding={branding}
           onChanged={updated => {
             setUser(updated);
             setChangingPassword(false);
@@ -1057,7 +1083,7 @@ function SlugPortal() {
 
   return (
     <>
-      <Shell user={user} slug={slug} onLogout={handleLogout} onChangePassword={() => setChangingPassword(true)}>
+      <Shell user={user} slug={slug} onLogout={handleLogout} onChangePassword={() => setChangingPassword(true)} branding={branding}>
         <Routes>
           <Route path="tickets" element={<TicketsPage slug={slug} showToast={showToast} />} />
           <Route path="tickets/:ticketId" element={<TicketDetailPage slug={slug} showToast={showToast} />} />

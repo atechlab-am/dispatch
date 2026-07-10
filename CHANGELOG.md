@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.34.0] — 2026-07-10
+
+### Added — Customizable Login Page and Client Portal branding
+- Two new admin-only Settings tabs — **Login Page** and **Client Portal** — let you customize the look of two surfaces that were previously fully hardcoded to "ATechSolutions" and fixed colors: the staff sign-in screen and the entire Client Portal (portal login, forced-password-change screen, and the authenticated portal header). Each is a **separate, independent setting** from the other and from the existing staff-app Appearance settings — changing one never affects the others.
+- Both surfaces render before any login exists, so their settings are readable via new public (no-auth) endpoints — `GET /login-branding/public` and `GET /portal-branding/public` — returning only cosmetic display fields (company name, colors, logo). Admin editing uses separate authenticated `GET`/`PUT /login-branding` and `GET`/`PUT /portal-branding` endpoints, same admin-only pattern as the existing Appearance settings.
+- New `login_branding` and `portal_branding` tables (single row each, migration `0041`), following the same singleton pattern as the existing `branding` table.
+- Internal: extracted the shared logo-upload UI (`fileToDataUrl`, `UploadButton`, color presets) out of `BrandingSettingsPanel.jsx` into `src/brandingUpload.jsx` so all three appearance panels reuse the same upload/preset code instead of duplicating it.
+
+### Tests
+- New `backend/tests/test_login_branding.py` and `test_portal_branding.py` (+14 total): public endpoint requires no auth and returns defaults on a fresh install, admin-only update, technician rejected, updates persist and are independent of each other and of the staff `branding` table.
+- New `src/__tests__/LoginPageSettingsPanel.test.jsx` (+4), `src/__tests__/PortalSettingsPanel.test.jsx` (+3), `src/__tests__/PortalBranding.test.jsx` (+1): save/close/error-toast behavior for both new settings panels, and the portal login screen rendering fetched branding instead of the hardcoded default.
+- Extended `src/__tests__/LoginPage.test.jsx` (+2): renders fetched company name/subtitle, falls back to defaults if the fetch fails.
+
 ## [1.33.0] — 2026-07-10
 
 ### Changed — Services are now selected the same way as Materials

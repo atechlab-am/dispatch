@@ -686,3 +686,35 @@ class Branding(Base):
     sidebar_dark = Column(Boolean, nullable=False, default=True)
     updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+
+class LoginPageBranding(Base):
+    """Staff Login page appearance — a single row (id=1), admin-managed, and
+    publicly readable (unauthenticated) since the login page renders before
+    any staff JWT exists. Independent of the staff-app Branding table above —
+    two separately edited surfaces, not one shared config."""
+    __tablename__ = "login_branding"
+
+    id = Column(Integer, primary_key=True, default=1)
+    company_name = Column(String(255), nullable=False, default="ATech Solutions")
+    subtitle = Column(String(255), nullable=False, default="internal use only")
+    primary_color = Column(String(20), nullable=False, default="#1A5CBA")
+    accent_color = Column(String(20), nullable=False, default="#E8A020")
+    logo_url = Column(Text, nullable=False, default="")
+    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+
+class PortalBranding(Base):
+    """Client Portal appearance — a single row (id=1), admin-managed, and
+    publicly readable (unauthenticated) since the portal login screen renders
+    before any portal session exists. Independent of Branding/LoginPageBranding."""
+    __tablename__ = "portal_branding"
+
+    id = Column(Integer, primary_key=True, default=1)
+    company_name = Column(String(255), nullable=False, default="ATech Solutions")
+    primary_color = Column(String(20), nullable=False, default="#1A5CBA")
+    accent_color = Column(String(20), nullable=False, default="#E8A020")
+    logo_url = Column(Text, nullable=False, default="")
+    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)

@@ -16,6 +16,8 @@ import ReportsPage from "./ReportsPage.jsx";
 import SchedulePage from "./SchedulePage.jsx";
 import PortalPage from "./PortalPage.jsx";
 import BrandingSettingsPanel from "./BrandingSettingsPanel.jsx";
+import LoginPageSettingsPanel from "./LoginPageSettingsPanel.jsx";
+import PortalSettingsPanel from "./PortalSettingsPanel.jsx";
 import UpdateBanner from "./UpdateBanner.jsx";
 import NotificationBell from "./NotificationBell.jsx";
 import GlobalSearch from "./GlobalSearch.jsx";
@@ -124,7 +126,7 @@ export default function AppNew({
   const branding = useBranding();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
-  const [showBranding, setShowBranding] = useState(false);
+  const [settingsTab, setSettingsTab] = useState("users");
 
   const primary    = branding.primaryColor;
   const accent     = branding.accentColor;
@@ -319,19 +321,23 @@ export default function AppNew({
               <div>
                 <div style={{ display: "flex", gap: 6, marginBottom: 24, borderBottom: "2px solid #e2e8f0", paddingBottom: 0 }}>
                   {[
-                    { id: false, label: "Users & Account" },
-                    ...(isAdmin ? [{ id: true, label: "✦ Appearance" }] : []),
+                    { id: "users", label: "Users & Account" },
+                    ...(isAdmin ? [
+                      { id: "appearance", label: "✦ Appearance" },
+                      { id: "login", label: "Login Page" },
+                      { id: "portal", label: "Client Portal" },
+                    ] : []),
                   ].map(tab => (
-                    <button key={String(tab.id)} onClick={() => setShowBranding(tab.id)}
-                      style={{ padding: "8px 18px", border: "none", borderBottom: `3px solid ${showBranding === tab.id ? primary : "transparent"}`, background: "none", fontWeight: showBranding === tab.id ? 700 : 500, fontSize: 13, color: showBranding === tab.id ? primary : "#64748b", cursor: "pointer", fontFamily: "inherit", marginBottom: -2, transition: "all 0.12s" }}>
+                    <button key={tab.id} onClick={() => setSettingsTab(tab.id)}
+                      style={{ padding: "8px 18px", border: "none", borderBottom: `3px solid ${settingsTab === tab.id ? primary : "transparent"}`, background: "none", fontWeight: settingsTab === tab.id ? 700 : 500, fontSize: 13, color: settingsTab === tab.id ? primary : "#64748b", cursor: "pointer", fontFamily: "inherit", marginBottom: -2, transition: "all 0.12s" }}>
                       {tab.label}
                     </button>
                   ))}
                 </div>
-                {showBranding && isAdmin
-                  ? <BrandingSettingsPanel onClose={() => setShowBranding(false)} showToast={showToast} />
-                  : <SettingsPage user={user} showToast={showToast} features={features} />
-                }
+                {settingsTab === "appearance" && isAdmin && <BrandingSettingsPanel onClose={() => setSettingsTab("users")} showToast={showToast} />}
+                {settingsTab === "login" && isAdmin && <LoginPageSettingsPanel onClose={() => setSettingsTab("users")} showToast={showToast} />}
+                {settingsTab === "portal" && isAdmin && <PortalSettingsPanel onClose={() => setSettingsTab("users")} showToast={showToast} />}
+                {(settingsTab === "users" || !isAdmin) && <SettingsPage user={user} showToast={showToast} features={features} />}
               </div>
             } />
             <Route path="*" element={<Navigate to="/" replace />} />

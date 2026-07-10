@@ -9,9 +9,16 @@ vi.mock("../api/auth.js", () => ({
 vi.mock("../api/client.js", () => ({
   setTokens: vi.fn(),
 }));
+vi.mock("../api/loginBranding.js", () => ({
+  getLoginBrandingPublic: vi.fn().mockResolvedValue({
+    company_name: "ATech Solutions", subtitle: "internal use only",
+    primary_color: "#1A5CBA", accent_color: "#E8A020", logo_url: "",
+  }),
+}));
 
 import { login, verifyLogin2fa } from "../api/auth.js";
 import { setTokens } from "../api/client.js";
+import { getLoginBrandingPublic } from "../api/loginBranding.js";
 
 test("logs in directly when 2FA is not required", async () => {
   login.mockResolvedValue({ requires_2fa: false, access_token: "acc", refresh_token: "ref" });
@@ -95,4 +102,22 @@ test("shows an error on wrong password", async () => {
   fireEvent.click(screen.getByRole("button", { name: /Sign in/i }));
 
   expect(await screen.findByText("Incorrect email or password.")).toBeInTheDocument();
+});
+
+test("renders company name and subtitle fetched from the public branding endpoint", async () => {
+  getLoginBrandingPublic.mockResolvedValueOnce({
+    company_name: "Acme IT", subtitle: "staff sign-in only",
+    primary_color: "#123456", accent_color: "#abcdef", logo_url: "",
+  });
+  render(<LoginPage onLogin={() => {}} />);
+
+  expect(await screen.findByText("Acme")).toBeInTheDocument();
+  expect(screen.getByText(/staff sign-in only/)).toBeInTheDocument();
+});
+
+test("falls back to defaults when the branding fetch fails", async () => {
+  getLoginBrandingPublic.mockRejectedValueOnce(new Error("offline"));
+  render(<LoginPage onLogin={() => {}} />);
+
+  expect(await screen.findByText(/internal use only/)).toBeInTheDocument();
 });

@@ -1,6 +1,7 @@
 import client from "./client.js";
 
 export const getClientBySlug   = (slug)  => client.get(`/portal/slug/${slug}`).then(r => r.data);
+export const getPortalBrandingPublic = () => client.get("/portal-branding/public").then(r => r.data);
 export const portalLogin        = (data)  => client.post("/portal/auth/login", data).then(r => r.data);
 export const portalRefresh      = (data)  => client.post("/portal/auth/refresh", data).then(r => r.data);
 export const portalLogout       = ()      => client.post("/portal/auth/logout");
