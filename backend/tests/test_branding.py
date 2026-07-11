@@ -5,6 +5,9 @@ BRANDING_UPDATE = {
     "tagline": "Custom Tagline",
     "primary_color": "#123456",
     "accent_color": "#abcdef",
+    "text_color": "#111111",
+    "muted_color": "#222222",
+    "on_color_text": "#333333",
     "logo_url": "https://example.com/logo.png",
     "favicon_url": "",
     "sidebar_dark": False,
@@ -17,6 +20,9 @@ def test_get_branding_returns_defaults_when_unconfigured(client, tech_headers):
     data = r.json()
     assert data["company_name"] == "ATech Solutions"
     assert data["primary_color"] == "#1A5CBA"
+    assert data["text_color"] == "#0D1B2A"
+    assert data["muted_color"] == "#5B6D82"
+    assert data["on_color_text"] == "#FFFFFF"
     assert data["sidebar_dark"] is True
 
 
@@ -26,6 +32,9 @@ def test_admin_can_update_branding(client, admin_headers):
     data = r.json()
     assert data["company_name"] == "Acme IT"
     assert data["primary_color"] == "#123456"
+    assert data["text_color"] == "#111111"
+    assert data["muted_color"] == "#222222"
+    assert data["on_color_text"] == "#333333"
     assert data["sidebar_dark"] is False
 
 

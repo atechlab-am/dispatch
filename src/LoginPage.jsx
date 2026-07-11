@@ -8,25 +8,25 @@ const DEFAULT_BRANDING = {
   subtitle: "internal use only",
   primary_color: "#1A5CBA",
   accent_color: "#E8A020",
+  text_color: "#0D1B2A",
+  muted_color: "#5B6D82",
+  on_color_text: "#FFFFFF",
   logo_url: "",
 };
 
 const brand = {
-  bg: "#F4F7FC",
+  bg: "#F3F2F1",
   surface: "#FFFFFF",
   border: "#D8E2F0",
-  text: "#0D1B2A",
-  muted: "#5B6D82",
   danger: "#c0392b",
 };
 
 const inp = {
   width: "100%",
-  padding: "10px 14px",
+  padding: "9px 11px",
   border: `1px solid ${brand.border}`,
-  borderRadius: 6,
-  fontSize: 14,
-  color: brand.text,
+  borderRadius: 2,
+  fontSize: 15,
   background: "#fff",
   outline: "none",
   fontFamily: "inherit",
@@ -35,6 +35,7 @@ const inp = {
 
 export default function LoginPage({ onLogin }) {
   const [branding, setBranding] = useState(DEFAULT_BRANDING);
+  const [step, setStep] = useState("email"); // "email" | "password" | "code"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loginToken, setLoginToken] = useState(null); // set once password step passes and 2FA is required
@@ -46,9 +47,25 @@ export default function LoginPage({ onLogin }) {
     getLoginBrandingPublic().then(setBranding).catch(() => {}); // offline/first paint — keep DEFAULT_BRANDING
   }, []);
 
+  const text = branding.text_color || DEFAULT_BRANDING.text_color;
+  const muted = branding.muted_color || DEFAULT_BRANDING.muted_color;
+  const onColor = branding.on_color_text || DEFAULT_BRANDING.on_color_text;
   const companyName = branding.company_name || DEFAULT_BRANDING.company_name;
   const firstWord = companyName.split(" ")[0];
   const rest = companyName.slice(firstWord.length);
+
+  const handleEmailSubmit = (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setError("");
+    setStep("password");
+  };
+
+  const handleUseAnotherAccount = () => {
+    setStep("email");
+    setPassword("");
+    setError("");
+  };
 
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
@@ -58,6 +75,7 @@ export default function LoginPage({ onLogin }) {
       const result = await login(email, password);
       if (result.requires_2fa) {
         setLoginToken(result.login_token);
+        setStep("code");
       } else {
         setTokens(result.access_token, result.refresh_token);
         onLogin();
@@ -88,114 +106,130 @@ export default function LoginPage({ onLogin }) {
     setLoginToken(null);
     setCode("");
     setError("");
+    setStep("password");
   };
 
+  const logo = branding.logo_url ? (
+    <img src={branding.logo_url} alt={companyName} style={{ maxHeight: 32, maxWidth: 200, objectFit: "contain" }} />
+  ) : (
+    <span style={{ color: text, fontWeight: 600, fontSize: 22, letterSpacing: "-0.3px" }}>
+      {firstWord}<span style={{ color: branding.primary_color }}>{rest}</span>
+    </span>
+  );
+
   return (
-    <div style={{ minHeight: "100vh", background: brand.bg, display: "flex", flexDirection: "column", fontFamily: "'Segoe UI', Arial, sans-serif" }}>
-      {/* Nav */}
-      <div style={{ background: branding.primary_color, padding: "0 28px", height: 54, display: "flex", alignItems: "center" }}>
-        {branding.logo_url ? (
-          <img src={branding.logo_url} alt={companyName} style={{ maxHeight: 32, maxWidth: 180, objectFit: "contain" }} />
-        ) : (
-          <span style={{ color: "#fff", fontWeight: 800, fontSize: 18, letterSpacing: "-0.3px" }}>
-            {firstWord}<span style={{ color: branding.accent_color }}>{rest}</span>
-          </span>
+    <div style={{ minHeight: "100vh", background: brand.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI', Arial, sans-serif", padding: 24 }}>
+      <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 2, boxShadow: "0 2px 10px rgba(0,0,0,0.08)", padding: "44px 44px 36px", width: "100%", maxWidth: 420 }}>
+        <div style={{ marginBottom: 24 }}>{logo}</div>
+
+        {step === "email" && (
+          <>
+            <div style={{ fontWeight: 600, fontSize: 24, color: text, marginBottom: 24 }}>Sign in</div>
+            <form onSubmit={handleEmailSubmit}>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email address"
+                required
+                autoFocus
+                style={inp}
+              />
+              <div style={{ fontSize: 13, color: muted, marginTop: 12, marginBottom: 24 }}>
+                {companyName} {branding.subtitle || DEFAULT_BRANDING.subtitle}
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="submit"
+                  style={{ padding: "9px 28px", background: branding.primary_color, color: onColor, border: "none", borderRadius: 2, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  Next
+                </button>
+              </div>
+            </form>
+          </>
         )}
-        <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 16, margin: "0 10px" }}>|</span>
-        <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 500 }}>Ticket Manager</span>
-      </div>
 
-      {/* Card */}
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-        <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 12, padding: "36px 40px", width: "100%", maxWidth: 400 }}>
-          {!loginToken ? (
-            <>
-              <div style={{ fontWeight: 800, fontSize: 22, color: brand.text, marginBottom: 6 }}>Sign in</div>
-              <div style={{ fontSize: 13, color: brand.muted, marginBottom: 28 }}>{companyName} {branding.subtitle || DEFAULT_BRANDING.subtitle}</div>
+        {step === "password" && (
+          <>
+            <div style={{ fontWeight: 600, fontSize: 24, color: text, marginBottom: 8 }}>Enter password</div>
+            <button type="button" onClick={handleUseAnotherAccount} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: muted, fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0, marginBottom: 24 }}>
+              {email}
+              <span style={{ textDecoration: "underline" }}>Use another account</span>
+            </button>
 
-              <form onSubmit={handlePasswordSubmit}>
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 5 }}>Email</div>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@atechsolutions.org"
-                    required
-                    style={inp}
-                  />
+            <form onSubmit={handlePasswordSubmit}>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                required
+                autoFocus
+                style={inp}
+              />
+
+              {error && (
+                <div style={{ background: "#fef2f2", border: `1px solid ${brand.danger}`, borderRadius: 2, padding: "10px 14px", color: brand.danger, fontSize: 13, marginTop: 16 }}>
+                  {error}
                 </div>
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 5 }}>Password</div>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    style={inp}
-                  />
-                </div>
+              )}
 
-                {error && (
-                  <div style={{ background: "#fef2f2", border: `1px solid ${brand.danger}`, borderRadius: 6, padding: "10px 14px", color: brand.danger, fontSize: 13, marginBottom: 16 }}>
-                    {error}
-                  </div>
-                )}
-
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24 }}>
                 <button
                   type="submit"
                   disabled={loading}
-                  style={{ width: "100%", padding: "11px", background: loading ? brand.muted : branding.accent_color, color: "#fff", border: "none", borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit" }}
+                  style={{ padding: "9px 28px", background: loading ? muted : branding.primary_color, color: onColor, border: "none", borderRadius: 2, fontSize: 14, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit" }}
                 >
                   {loading ? "Signing in…" : "Sign in"}
                 </button>
-              </form>
-            </>
-          ) : (
-            <>
-              <div style={{ fontWeight: 800, fontSize: 22, color: brand.text, marginBottom: 6 }}>Two-Factor Verification</div>
-              <div style={{ fontSize: 13, color: brand.muted, marginBottom: 28 }}>Enter the 6-digit code from your authenticator app, or a backup code.</div>
+              </div>
+            </form>
+          </>
+        )}
 
-              <form onSubmit={handleCodeSubmit}>
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 5 }}>Authentication Code</div>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    placeholder="123456"
-                    autoFocus
-                    required
-                    style={{ ...inp, letterSpacing: "2px", fontSize: 18, textAlign: "center" }}
-                  />
+        {step === "code" && (
+          <>
+            <div style={{ fontWeight: 600, fontSize: 24, color: text, marginBottom: 6 }}>Two-factor verification</div>
+            <div style={{ fontSize: 13, color: muted, marginBottom: 24 }}>Enter the 6-digit code from your authenticator app, or a backup code.</div>
+
+            <form onSubmit={handleCodeSubmit}>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="Code"
+                autoFocus
+                required
+                style={{ ...inp, letterSpacing: "2px", fontSize: 18, textAlign: "center" }}
+              />
+
+              {error && (
+                <div style={{ background: "#fef2f2", border: `1px solid ${brand.danger}`, borderRadius: 2, padding: "10px 14px", color: brand.danger, fontSize: 13, marginTop: 16 }}>
+                  {error}
                 </div>
+              )}
 
-                {error && (
-                  <div style={{ background: "#fef2f2", border: `1px solid ${brand.danger}`, borderRadius: 6, padding: "10px 14px", color: brand.danger, fontSize: 13, marginBottom: 16 }}>
-                    {error}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  style={{ width: "100%", padding: "11px", background: loading ? brand.muted : branding.accent_color, color: "#fff", border: "none", borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit", marginBottom: 10 }}
-                >
-                  {loading ? "Verifying…" : "Verify"}
-                </button>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 24 }}>
                 <button
                   type="button"
                   onClick={handleBackToPassword}
-                  style={{ width: "100%", padding: "9px", background: "none", color: brand.muted, border: "none", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}
+                  style={{ background: "none", color: muted, border: "none", fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0 }}
                 >
                   ← Back
                 </button>
-              </form>
-            </>
-          )}
-        </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  style={{ padding: "9px 28px", background: loading ? muted : branding.primary_color, color: onColor, border: "none", borderRadius: 2, fontSize: 14, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit" }}
+                >
+                  {loading ? "Verifying…" : "Verify"}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );

@@ -14,19 +14,29 @@ import { isInvoicePayable } from "./helpers.js";
 const brand = {
   primary: "#1A5CBA",
   accent: "#E8A020",
-  muted: "#64748b",
+  muted: "var(--dispatch-portal-muted)",
   bg: "#f1f5f9",
   white: "#fff",
   border: "#e2e8f0",
-  text: "#0f172a",
+  text: "var(--dispatch-portal-text)",
 };
 
 const DEFAULT_PORTAL_BRANDING = {
   company_name: "ATech Solutions",
   primary_color: brand.primary,
   accent_color: brand.accent,
+  text_color: "#0f172a",
+  muted_color: "#64748b",
+  on_color_text: "#FFFFFF",
   logo_url: "",
 };
+
+function applyPortalFontColorVars({ text_color, muted_color }) {
+  const root = document.documentElement.style;
+  if (text_color) root.setProperty("--dispatch-portal-text", text_color);
+  if (muted_color) root.setProperty("--dispatch-portal-muted", muted_color);
+}
+applyPortalFontColorVars(DEFAULT_PORTAL_BRANDING); // sane defaults before the fetch resolves
 
 const STATUS_COLORS = {
   "Open":             { bg: "#dbeafe", color: "#1d4ed8" },
@@ -146,6 +156,7 @@ function Toast({ message, type, onClose }) {
 function LoginPage({ slug, onLogin, branding = DEFAULT_PORTAL_BRANDING }) {
   const [clientInfo, setClientInfo] = useState(null);
   const [notFound, setNotFound] = useState(false);
+  const [step, setStep] = useState("email"); // "email" | "password"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -156,6 +167,27 @@ function LoginPage({ slug, onLogin, branding = DEFAULT_PORTAL_BRANDING }) {
       .then(setClientInfo)
       .catch(() => setNotFound(true));
   }, [slug]);
+
+  const onColor = branding.on_color_text || DEFAULT_PORTAL_BRANDING.on_color_text;
+
+  const fieldStyle = {
+    width: "100%", padding: "9px 11px", borderRadius: 2,
+    border: `1px solid ${brand.border}`, fontSize: 15, outline: "none",
+    fontFamily: "inherit", boxSizing: "border-box",
+  };
+
+  function handleEmailSubmit(e) {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setError("");
+    setStep("password");
+  }
+
+  function handleUseAnotherAccount() {
+    setStep("email");
+    setPassword("");
+    setError("");
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -178,7 +210,7 @@ function LoginPage({ slug, onLogin, branding = DEFAULT_PORTAL_BRANDING }) {
       <div style={{
         minHeight: "100vh", background: brand.bg,
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontFamily: "'Inter', Arial, sans-serif",
+        fontFamily: "'Segoe UI', Arial, sans-serif",
       }}>
         <div style={{ textAlign: "center", color: brand.muted }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>404</div>
@@ -200,70 +232,76 @@ function LoginPage({ slug, onLogin, branding = DEFAULT_PORTAL_BRANDING }) {
     <div style={{
       minHeight: "100vh", background: brand.bg,
       display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: "'Inter', Arial, sans-serif",
+      fontFamily: "'Segoe UI', Arial, sans-serif", padding: 24,
     }}>
       <div style={{
-        background: brand.white, borderRadius: 16, padding: "48px 40px",
-        boxShadow: "0 4px 24px rgba(0,0,0,0.10)", width: "100%", maxWidth: 420,
+        background: brand.white, border: `1px solid ${brand.border}`, borderRadius: 2,
+        boxShadow: "0 2px 10px rgba(0,0,0,0.08)", padding: "44px 44px 36px", width: "100%", maxWidth: 420,
       }}>
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
+        <div style={{ marginBottom: 24 }}>
           {branding.logo_url ? (
-            <img src={branding.logo_url} alt={branding.company_name} style={{ maxHeight: 40, maxWidth: 220, objectFit: "contain", marginBottom: 4 }} />
+            <img src={branding.logo_url} alt={branding.company_name} style={{ maxHeight: 32, maxWidth: 200, objectFit: "contain" }} />
           ) : (
-            <div style={{ fontSize: 26, fontWeight: 800, color: branding.primary_color, letterSpacing: -0.5 }}>
-              {branding.company_name.split(" ")[0]}<span style={{ color: branding.accent_color }}>{branding.company_name.slice(branding.company_name.split(" ")[0].length)}</span>
-            </div>
+            <span style={{ fontSize: 22, fontWeight: 600, color: brand.text, letterSpacing: -0.3 }}>
+              {branding.company_name.split(" ")[0]}<span style={{ color: branding.primary_color }}>{branding.company_name.slice(branding.company_name.split(" ")[0].length)}</span>
+            </span>
           )}
-          <div style={{ fontSize: 18, fontWeight: 700, color: brand.text, marginTop: 12 }}>
-            {clientInfo.name}
-          </div>
-          <div style={{ fontSize: 13, color: brand.muted, marginTop: 4 }}>Client Portal</div>
+          <div style={{ fontSize: 13, color: brand.muted, marginTop: 8 }}>{clientInfo.name} · Client Portal</div>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: brand.text, marginBottom: 6 }}>
-              Email
-            </label>
-            <input
-              type="email" value={email} onChange={e => setEmail(e.target.value)}
-              required autoFocus
-              style={{
-                width: "100%", padding: "10px 12px", borderRadius: 8,
-                border: `1.5px solid ${brand.border}`, fontSize: 14, outline: "none",
-                fontFamily: "inherit", boxSizing: "border-box",
-              }}
-            />
-          </div>
-          <div style={{ marginBottom: 24 }}>
-            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: brand.text, marginBottom: 6 }}>
-              Password
-            </label>
-            <input
-              type="password" value={password} onChange={e => setPassword(e.target.value)}
-              required
-              style={{
-                width: "100%", padding: "10px 12px", borderRadius: 8,
-                border: `1.5px solid ${brand.border}`, fontSize: 14, outline: "none",
-                fontFamily: "inherit", boxSizing: "border-box",
-              }}
-            />
-          </div>
-          {error && (
-            <div style={{
-              background: "#fee2e2", color: "#991b1b", borderRadius: 8,
-              padding: "10px 14px", fontSize: 13, marginBottom: 16,
-            }}>{error}</div>
-          )}
-          <button type="submit" disabled={loading} style={{
-            width: "100%", padding: "12px", borderRadius: 8, border: "none",
-            background: loading ? "#93a3b8" : brand.primary, color: brand.white,
-            fontSize: 15, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer",
-            fontFamily: "inherit",
-          }}>
-            {loading ? "Signing in…" : "Sign In"}
-          </button>
-        </form>
+        {step === "email" ? (
+          <>
+            <div style={{ fontWeight: 600, fontSize: 24, color: brand.text, marginBottom: 24 }}>Sign in</div>
+            <form onSubmit={handleEmailSubmit}>
+              <input
+                type="email" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="Email address" required autoFocus
+                style={fieldStyle}
+              />
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24 }}>
+                <button type="submit" style={{
+                  padding: "9px 28px", borderRadius: 2, border: "none",
+                  background: branding.primary_color, color: onColor,
+                  fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                }}>
+                  Next
+                </button>
+              </div>
+            </form>
+          </>
+        ) : (
+          <>
+            <div style={{ fontWeight: 600, fontSize: 24, color: brand.text, marginBottom: 8 }}>Enter password</div>
+            <button type="button" onClick={handleUseAnotherAccount} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: brand.muted, fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0, marginBottom: 24 }}>
+              {email}
+              <span style={{ textDecoration: "underline" }}>Use another account</span>
+            </button>
+
+            <form onSubmit={handleSubmit}>
+              <input
+                type="password" value={password} onChange={e => setPassword(e.target.value)}
+                placeholder="Password" required autoFocus
+                style={fieldStyle}
+              />
+              {error && (
+                <div style={{
+                  background: "#fee2e2", color: "#991b1b", borderRadius: 2,
+                  padding: "10px 14px", fontSize: 13, marginTop: 16,
+                }}>{error}</div>
+              )}
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24 }}>
+                <button type="submit" disabled={loading} style={{
+                  padding: "9px 28px", borderRadius: 2, border: "none",
+                  background: loading ? brand.muted : branding.primary_color, color: onColor,
+                  fontSize: 14, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer",
+                  fontFamily: "inherit",
+                }}>
+                  {loading ? "Signing in…" : "Sign in"}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );
@@ -306,7 +344,7 @@ function ChangePasswordPage({ user, onChanged, onSkip, forced, showToast, brandi
     <div style={{
       minHeight: "100vh", background: brand.bg,
       display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: "'Inter', Arial, sans-serif",
+      fontFamily: "'Segoe UI', Arial, sans-serif",
     }}>
       <div style={{
         background: brand.white, borderRadius: 16, padding: "48px 40px",
@@ -355,7 +393,7 @@ function ChangePasswordPage({ user, onChanged, onSkip, forced, showToast, brandi
 
           <button type="submit" disabled={saving} style={{
             width: "100%", padding: 12, borderRadius: 8, border: "none",
-            background: saving ? "#93a3b8" : brand.primary, color: brand.white,
+            background: saving ? "#93a3b8" : brand.primary, color: branding.on_color_text || DEFAULT_PORTAL_BRANDING.on_color_text,
             fontSize: 15, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer",
             fontFamily: "inherit",
           }}>
@@ -389,16 +427,18 @@ function Shell({ user, slug, onLogout, onChangePassword, children, branding = DE
     { path: `${base}/invoices`, label: "My Invoices" },
   ];
 
+  const onColor = branding.on_color_text || DEFAULT_PORTAL_BRANDING.on_color_text;
+
   const btnStyle = {
-    background: "rgba(255,255,255,0.15)", border: "none", color: brand.white,
+    background: "rgba(255,255,255,0.15)", border: "none", color: onColor,
     padding: "6px 14px", borderRadius: 6, fontSize: 13,
     cursor: "pointer", fontFamily: "inherit",
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: brand.bg, fontFamily: "'Inter', Arial, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: brand.bg, fontFamily: "'Segoe UI', Arial, sans-serif" }}>
       <header style={{
-        background: branding.primary_color, color: brand.white,
+        background: branding.primary_color, color: onColor,
         padding: "0 32px", height: 56,
         display: "flex", alignItems: "center", justifyContent: "space-between",
         boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
@@ -1004,6 +1044,10 @@ function SlugPortal() {
     getPortalBrandingPublic().then(setBranding).catch(() => {}); // offline/first paint — keep DEFAULT_PORTAL_BRANDING
   }, []);
 
+  useEffect(() => {
+    applyPortalFontColorVars(branding);
+  }, [branding.text_color, branding.muted_color]);
+
   const handleLogout = useCallback(() => {
     portalLogout().catch(() => {});
     clearTokens();
@@ -1107,7 +1151,7 @@ export default function PortalApp() {
         <div style={{
           minHeight: "100vh", background: brand.bg,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontFamily: "'Inter', Arial, sans-serif", color: brand.muted, fontSize: 16,
+          fontFamily: "'Segoe UI', Arial, sans-serif", color: brand.muted, fontSize: 16,
         }}>
           Portal not found
         </div>

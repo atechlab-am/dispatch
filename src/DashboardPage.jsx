@@ -4,7 +4,7 @@ import { getDashboard } from "./api/dashboard.js";
 
 const brand = {
   blue: "#1A5CBA", accent: "#E8A020", bg: "#F4F7FC", surface: "#FFFFFF",
-  border: "#D8E2F0", text: "#0D1B2A", muted: "#5B6D82",
+  border: "#D8E2F0", text: "var(--dispatch-text)", muted: "var(--dispatch-muted)",
   success: "#1a8f4a", danger: "#c0392b", amber: "#d97706",
 };
 

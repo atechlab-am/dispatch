@@ -15,6 +15,9 @@ const DEFAULT_API_BRANDING = {
   tagline: "IT Support & Managed Services",
   primary_color: "#1A5CBA",
   accent_color: "#E8A020",
+  text_color: "#0D1B2A",
+  muted_color: "#5B6D82",
+  on_color_text: "#FFFFFF",
   logo_url: "",
   favicon_url: "",
   sidebar_dark: true,
@@ -75,4 +78,20 @@ test("cancel reverts live-preview changes without calling updateBranding", async
 
   expect(updateBranding).not.toHaveBeenCalled();
   expect(onClose).toHaveBeenCalled();
+});
+
+test("renders a Font Colors section with the fetched values and saves them", async () => {
+  updateBranding.mockResolvedValue({ ...DEFAULT_API_BRANDING, text_color: "#123456" });
+  render(
+    <BrandingProvider>
+      <BrandingSettingsPanel onClose={() => {}} showToast={vi.fn()} />
+    </BrandingProvider>
+  );
+
+  expect(await screen.findByText("Font Colors")).toBeInTheDocument();
+  const textColorInput = screen.getByDisplayValue("#0D1B2A");
+  fireEvent.change(textColorInput, { target: { value: "#123456" } });
+  fireEvent.click(screen.getByText("Save Changes"));
+
+  await waitFor(() => expect(updateBranding).toHaveBeenCalledWith(expect.objectContaining({ text_color: "#123456" })));
 });

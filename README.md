@@ -134,9 +134,11 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 
 ### Appearance (admin only)
 - Company-wide branding — company name, tagline, logo, favicon, primary/accent colors, sidebar dark/light style (New UI → Settings → ✦ Appearance)
+- **Font colors** — Body Text, Muted Text, and Text on Buttons/Headers are all customizable and apply app-wide (every page), not just within the settings panel itself
 - Saved server-side and shared by everyone who uses the app — not a per-browser or per-user setting
 - Live preview while editing; Save persists it for everyone, Cancel reverts without saving
-- **Login Page** and **Client Portal** each have their own separate appearance settings (Settings → Login Page / Client Portal) — company name, colors, and logo, independent from the staff app's Appearance settings and from each other. Both are readable without being logged in (a public endpoint returns only the cosmetic display fields) since both screens render before any session exists
+- **Login Page** and **Client Portal** each have their own separate appearance settings (Settings → Login Page / Client Portal) — company name, colors, font colors, and logo, independent from the staff app's Appearance settings and from each other. Both are readable without being logged in (a public endpoint returns only the cosmetic display fields) since both screens render before any session exists
+- Both login screens use a clean, Microsoft-style centered card with an email-first sign-in flow (email, then password, then 2FA if enabled)
 
 ### Backups (admin only)
 - Database + uploaded files backed up to a NAS share over SMB2/3 — pushed directly over the network from the backend container, no CIFS mount or elevated container privileges required

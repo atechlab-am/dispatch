@@ -8,8 +8,8 @@ const brand = {
   bg: "#F4F7FC",
   surface: "#FFFFFF",
   border: "#D8E2F0",
-  text: "#0D1B2A",
-  muted: "#5B6D82",
+  text: "var(--dispatch-text)",
+  muted: "var(--dispatch-muted)",
   success: "#1a8f4a",
   danger: "#c0392b",
   amber: "#b45309",
@@ -34,9 +34,9 @@ const FieldLabel = ({ children }) => (
 
 const Btn = ({ onClick, href, children, variant = "primary", small, disabled }) => {
   const s = {
-    primary:   { background: brand.blue,   color: "#fff",       border: "none" },
+    primary:   { background: brand.blue,   color: "var(--dispatch-on-color)",       border: "none" },
     secondary: { background: "#fff",        color: brand.blue,   border: `1.5px solid ${brand.blue}` },
-    accent:    { background: brand.accent,  color: "#fff",       border: "none" },
+    accent:    { background: brand.accent,  color: "var(--dispatch-on-color)",       border: "none" },
     ghost:     { background: "transparent", color: brand.muted,  border: `1px solid ${brand.border}` },
   }[variant] || {};
 

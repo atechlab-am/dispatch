@@ -16,6 +16,9 @@ class BrandingIn(BaseModel):
     tagline: str = Field("IT Support & Managed Services", max_length=255)
     primary_color: str = Field("#1A5CBA", max_length=20)
     accent_color: str = Field("#E8A020", max_length=20)
+    text_color: str = Field("#0D1B2A", max_length=20)
+    muted_color: str = Field("#5B6D82", max_length=20)
+    on_color_text: str = Field("#FFFFFF", max_length=20)
     logo_url: str = ""
     favicon_url: str = ""
     sidebar_dark: bool = True
@@ -52,6 +55,9 @@ def update_branding(
     b.tagline = body.tagline
     b.primary_color = body.primary_color
     b.accent_color = body.accent_color
+    b.text_color = body.text_color
+    b.muted_color = body.muted_color
+    b.on_color_text = body.on_color_text
     b.logo_url = body.logo_url
     b.favicon_url = body.favicon_url
     b.sidebar_dark = body.sidebar_dark

@@ -21,6 +21,9 @@ export default function BrandingSettingsPanel({ onClose, showToast }) {
     tagline:      branding.tagline,
     primaryColor: branding.primaryColor,
     accentColor:  branding.accentColor,
+    textColor:    branding.textColor,
+    mutedColor:   branding.mutedColor,
+    onColorText:  branding.onColorText,
     logoUrl:      branding.logoUrl,
     faviconUrl:   branding.faviconUrl,
     sidebarDark:  branding.sidebarDark,
@@ -151,6 +154,37 @@ export default function BrandingSettingsPanel({ onClose, showToast }) {
               <input type="color" value={form.accentColor} onChange={e => up("accentColor", e.target.value)}
                 style={{ width: 40, height: 36, border: "1px solid #e2e8f0", borderRadius: 6, cursor: "pointer", padding: 2, background: "#fff" }} />
               <input style={{ ...inp }} value={form.accentColor} onChange={e => up("accentColor", e.target.value)} placeholder="#E8A020" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Font colors */}
+      <section style={{ marginBottom: 24 }}>
+        <h3 style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14, marginTop: 0 }}>Font Colors</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+          <div>
+            {label("Body Text")}
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input type="color" value={form.textColor} onChange={e => up("textColor", e.target.value)}
+                style={{ width: 40, height: 36, border: "1px solid #e2e8f0", borderRadius: 6, cursor: "pointer", padding: 2, background: "#fff" }} />
+              <input style={{ ...inp }} value={form.textColor} onChange={e => up("textColor", e.target.value)} placeholder="#0D1B2A" />
+            </div>
+          </div>
+          <div>
+            {label("Muted Text")}
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input type="color" value={form.mutedColor} onChange={e => up("mutedColor", e.target.value)}
+                style={{ width: 40, height: 36, border: "1px solid #e2e8f0", borderRadius: 6, cursor: "pointer", padding: 2, background: "#fff" }} />
+              <input style={{ ...inp }} value={form.mutedColor} onChange={e => up("mutedColor", e.target.value)} placeholder="#5B6D82" />
+            </div>
+          </div>
+          <div>
+            {label("Text on Buttons/Headers")}
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input type="color" value={form.onColorText} onChange={e => up("onColorText", e.target.value)}
+                style={{ width: 40, height: 36, border: "1px solid #e2e8f0", borderRadius: 6, cursor: "pointer", padding: 2, background: "#fff" }} />
+              <input style={{ ...inp }} value={form.onColorText} onChange={e => up("onColorText", e.target.value)} placeholder="#FFFFFF" />
             </div>
           </div>
         </div>

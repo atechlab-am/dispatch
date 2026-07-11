@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.35.0] — 2026-07-10
+
+### Added — Font colors, everywhere
+- All three branding settings (Appearance, Login Page, Client Portal) gained a new **Font Colors** section: Body Text, Muted Text, and Text on Buttons/Headers — three new fields (`text_color`, `muted_color`, `on_color_text`) on each of the `branding`, `login_branding`, and `portal_branding` tables (migration `0042`).
+- These now apply app-wide, not just to the settings panels themselves: the 15 staff-app pages (Dashboard, Tickets, Quotes, Invoices, Settings, etc.) that each hardcoded their own text colors now read from shared CSS custom properties (`--dispatch-text`, `--dispatch-muted`, `--dispatch-on-color`) set by the Appearance settings — one change point instead of 15 independent hardcoded palettes. The Login Page and Client Portal do the same via their own respective settings.
+- Primary/accent-colored buttons and headers across the app (and the Client Portal's header) now use the "Text on Buttons/Headers" color instead of assuming white — so a light primary color no longer forces illegible white-on-white buttons.
+- PDF/print output (ticket exports, form exports) is unaffected — those render in a separate print window outside the app's styling and were intentionally left out of scope.
+
+### Changed — Microsoft-style login redesign
+- Both the staff Login page and the Client Portal login screen were redesigned with a cleaner, Microsoft/Office-365-style look: a plain background with a simple centered card (the staff login's colored top nav bar is gone), and matching Segoe UI typography on both surfaces (the portal previously used a different font).
+- **Email-first sign-in flow** on both pages: you now enter your email and continue, then enter your password on a second screen (with a "Use another account" link back to the email step) — matching how Microsoft's own sign-in works, instead of one combined email+password form. The existing 2FA step (staff only) now follows as a third step, unchanged in how it works.
+- No backend/API changes — `login`/`portalLogin` already accepted email and password together; only when each field is shown in the UI changed.
+
+### Tests
+- Extended `test_branding.py`, `test_login_branding.py`, `test_portal_branding.py`: new font-color fields default correctly and persist through updates.
+- Rewrote `src/__tests__/LoginPage.test.jsx` (11 tests) for the new email-first flow.
+- Extended `src/__tests__/PortalBranding.test.jsx` (+1) for the portal's email-first flow.
+- Extended `BrandingSettingsPanel.test.jsx`, `LoginPageSettingsPanel.test.jsx`, `PortalSettingsPanel.test.jsx` (+1 each): Font Colors section renders and saves.
+
 ## [1.34.0] — 2026-07-10
 
 ### Added — Customizable Login Page and Client Portal branding

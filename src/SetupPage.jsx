@@ -7,8 +7,8 @@ const brand = {
   bg: "#F4F7FC",
   surface: "#FFFFFF",
   border: "#D8E2F0",
-  text: "#0D1B2A",
-  muted: "#5B6D82",
+  text: "var(--dispatch-text)",
+  muted: "var(--dispatch-muted)",
   danger: "#c0392b",
 };
 

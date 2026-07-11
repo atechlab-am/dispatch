@@ -5,6 +5,9 @@ LOGIN_BRANDING_UPDATE = {
     "subtitle": "staff portal",
     "primary_color": "#123456",
     "accent_color": "#abcdef",
+    "text_color": "#111111",
+    "muted_color": "#222222",
+    "on_color_text": "#333333",
     "logo_url": "https://example.com/logo.png",
 }
 
@@ -16,6 +19,9 @@ def test_public_get_returns_defaults_without_auth(client):
     assert data["company_name"] == "ATech Solutions"
     assert data["subtitle"] == "internal use only"
     assert data["primary_color"] == "#1A5CBA"
+    assert data["text_color"] == "#0D1B2A"
+    assert data["muted_color"] == "#5B6D82"
+    assert data["on_color_text"] == "#FFFFFF"
 
 
 def test_admin_get_requires_auth(client):
@@ -35,6 +41,9 @@ def test_admin_can_update_login_branding(client, admin_headers):
     assert data["company_name"] == "Acme IT"
     assert data["subtitle"] == "staff portal"
     assert data["primary_color"] == "#123456"
+    assert data["text_color"] == "#111111"
+    assert data["muted_color"] == "#222222"
+    assert data["on_color_text"] == "#333333"
 
 
 def test_technician_cannot_update_login_branding(client, tech_headers):

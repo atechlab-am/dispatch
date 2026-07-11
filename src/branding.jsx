@@ -4,6 +4,9 @@ import { getBranding, updateBranding } from "./api/branding.js";
 const DEFAULTS = {
   primaryColor:   "#1A5CBA",
   accentColor:    "#E8A020",
+  textColor:      "#0D1B2A",
+  mutedColor:     "#5B6D82",
+  onColorText:    "#FFFFFF",
   companyName:    "ATech Solutions",
   tagline:        "IT Support & Managed Services",
   logoUrl:        "",       // empty = text logo
@@ -17,6 +20,9 @@ function apiToBranding(data) {
     tagline:     data.tagline,
     primaryColor: data.primary_color,
     accentColor:  data.accent_color,
+    textColor:    data.text_color,
+    mutedColor:   data.muted_color,
+    onColorText:  data.on_color_text,
     logoUrl:      data.logo_url,
     faviconUrl:   data.favicon_url,
     sidebarDark:  data.sidebar_dark,
@@ -29,6 +35,9 @@ function brandingToApi(data) {
     tagline:      data.tagline,
     primary_color: data.primaryColor,
     accent_color:  data.accentColor,
+    text_color:    data.textColor,
+    muted_color:   data.mutedColor,
+    on_color_text: data.onColorText,
     logo_url:      data.logoUrl,
     favicon_url:   data.faviconUrl,
     sidebar_dark:  data.sidebarDark,
@@ -45,6 +54,22 @@ export function applyFavicon(url) {
   }
   link.href = url;
 }
+
+// Applies font colors app-wide via CSS custom properties, so the 15+ page
+// components (each with their own local `brand.text`/`brand.muted` tokens)
+// can read `var(--dispatch-text)` etc. without prop-drilling or a context
+// dependency on every page.
+export function applyFontColorVars({ textColor, mutedColor, onColorText }) {
+  const root = document.documentElement.style;
+  if (textColor) root.setProperty("--dispatch-text", textColor);
+  if (mutedColor) root.setProperty("--dispatch-muted", mutedColor);
+  if (onColorText) root.setProperty("--dispatch-on-color", onColorText);
+}
+
+// Set sane defaults immediately at module load so pages never render with an
+// undefined CSS var before BrandingProvider's fetch resolves (or if a page
+// renders outside the provider entirely, e.g. during tests).
+applyFontColorVars(DEFAULTS);
 
 export const BrandingContext = createContext(DEFAULTS);
 
@@ -64,6 +89,10 @@ export function BrandingProvider({ children }) {
   useEffect(() => {
     applyFavicon(branding.faviconUrl);
   }, [branding.faviconUrl]);
+
+  useEffect(() => {
+    applyFontColorVars(branding);
+  }, [branding.textColor, branding.mutedColor, branding.onColorText]);
 
   // Live preview only — does not persist. Callers that need to persist call
   // save() explicitly (see BrandingSettingsPanel.jsx's handleSave).

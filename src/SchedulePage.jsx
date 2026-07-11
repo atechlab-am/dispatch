@@ -4,7 +4,7 @@ import { listTickets } from "./api/tickets.js";
 
 const brand = {
   blue: "#1A5CBA", accent: "#E8A020", bg: "#F4F7FC", surface: "#FFFFFF",
-  border: "#D8E2F0", text: "#0D1B2A", muted: "#5B6D82", danger: "#c0392b",
+  border: "#D8E2F0", text: "var(--dispatch-text)", muted: "var(--dispatch-muted)", danger: "#c0392b",
 };
 
 const HOURS = Array.from({ length: 12 }, (_, i) => 7 + i); // 7am - 6pm
