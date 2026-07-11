@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.35.1] — 2026-07-11
+
+### Fixed — Client Portal branding not applying in production
+- `nginx.portal.conf` (the Client Portal's nginx config, used in Docker deployments) only allowlisted `/api/portal/*` — the new `/api/portal-branding/public` endpoint added in 1.35.0 didn't match that prefix and was silently blocked by the catch-all `location /api/ { return 404; }` rule. The portal login screen's fetch failed and fell back to hardcoded defaults, so custom company name, colors, logo, and font colors never appeared on the deployed portal even though they saved correctly in Settings.
+- Added an explicit allowlist entry for `/api/portal-branding/public` in `nginx.portal.conf`. Confirmed via a full `docker compose up --build` run that the portal login page now reflects saved branding (company name, primary/accent color, and all three font colors).
+- Not caught earlier because local dev (`npm run dev`, Vite) has no nginx layer in front of the API, so this class of bug only surfaces in a Docker/production-style deployment.
+
 ## [1.35.0] — 2026-07-10
 
 ### Added — Font colors, everywhere
