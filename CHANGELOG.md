@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.36.3] — 2026-07-12
+
+### Docs — Clarified how/when to run `upgrade-postgres.sh`
+- Answers the "do I run this before or after `upgrade.sh`?" question directly: `upgrade-postgres.sh` is a separate, standalone script that is never called by `upgrade.sh` and doesn't change with app releases. Run it on its own, verify the app works against the new Postgres version, then resume normal `upgrade.sh` app-code updates afterward — don't do both in the same sitting, so a problem is easy to attribute to one change or the other.
+- Added a step-by-step runbook and a pre-flight requirements list (run from the repo root, stack already up with `postgres` healthy, take an independent backup first, ensure disk space for both the dump and a full copy of the old volume) to the script's header comment and to the README's Postgres-upgrade section.
+
 ## [1.36.2] — 2026-07-12
 
 ### Added — `upgrade-postgres.sh`

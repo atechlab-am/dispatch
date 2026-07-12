@@ -15,12 +15,47 @@
 #   5. Runs the app's own migrations (alembic) and a basic health check
 #   6. Leaves the OLD volume renamed-but-intact until you explicitly remove it
 #
+# ── WHEN TO RUN THIS vs. upgrade.sh ─────────────────────────────────────────
+# This is a SEPARATE, STANDALONE script — it is not a step inside upgrade.sh,
+# and upgrade.sh never calls it automatically. Run this script BY ITSELF,
+# BEFORE running upgrade.sh for that release:
+#
+#   1. Run THIS script first, on its own, while the stack is on its current
+#      app version:                    ./upgrade-postgres.sh 18-alpine
+#      This only changes the Postgres container/data — it does not touch
+#      backend/frontend code, and does not need a new app release to run.
+#   2. Confirm the app works normally against the new Postgres version
+#      (log in, browse a few pages, check the data you care about).
+#   3. Only once you're satisfied, remove the old backup volume it left
+#      behind (see the command printed at the end of a successful run).
+#   4. From here on, run upgrade.sh as usual for ordinary app-code updates —
+#      it will keep using whatever Postgres version this script left in
+#      docker-compose.yml; it never changes the Postgres version itself.
+#
+# In short: Postgres version changes and app-code changes are two independent
+# axes. Do the Postgres jump on its own, verify it, THEN resume normal
+# app-code upgrades via upgrade.sh. Don't run both in the same sitting without
+# checking the app in between — if something's wrong, you want to know
+# whether it was the Postgres jump or the code update that caused it.
+#
 # Usage:
 #   ./upgrade-postgres.sh <target-tag>
 #   ./upgrade-postgres.sh 18-alpine
 #
 # Safe to re-run: it always dumps fresh, and refuses to overwrite an old-volume
 # backup it already made in a previous run (see step 2).
+#
+# Requirements before running:
+#   - Run this from the repo root (same directory as docker-compose.yml/.env)
+#   - The stack must already be up (docker compose up -d) with the postgres
+#     service healthy — the script dumps from the LIVE running container
+#   - Take an independent backup first if you have one configured
+#     (FEATURE_BACKUPS / Settings > Backup > Backup Now) — this script's
+#     "rename the old volume" safety net is local-disk-only, not a substitute
+#     for an off-host backup
+#   - Free disk space for: the pg_dump file + a full copy of the old volume
+#     (step 4 copies rather than moves, so briefly both old and new data
+#     coexist on disk)
 
 set -euo pipefail
 

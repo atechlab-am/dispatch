@@ -34,6 +34,15 @@ Pulls latest code, rebuilds images without cache, restarts containers. Database 
 
 This dumps the running database, stops the stack, renames (never deletes) the old data volume as a safety net, starts a fresh container on the target version, restores the dump, then brings the rest of the stack back up — printing an explicit rollback command at the end. Note: Postgres 18 also changed the image's expected volume-mount layout (`/var/lib/postgresql` instead of `/var/lib/postgresql/data`); the script detects and handles this automatically for 18+ targets.
 
+**Run this before `upgrade.sh`, not after, and as its own separate step:**
+1. Take an independent backup first if you have one configured (Settings → Backup → Backup Now) — this script's own safety net (a renamed local volume) isn't a substitute for an off-host backup.
+2. Run `./upgrade-postgres.sh 18-alpine` on its own, from the repo root, with the stack already up (`docker compose ps` should show `postgres` healthy). This only changes the Postgres container/data — it doesn't touch app code and doesn't require a new release.
+3. Confirm the app works normally against the new Postgres version (log in, browse a few pages, spot-check data you care about).
+4. Once satisfied, remove the old backup volume using the command the script prints at the end.
+5. From then on, run `upgrade.sh` as usual for ordinary app-code updates — it keeps whatever Postgres version step 2 left in `docker-compose.yml` and never changes it itself.
+
+Doing the Postgres jump and an app-code upgrade in the same sitting makes it harder to tell which change caused a problem if something looks wrong afterward — verify the Postgres jump on its own first.
+
 ## Stack
 
 React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
