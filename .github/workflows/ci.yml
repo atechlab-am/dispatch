@@ -10,19 +10,19 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  # ── Run test suite ─────────────────────────────────────────────────────────
-  test:
-    name: Test
+  # ── Run backend test suite ─────────────────────────────────────────────────
+  test-backend:
+    name: Test (backend)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
+      - name: Set up Python 3.13
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
           cache: pip
 
       - name: Install dependencies
@@ -39,14 +39,42 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: backend-test-results
           path: backend/
+
+  # ── Run frontend test suite ────────────────────────────────────────────────
+  test-frontend:
+    name: Test (frontend)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test:run
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-test-results
+          path: src/
 
   # ── Push dev → main after tests pass ──────────────────────────────────────
   push-to-main:
     name: Push to main
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test-backend, test-frontend]
     if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
     permissions:
       contents: write

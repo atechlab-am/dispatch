@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.38.2] — 2026-07-12
+
+### Fixed — CI was testing stale/incomplete versions
+- `.github/workflows/ci.yml` pinned Python 3.12 for backend tests, but the actual backend Dockerfile has run Python 3.13 since the earlier base-image bump (v1.36.1) — CI was silently testing a different Python version than what's deployed. Bumped to 3.13 to match.
+- CI never ran the frontend test suite at all — only backend pytest. Added a `test-frontend` job (Node 24, matching the frontend Dockerfile's base image) running `npm ci && npm run test:run`, and made the dev→main auto-push depend on both suites passing instead of just the backend one.
+
 ## [1.38.1] — 2026-07-12
 
 ### Fixed — Lead CSV import rejected valid values too strictly
