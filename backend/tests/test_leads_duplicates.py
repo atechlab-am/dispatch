@@ -63,3 +63,32 @@ def test_website_and_phone_can_both_match_without_name_match(client, admin_heade
     matches = [m for m in r.json() if m["id"] == lead["id"]]
     assert len(matches) == 1
     assert set(matches[0]["matched_on"]) == {"website", "phone"}
+
+
+def test_business_name_fuzzy_typo_match(client, admin_headers):
+    _make_lead(client, admin_headers, business_name="Riverside Dental Clinic")
+    r = client.get("/api/leads/check-duplicates", params={"business_name": "Riverside Dentl Clinic"}, headers=admin_headers)
+    matches = r.json()
+    assert any("business_name" in m["matched_on"] for m in matches)
+
+
+def test_contact_name_fuzzy_match(client, admin_headers):
+    lead = _make_lead(client, admin_headers, business_name="Contact Name Test Co", contact_name="Jonathan Smith")
+    r = client.get("/api/leads/check-duplicates", params={"contact_name": "Jonathon Smith"}, headers=admin_headers)
+    matches = [m for m in r.json() if m["id"] == lead["id"]]
+    assert len(matches) == 1
+    assert "contact_name" in matches[0]["matched_on"]
+
+
+def test_contact_email_exact_match(client, admin_headers):
+    lead = _make_lead(client, admin_headers, business_name="Contact Email Test Co", contact_email="Jane@Example.com")
+    r = client.get("/api/leads/check-duplicates", params={"contact_email": "jane@example.com"}, headers=admin_headers)
+    matches = [m for m in r.json() if m["id"] == lead["id"]]
+    assert len(matches) == 1
+    assert "contact_email" in matches[0]["matched_on"]
+
+
+def test_contact_email_different_domain_does_not_match(client, admin_headers):
+    _make_lead(client, admin_headers, business_name="Contact Email No Match Co", contact_email="jane@example.com")
+    r = client.get("/api/leads/check-duplicates", params={"contact_email": "jane@other.com"}, headers=admin_headers)
+    assert r.json() == []

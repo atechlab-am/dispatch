@@ -85,18 +85,20 @@ export default function LeadModal({ lead, existingLeads, showToast, onClose, onS
   useEffect(() => {
     if (!isNew) return; // skip on edit — would trivially match itself
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    const hasEnoughSignal = form.business_name.trim().length >= 3 || form.website.trim() || form.phone.trim();
+    const hasEnoughSignal = form.business_name.trim().length >= 3 || form.website.trim() || form.phone.trim()
+      || form.contact_name.trim().length >= 3 || form.contact_email.trim();
     if (!hasEnoughSignal) { setDuplicates([]); return; }
     debounceRef.current = setTimeout(async () => {
       try {
         const matches = await checkLeadDuplicates({
           business_name: form.business_name, website: form.website, phone: form.phone,
+          contact_name: form.contact_name, contact_email: form.contact_email,
         });
         setDuplicates(matches);
       } catch { /* ignore */ }
     }, 400);
     return () => clearTimeout(debounceRef.current);
-  }, [isNew, form.business_name, form.website, form.phone]);
+  }, [isNew, form.business_name, form.website, form.phone, form.contact_name, form.contact_email]);
 
   async function handleSubmit(e) {
     e.preventDefault();

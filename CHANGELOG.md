@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.38.1] — 2026-07-12
+
+### Fixed — Lead CSV import rejected valid values too strictly
+- Reported: importing a CSV with `Priority` = `MED` (meant to be Medium) failed to import the row. Root cause: value-alias resolution (`priority`/`source`/`stage`/`outreach_channel`) only matched an exact, pre-listed alias or enum value — anything with trailing punctuation (`"Med."`), a typo, or a variant not already in the alias table hard-failed the row instead of importing.
+- `_resolve_enum_alias` now strips trailing punctuation and falls back to fuzzy matching (`difflib.get_close_matches`) against all known alias keys and enum values when an exact match fails, so near-misses like `"Med."` or `"Hgih"` resolve correctly. Genuinely invalid values (e.g. `"urgent"`, not a real priority) still correctly fail — fuzzy fallback only kicks in above a similarity threshold, it doesn't guess wildly.
+
+### Changed — Duplicate-lead detection now also checks contact name/email
+- `GET /api/leads/check-duplicates` (used by the New Lead form's live duplicate warning) now additionally accepts and matches `contact_name` (fuzzy, like business name) and `contact_email` (exact, normalized) — previously only business name, website, and phone were checked, so the same person entered under a different company name went undetected.
+- Business name matching also gained a fuzzy-similarity fallback (on top of the existing substring check) so minor typos across two entries of the same business are now caught.
+- `LeadModal.jsx`'s duplicate-check trigger extended to fire on `contact_name`/`contact_email` changes too, not just business name/website/phone.
+
+### Tests
+- `test_leads_import_export.py`: new tests for trailing-punctuation/typo tolerance in priority values, and confirming genuinely invalid values are still rejected.
+- `test_leads_duplicates.py`: new tests for business-name fuzzy-typo matching, contact-name fuzzy matching, and contact-email exact/non-matching.
+
 ## [1.38.0] — 2026-07-12
 
 ### Added — Bare-metal install scripts (no Docker)

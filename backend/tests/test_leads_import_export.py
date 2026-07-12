@@ -67,6 +67,30 @@ def test_import_priority_alias(client, admin_headers):
     assert created["priority"] == "high"
 
 
+def test_import_priority_tolerates_trailing_punctuation_and_typos(client, admin_headers):
+    content = (
+        "Business Name,Priority\n"
+        "Punctuation Priority Co,Med.\n"
+        "Typo Priority Co,Hgih\n"
+    )
+    r = client.post("/api/leads/import", headers=admin_headers, files=_csv_file(content))
+    assert r.status_code == 200, r.text
+    assert r.json()["created"] == 2
+    assert r.json()["errors"] == []
+    leads = client.get("/api/leads", headers=admin_headers).json()
+    assert next(l for l in leads if l["business_name"] == "Punctuation Priority Co")["priority"] == "medium"
+    assert next(l for l in leads if l["business_name"] == "Typo Priority Co")["priority"] == "high"
+
+
+def test_import_still_rejects_genuinely_invalid_priority(client, admin_headers):
+    content = "Business Name,Priority\nInvalid Priority Co,urgent\n"
+    r = client.post("/api/leads/import", headers=admin_headers, files=_csv_file(content))
+    assert r.status_code == 200
+    assert r.json()["created"] == 0
+    assert len(r.json()["errors"]) == 1
+    assert "Invalid priority" in r.json()["errors"][0]["error"]
+
+
 def test_import_source_alias(client, admin_headers):
     content = "Business Name,Source\nAlias Source Co,cold call\n"
     r = client.post("/api/leads/import", headers=admin_headers, files=_csv_file(content))

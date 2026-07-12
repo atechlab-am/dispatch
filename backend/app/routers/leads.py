@@ -1,4 +1,5 @@
 import csv
+import difflib
 import io
 import re
 from datetime import date, datetime, timezone
@@ -112,6 +113,8 @@ class LeadDuplicateMatch(BaseModel):
     business_name: str
     website: str
     phone: str
+    contact_name: str
+    contact_email: str
     stage: LeadStage
     matched_on: list[str]
 
@@ -155,6 +158,18 @@ def _normalize_phone(v: str) -> str:
     return re.sub(r"\D", "", v)
 
 
+def _normalize_email(v: str) -> str:
+    return v.strip().lower()
+
+
+def _is_similar(a: str, b: str, cutoff: float = 0.75) -> bool:
+    """Fuzzy similarity check — catches typos/minor formatting differences
+    that a plain substring check misses (e.g. "Jon Smith" vs "John Smith")."""
+    if not a or not b:
+        return False
+    return difflib.SequenceMatcher(None, a, b).ratio() >= cutoff
+
+
 # ─── Routes — static paths declared before /{lead_id} ───────────────────────
 
 @router.get("", response_model=list[LeadOut])
@@ -175,24 +190,33 @@ def check_duplicates(
     business_name: str = Query(""),
     website: str = Query(""),
     phone: str = Query(""),
+    contact_name: str = Query(""),
+    contact_email: str = Query(""),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     """Checked against all leads regardless of stage (including lost), so a
-    rep doesn't re-contact a business that was already tried and lost."""
+    rep doesn't re-contact a business that was already tried and lost.
+    Business name and contact name use fuzzy similarity (typos, word order,
+    minor formatting differences) on top of substring containment; website,
+    phone, and email use exact match on normalized values."""
     _require_enabled()
     name_q = _normalize_name(business_name)
     website_q = _normalize_website(website)
     phone_q = _normalize_phone(phone)
+    contact_name_q = _normalize_name(contact_name)
+    contact_email_q = _normalize_email(contact_email)
 
-    if not name_q and not website_q and not phone_q:
+    if not any([name_q, website_q, phone_q, contact_name_q, contact_email_q]):
         return []
 
     matches: list[LeadDuplicateMatch] = []
     for lead in db.query(Lead).all():
         matched_on: list[str] = []
         lead_name = _normalize_name(lead.business_name)
-        if name_q and len(name_q) >= 3 and lead_name and (name_q in lead_name or lead_name in name_q):
+        if name_q and len(name_q) >= 3 and lead_name and (
+            name_q in lead_name or lead_name in name_q or _is_similar(name_q, lead_name)
+        ):
             matched_on.append("business_name")
         lead_website = _normalize_website(lead.website)
         if website_q and lead_website and website_q == lead_website:
@@ -200,10 +224,20 @@ def check_duplicates(
         lead_phone = _normalize_phone(lead.phone)
         if phone_q and lead_phone and phone_q == lead_phone:
             matched_on.append("phone")
+        lead_contact_name = _normalize_name(lead.contact_name)
+        if contact_name_q and len(contact_name_q) >= 3 and lead_contact_name and (
+            contact_name_q in lead_contact_name or lead_contact_name in contact_name_q
+            or _is_similar(contact_name_q, lead_contact_name)
+        ):
+            matched_on.append("contact_name")
+        lead_contact_email = _normalize_email(lead.contact_email)
+        if contact_email_q and lead_contact_email and contact_email_q == lead_contact_email:
+            matched_on.append("contact_email")
         if matched_on:
             matches.append(LeadDuplicateMatch(
                 id=lead.id, business_name=lead.business_name, website=lead.website,
-                phone=lead.phone, stage=lead.stage, matched_on=matched_on,
+                phone=lead.phone, contact_name=lead.contact_name, contact_email=lead.contact_email,
+                stage=lead.stage, matched_on=matched_on,
             ))
     return matches
 
@@ -336,14 +370,31 @@ def _normalize_header(h: str) -> str:
 
 
 def _resolve_enum_alias(raw: str, aliases: dict, enum_cls) -> Optional[str]:
+    """Resolve a free-text CSV cell to an enum value. Tries, in order: exact
+    alias/value match, then a fuzzy match against every known alias key and
+    enum value (handles typos, trailing punctuation, and abbreviations the
+    alias table doesn't explicitly list, e.g. "Med." or "Refered")."""
     v = re.sub(r"\s+", " ", raw.strip().lower())
+    v = v.rstrip(".,;:")
     if not v:
         return None
-    v = aliases.get(v, v)
+
+    exact = aliases.get(v, v)
     try:
-        return enum_cls(v).value
+        return enum_cls(exact).value
     except ValueError:
-        return "INVALID"
+        pass
+
+    candidates = set(aliases.keys()) | {m.value for m in enum_cls}
+    close = difflib.get_close_matches(v, candidates, n=1, cutoff=0.6)
+    if close:
+        resolved = aliases.get(close[0], close[0])
+        try:
+            return enum_cls(resolved).value
+        except ValueError:
+            pass
+
+    return "INVALID"
 
 
 @router.get("/import/sample")
