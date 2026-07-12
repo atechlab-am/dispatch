@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.38.0] — 2026-07-12
+
+### Added — Bare-metal install scripts (no Docker)
+- `scripts/linux/install-bare-metal.sh` and `scripts/windows/install-bare-metal.ps1`: fresh-machine installers for machines that don't run Docker at all — everything runs as native OS services instead of containers.
+  - **Linux**: detects and supports both `apt` (Debian/Ubuntu) and `dnf` (Fedora/RHEL/Rocky). Installs git/Python/Node/Postgres/nginx via the OS package manager (falls back to NodeSource's setup script if the distro's default Node is too old for Vite), provisions a local Postgres database, sets up the backend in a Python venv running under a dedicated `dispatch` systemd service (`dispatch-backend.service`), builds the frontend, and writes two nginx server blocks (staff app on :80, client portal on `PORTAL_PORT`/:8080) adapted from the existing `nginx.conf`/`nginx.portal.conf`.
+  - **Windows**: installs prerequisites via `winget` (Git, Python, Node.js LTS, PostgreSQL), downloads nginx-for-Windows and NSSM directly (neither has a winget package), wraps both the backend and nginx as Windows Services via NSSM so they survive reboots without a login session. Must be run elevated.
+  - Both are install-only in this pass (no bare-metal update script yet) and are independent of the existing Docker-based `scripts/*/install.*`/`update.*` — use one deployment model or the other, not both.
+  - **Two real bugs caught and fixed via live testing** (Linux script tested end-to-end in a disposable systemd-enabled container — clean install, 3x idempotent re-run, and actual HTTP verification of both the staff app and portal, including the portal's `/api/` allowlist behavior):
+    1. An existing Docker-flavored `.env` (no `DATABASE_URL`, just `POSTGRES_DB`/`USER`/`PASSWORD`) was silently accepted as "already configured," leading to a `KeyError: DATABASE_URL` crash at first alembic run. Both scripts now detect this and refuse with a clear message instead of proceeding.
+    2. The systemd service setup originally ran `chown -R dispatch:dispatch` over the entire repo (or `backend/` in a later draft), which broke `npm ci` for the invoking user in the next step, and broke re-running the script at all (the backend venv/migrations, run as the invoking user, lost read access to their own files on a second pass). Fixed by keeping `backend/` owned by the invoking user with group-read access for the `dispatch` service user, and scoping actual ownership transfer to just the upload directory.
+
+## [1.37.0] — 2026-07-12
+
+### Added — Install scripts (`scripts/linux/`, `scripts/windows/`)
+- `scripts/linux/install.sh` and `scripts/windows/install.ps1`: fresh-machine installers. Check for git/Docker (Compose v2) prerequisites without installing them, clone the repo (or reuse the current checkout if already run from inside one), generate a real `.env` with a random `SECRET_KEY`/`POSTGRES_PASSWORD` (never the placeholder values from `.env.example`/`.env.demo`, and never overwritten if `.env` already exists), then `docker compose up -d --build`. The Windows version works on both Windows PowerShell 5.1 and PowerShell 7 (uses `RNGCryptoServiceProvider` for the random secrets rather than the .NET-6-only `RandomNumberGenerator.Fill`).
+- `scripts/linux/update.sh` and `scripts/windows/update.ps1`: independent copies of `upgrade.sh`'s pull/rebuild/restart logic, kept separate by design rather than sharing code with `upgrade.sh` (which stays at the repo root, untouched). Kept alongside the install scripts for discoverability.
+- Added the previously-missing `.env.demo` (referenced by the README's manual "Run" instructions and carved out of `.gitignore`, but never actually committed) — fixed placeholder secrets, explicitly labeled as local-eval-only.
+- Verified end-to-end on a disposable test checkout (not a clone from GitHub, to avoid touching the real remote): `install.sh` correctly detects an existing checkout and skips cloning, generates `.env` with real random secrets, boots a healthy stack, and is idempotent (a second run leaves an already-generated `.env` untouched); `update.sh` correctly pulls a simulated upstream change, rebuilds, and restarts with the Postgres data volume preserved throughout.
+
 ## [1.36.3] — 2026-07-12
 
 ### Docs — Clarified how/when to run `upgrade-postgres.sh`
