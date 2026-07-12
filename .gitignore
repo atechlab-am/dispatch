@@ -35,3 +35,8 @@ coverage.json
 
 # Ignore the claude folder, which is used for Claude AI integration
 .claude/
+
+# Postgres upgrade script artifacts (dump files, docker-compose.yml backups)
+pg_upgrade_*.dump
+docker-compose.yml.bak
+docker-compose.yml.bak2

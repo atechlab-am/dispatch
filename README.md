@@ -24,6 +24,16 @@ sudo ./upgrade.sh
 
 Pulls latest code, rebuilds images without cache, restarts containers. Database migrations run automatically on startup.
 
+### Upgrading Postgres's major version
+
+`upgrade.sh` only rebuilds images against whatever Postgres tag is already pinned in `docker-compose.yml` — it does **not** change the Postgres version. A Postgres major-version bump (e.g. 16 → 18) needs its own procedure, since Postgres doesn't support starting a newer major version directly against an older version's on-disk data:
+
+```bash
+./upgrade-postgres.sh 18-alpine
+```
+
+This dumps the running database, stops the stack, renames (never deletes) the old data volume as a safety net, starts a fresh container on the target version, restores the dump, then brings the rest of the stack back up — printing an explicit rollback command at the end. Note: Postgres 18 also changed the image's expected volume-mount layout (`/var/lib/postgresql` instead of `/var/lib/postgresql/data`); the script detects and handles this automatically for 18+ targets.
+
 ## Stack
 
 React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker

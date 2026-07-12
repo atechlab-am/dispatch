@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.36.2] — 2026-07-12
+
+### Added — `upgrade-postgres.sh`
+- New script for the Postgres major-version upgrade intentionally deferred in 1.36.1: dumps the running database (`pg_dump -F custom`), stops the stack, renames (never deletes) the old data volume as a safety net, starts a fresh container on the target version, restores the dump, then brings the rest of the stack back up. Prints an explicit rollback procedure at the end.
+- Handles a Postgres-image-level breaking change discovered while building/testing this script: **Postgres 18 changed the official Docker image's expected data layout** — it now wants a single volume mount at `/var/lib/postgresql` (data lives in a version-numbered subdirectory underneath), not a mount directly at `/var/lib/postgresql/data` like every version through 17. Mounting the old way makes an 18+ container refuse to start at all. The script detects a target major version ≥ 18 and rewrites `docker-compose.yml`'s volume line accordingly; targets below 18 are unaffected.
+- Verified end-to-end against a disposable test stack (16 → 18, with canary rows inserted beforehand): confirmed the data survives the dump/restore, the app's own `alembic upgrade head` runs cleanly against the new instance and comes up healthy, and the printed rollback procedure genuinely restores both the original image tag and the original volume mount path with no data loss.
+- Fixed a bug caught during that same testing: the image-tag replacement in `docker-compose.yml` used `\s` in a `sed -E` pattern, which BSD/macOS `sed` doesn't support as whitespace — the substitution silently no-opped and the compose file was left unchanged. Replaced with `[[:space:]]`, which works on both BSD and GNU `sed`, and added a hard post-edit verification step (the script now aborts loudly if the rewritten file doesn't actually contain the target image, instead of silently continuing against the old version).
+
+## [1.36.1] — 2026-07-12
+
+### Changed — Bumped Docker base images
+- `node:20-alpine` → `node:24-alpine` (frontend build stage only — never ships in the running containers, which serve via nginx)
+- `python:3.12-slim` → `python:3.13-slim` (backend runtime)
+- `nginx:1.27-alpine` → `nginx:1.29-alpine` (both frontend/portal serving stages)
+- **Postgres intentionally left at `postgres:16-alpine`** — a major-version bump doesn't upgrade the on-disk data format in place and would require a `pg_dump`/`pg_restore` across the version boundary against the live `postgres_data` volume. Revisit separately with a deliberate migration procedure rather than as part of a routine image bump.
+- Verified via a from-scratch `docker compose build --no-cache`: full backend test suite (523) green under Python 3.13, full frontend test suite (160) green under Node 24, and a live `docker compose up` smoke test (setup wizard, backend health check, portal reachability) all passing.
+
 ## [1.36.0] — 2026-07-12
 
 ### Added — Leads (sales pipeline)
