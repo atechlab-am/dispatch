@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.36.0] — 2026-07-12
+
+### Added — Leads (sales pipeline)
+- New "Leads" nav item and page (`/leads`, `FEATURE_LEADS`-gated) for tracking sales prospects before they become a Client: pipeline stages (New → Contacted → Qualified → Proposal → Won/Lost), priority, source, outreach channel, contact/business info, notes, and a value estimate. New `leads`/`lead_activities` tables (migration 0043).
+- **Duplicate detection** — while creating a lead, a debounced check against business name, website, and phone (fuzzy name match, exact site/phone match, checked against all leads including Lost) warns before you re-add a prospect that's already being tracked.
+- **Bulk actions** — select multiple leads to bulk-update priority/outreach channel/dates or bulk-delete. Bulk-moving to Lost is disallowed since a lost reason has to be entered per lead.
+- **CSV import/export** — bulk-import leads from a spreadsheet with forgiving header matching ("Company Name", "Status", etc.), common shorthand for priority/source/stage values, and tolerant encoding (handles Excel/Windows exports); a sample CSV is downloadable and round-trips cleanly. Export produces a full CSV snapshot of all leads.
+- **Activity timeline** — each lead has a log of calls/emails/notes/meetings plus system-generated stage-change entries, shown alongside the edit form.
+- **Convert to Client** — a Won lead can be converted with one click into a real Dispatch Client (business name, contact email/phone, address, and notes carried over), following the same conversion pattern already used for Quote → Invoice. The lead keeps a reference to the Client it became.
+
+### Tests
+- `test_leads.py`, `test_leads_duplicates.py`, `test_leads_bulk.py`, `test_leads_import_export.py` — CRUD, stage transitions, duplicate matching, bulk update/delete, CSV import/export, and lead→Client conversion.
+- `LeadsPage.test.jsx`, `LeadModal.test.jsx` — tab filtering, bulk selection/delete, duplicate warning, Lost-reason requirement, Convert to Client, activity timeline.
+
 ## [1.35.1] — 2026-07-11
 
 ### Fixed — Client Portal branding not applying in production

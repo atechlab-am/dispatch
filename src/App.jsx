@@ -2448,7 +2448,7 @@ export default function App() {
     audit_log: true, timer: true, ar_aging: true,
     notifications: true, recurring_invoicing: true, scheduling: true,
     quotes: true, global_search: true, canned_responses: true,
-    sla_escalation: true, sla_tiers: true,
+    sla_escalation: true, sla_tiers: true, leads: true,
     two_factor_auth: false, // unlike every other toggle, FEATURE_2FA defaults off
   });
 

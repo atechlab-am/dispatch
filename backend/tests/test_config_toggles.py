@@ -44,7 +44,7 @@ def test_get_config_returns_all_six_keys(client, admin_headers):
         "audit_log", "timer", "ar_aging", "notifications",
         "recurring_invoicing", "scheduling",
         "quotes", "global_search", "canned_responses", "sla_escalation", "sla_tiers",
-        "two_factor_auth", "materials", "backups",
+        "two_factor_auth", "materials", "backups", "leads",
     }
 
 
@@ -167,3 +167,11 @@ def test_has_appointment_filter_ignored_when_scheduling_disabled(client, admin_h
     monkeypatch.setattr(config, "FEATURE_SCHEDULING", False)
     r = client.get("/api/tickets", params={"has_appointment": "true", "page_size": 5}, headers=admin_headers)
     assert r.status_code == 200  # param ignored, not a hard error
+
+
+# ─── Leads ────────────────────────────────────────────────────────────────────
+
+def test_leads_endpoints_503_when_disabled(client, admin_headers, monkeypatch):
+    monkeypatch.setattr(config, "FEATURE_LEADS", False)
+    assert client.get("/api/leads", headers=admin_headers).status_code == 503
+    assert client.post("/api/leads", json={"business_name": "Toggle Co"}, headers=admin_headers).status_code == 503

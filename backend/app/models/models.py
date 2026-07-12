@@ -727,3 +727,94 @@ class PortalBranding(Base):
     logo_url = Column(Text, nullable=False, default="")
     updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+
+class LeadStage(str, enum.Enum):
+    new = "new"
+    contacted = "contacted"
+    qualified = "qualified"
+    proposal = "proposal"
+    won = "won"
+    lost = "lost"
+
+
+class LeadSource(str, enum.Enum):
+    referral = "referral"
+    website = "website"
+    outbound = "outbound"
+    event = "event"
+    other = "other"
+
+
+class LeadPriority(str, enum.Enum):
+    high = "high"
+    medium = "medium"
+    low = "low"
+
+
+class OutreachChannel(str, enum.Enum):
+    email = "email"
+    phone = "phone"
+    in_person = "in_person"
+    other = "other"
+
+
+class LeadActivityType(str, enum.Enum):
+    call = "call"
+    email = "email"
+    note = "note"
+    meeting = "meeting"
+    stage_change = "stage_change"
+
+
+class Lead(Base):
+    """A sales prospect, tracked independently (business + contact info
+    flattened onto the row, no separate Company/Contact tables) through a
+    pipeline from New to Won/Lost. A Won lead can be converted into a real
+    Client via `converted_client_id`."""
+    __tablename__ = "leads"
+
+    id = Column(Integer, primary_key=True, index=True)
+    business_name = Column(String(255), nullable=False, index=True)
+    title = Column(String(255), nullable=False, default="")
+    industry = Column(String(120), nullable=False, default="")
+    address = Column(String(500), nullable=False, default="")
+    area = Column(String(120), nullable=False, default="")
+    phone = Column(String(50), nullable=False, default="")
+    website = Column(String(500), nullable=False, default="")
+    contact_name = Column(String(255), nullable=False, default="")
+    contact_email = Column(String(255), nullable=False, default="", index=True)
+    contact_phone = Column(String(50), nullable=False, default="")
+    stage = Column(SAEnum(LeadStage, values_callable=lambda e: [m.value for m in e]), nullable=False, default=LeadStage.new)
+    source = Column(SAEnum(LeadSource, values_callable=lambda e: [m.value for m in e]), nullable=False, default=LeadSource.other)
+    priority = Column(SAEnum(LeadPriority, values_callable=lambda e: [m.value for m in e]), nullable=False, default=LeadPriority.medium)
+    outreach_channel = Column(SAEnum(OutreachChannel, values_callable=lambda e: [m.value for m in e]), nullable=True)
+    value_estimate = Column(Numeric(12, 2), nullable=True)
+    lost_reason = Column(Text, nullable=False, default="")
+    date_contacted = Column(Date, nullable=True)
+    follow_up_date = Column(Date, nullable=True)
+    notes = Column(Text, nullable=False, default="")
+    owner_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    converted_client_id = Column(Integer, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    owner = relationship("User", foreign_keys=[owner_id])
+    converted_client = relationship("Client", foreign_keys=[converted_client_id])
+    activities = relationship("LeadActivity", back_populates="lead", cascade="all, delete-orphan", order_by="LeadActivity.occurred_at.desc()")
+
+
+class LeadActivity(Base):
+    """Timeline entry for a Lead — manually logged calls/emails/notes/meetings,
+    plus system-generated stage_change entries. Doubles as the audit trail for
+    leads (a separate concept from the ticket/invoice-only AuditLog table)."""
+    __tablename__ = "lead_activities"
+
+    id = Column(Integer, primary_key=True, index=True)
+    lead_id = Column(Integer, ForeignKey("leads.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    type = Column(SAEnum(LeadActivityType, values_callable=lambda e: [m.value for m in e]), nullable=False)
+    body = Column(Text, nullable=False, default="")
+    occurred_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    lead = relationship("Lead", back_populates="activities")

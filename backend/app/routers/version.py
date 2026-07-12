@@ -153,6 +153,7 @@ class FeatureConfigOut(BaseModel):
     two_factor_auth: bool
     materials: bool
     backups: bool
+    leads: bool
 
 
 @config_router.get("/config", response_model=FeatureConfigOut)
@@ -172,4 +173,5 @@ def get_feature_config(_: User = Depends(get_current_user)):
         two_factor_auth=config.FEATURE_2FA,
         materials=config.FEATURE_MATERIALS,
         backups=config.FEATURE_BACKUPS,
+        leads=config.FEATURE_LEADS,
     )

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { useBranding } from "./branding.jsx";
 import DashboardPage from "./DashboardPage.jsx";
+import LeadsPage from "./LeadsPage.jsx";
 import ClientsPage from "./ClientsPage.jsx";
 import InvoicesPage, { InvoiceEditorRoute } from "./InvoicesPage.jsx";
 import QuotesPage, { QuoteEditorRoute } from "./QuotesPage.jsx";
@@ -35,6 +36,7 @@ const ICONS = {
   home:      "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z M9 22V12h6v10",
   tickets:   "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2 M9 5a2 2 0 002 2h2a2 2 0 002-2 M9 5a2 2 0 012-2h2a2 2 0 012 2",
   clients:   "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2 M23 21v-2a4 4 0 00-3-3.87 M9 11a4 4 0 100-8 4 4 0 000 8z M16 3.13a4 4 0 010 7.75",
+  leads:     "M22 11.08V12a10 10 0 11-5.93-9.14 M22 4L12 14.01l-3-3",
   invoices:  "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8",
   quotes:    "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M9 15l2 2 4-4",
   projects:  "M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z",
@@ -143,6 +145,7 @@ export default function AppNew({
   const NAV = [
     { path: "/",          label: "Dashboard",  icon: ICONS.home },
     { path: "/tickets",   label: "Tickets",    icon: ICONS.tickets },
+    ...(features?.leads !== false ? [{ path: "/leads", label: "Leads", icon: ICONS.leads }] : []),
     { path: "/clients",   label: "Clients",    icon: ICONS.clients },
     { path: "/invoices",  label: "Invoices",   icon: ICONS.invoices },
     ...(features?.quotes !== false ? [{ path: "/projects", label: "Projects", icon: ICONS.projects }] : []),
@@ -164,6 +167,7 @@ export default function AppNew({
     if (location.pathname === "/") return "Dashboard";
     if (location.pathname.startsWith("/tickets/")) return "Ticket";
     if (location.pathname === "/tickets") return "Tickets";
+    if (location.pathname === "/leads") return "Leads";
     if (location.pathname === "/clients") return "Clients";
     if (location.pathname.startsWith("/invoices/")) return "Invoice";
     if (location.pathname === "/invoices") return "Invoices";
@@ -304,6 +308,7 @@ export default function AppNew({
                 features={features}
               />
             } />
+            {features?.leads !== false && <Route path="/leads" element={<LeadsPage showToast={showToast} />} />}
             <Route path="/clients"   element={<ClientsPage showToast={showToast} features={features} />} />
             <Route path="/invoices"      element={<InvoicesPage showToast={showToast} features={features} />} />
             <Route path="/invoices/new"  element={<InvoiceEditorRoute showToast={showToast} prefill={invoiceDraft} onDraftConsumed={() => setInvoiceDraft(null)} />} />

@@ -57,6 +57,15 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Scheduling/rescheduling/cancelling notifies the technician and logs to the ticket's Activity trail
 - No double-booking validation or technician availability modeling yet (planned as a future refinement)
 
+### Leads (sales pipeline)
+- Track sales prospects through a pipeline (New → Contacted → Qualified → Proposal → Won/Lost) before they become a Client — priority, source, outreach channel, contact/business info, notes, and a value estimate
+- **Duplicate detection** — a debounced check while creating a lead warns if the business name, website, or phone matches an existing lead (including Lost ones), so you don't re-add a prospect that's already being tracked
+- **Bulk actions** — select multiple leads to bulk-update priority/outreach channel/dates, or bulk-delete; bulk-moving to Lost isn't allowed since a lost reason has to be entered per lead
+- **CSV import/export** — bulk-import from a spreadsheet with forgiving header names and common shorthand values, tolerant of Excel/Windows encodings; a downloadable sample CSV round-trips cleanly; export produces a full snapshot
+- **Activity timeline** — a log of calls/emails/notes/meetings per lead, plus system-generated stage-change entries
+- **Convert to Client** — a Won lead converts with one click into a real Client (business/contact info carried over), the same pattern as Quote → Invoice conversion below
+- Toggleable via `FEATURE_LEADS`
+
 ### Clients
 - Business and residential client directory with add, edit, delete, and search
 - Business model: a company is a group of client records sharing the same company name; the primary record (lowest ID) holds company-level info; additional records are contacts
@@ -173,6 +182,7 @@ Each feature below can be turned off independently via env vars. A disabled feat
 - `FEATURE_SLA_TIERS` — per-client SLA tier overrides, gold/silver/bronze (default enabled)
 - `FEATURE_MATERIALS` — the materials catalog (Settings tab + quote line-item autofill) (default enabled)
 - `FEATURE_BACKUPS` — the scheduled/manual backup loop, the Settings → Backup tab, and the restore flow (default enabled; also requires `BACKUP_NAS_HOST`/`BACKUP_NAS_SHARE` to actually run — see `.env.example`)
+- `FEATURE_LEADS` — the Leads sales-pipeline page, duplicate detection, bulk actions, CSV import/export, and Convert to Client (default enabled)
 - `FEATURE_2FA` — two-factor auth enrollment and enforcement (**default DISABLED** — set to `true` to opt in; unlike every toggle above, this one changes the login flow itself)
 
 ### Setup Wizard

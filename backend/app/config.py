@@ -72,6 +72,7 @@ FEATURE_SLA_ESCALATION: bool = os.environ.get("FEATURE_SLA_ESCALATION", "true").
 FEATURE_SLA_TIERS: bool = os.environ.get("FEATURE_SLA_TIERS", "true").lower() == "true"
 FEATURE_MATERIALS: bool = os.environ.get("FEATURE_MATERIALS", "true").lower() == "true"
 FEATURE_BACKUPS: bool = os.environ.get("FEATURE_BACKUPS", "true").lower() == "true"
+FEATURE_LEADS: bool = os.environ.get("FEATURE_LEADS", "true").lower() == "true"
 
 # Two-factor auth (TOTP) — unlike every toggle above, this one defaults to
 # DISABLED ("false"). It changes the login flow itself (adds a second step),
