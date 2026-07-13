@@ -20,6 +20,9 @@ const DEFAULT_FORM = {
   website: "atechsolutions.org",
   primary_color: "#1A5CBA",
   accent_color: "#E8A020",
+  text_color: "#0F172A",
+  muted_color: "#64748B",
+  on_color_text: "#FFFFFF",
   logo_url: "",
   footer_text: "Thank you for your business",
   font_size_header: 22,
@@ -111,6 +114,20 @@ test("shows the specific server error when a custom template save is rejected", 
   fireEvent.click(screen.getByText("Save Changes"));
 
   await waitFor(() => expect(showToast).toHaveBeenCalledWith("Invoice template error: Unknown placeholder(s): bogus", "err"));
+});
+
+test("shows the Font Colors section and saves a changed body text color", async () => {
+  updateDocumentBranding.mockResolvedValue({ ...DEFAULT_FORM, text_color: "#123456" });
+  render(<DocumentBrandingSettingsPanel onClose={() => {}} showToast={vi.fn()} />);
+
+  await screen.findByDisplayValue("ATech Solutions");
+  expect(screen.getByText("Font Colors")).toBeInTheDocument();
+
+  const textColorInput = screen.getByDisplayValue("#0F172A");
+  fireEvent.change(textColorInput, { target: { value: "#123456" } });
+  fireEvent.click(screen.getByText("Save Changes"));
+
+  await waitFor(() => expect(updateDocumentBranding).toHaveBeenCalledWith(expect.objectContaining({ text_color: "#123456" })));
 });
 
 test("adjusts a font size slider and saves it", async () => {

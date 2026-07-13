@@ -224,6 +224,7 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Both login screens use a clean, Microsoft-style centered card with an email-first sign-in flow (email, then password, then 2FA if enabled)
 - **Quote/Invoice PDFs** have their own separate branding too (Settings → Quote/Invoice PDFs) — company name, website, logo, primary/accent colors, and a customizable footer line, applied to the quote/invoice PDF and the emailed version alike. Independent from the other three branding surfaces above; falls back to a styled text wordmark when no logo is set.
 - **Font size controls** for the PDF header/logo, body text, table headers, and totals — adjustable via sliders.
+- **Font color controls** — body text, muted/secondary text, and header text-on-color are all customizable, applied to both the PDF and the emailed version.
 - **Custom HTML templates (advanced)** — full control over layout: replace the built-in invoice or quote PDF entirely with your own HTML using `{{placeholder}}` substitution (a full reference list is shown in the editor — `{{company_name}}`, `{{invoice_id}}`, `{{lines_html}}`, `{{total}}`, etc.). Invoice and quote templates are independent, each optional, and a broken template (unknown placeholder) is rejected at save time rather than ever breaking a real document — a **Preview** button renders against sample data before you save.
 
 ### Backups (admin only)

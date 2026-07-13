@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.41.1] — 2026-07-13
+
+### Fixed — font color wasn't actually customizable on Quote/Invoice PDFs
+- Body text, muted/secondary text, and header text-on-color were still hardcoded hex values in the invoice/quote PDF and email templates, even though the v1.41.0 "full layout control" pass added font *size* controls — color was missed.
+- Added `text_color`, `muted_color`, and `on_color_text` to `DocumentBranding` (migration 0046) and a new "Font Colors" section in Settings → Quote/Invoice PDFs, mirroring the existing Login Page/Client Portal font color pattern. Applied to both PDFs and the emailed versions of invoices/quotes; added as new `{{placeholder}}`s for custom templates too.
+
+### Tests
+- 5 new backend tests (defaults, update, PDF-content assertions for both invoice and quote) and 1 new frontend test. Full suite: 567 backend (pytest) + 189 frontend (Vitest) passing.
+
 ## [1.41.0] — 2026-07-13
 
 ### Added — full layout control over Quote/Invoice PDFs

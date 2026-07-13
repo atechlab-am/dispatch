@@ -748,6 +748,9 @@ class DocumentBranding(Base):
     website = Column(String(255), nullable=False, default="atechsolutions.org")
     primary_color = Column(String(20), nullable=False, default="#1A5CBA")
     accent_color = Column(String(20), nullable=False, default="#E8A020")
+    text_color = Column(String(20), nullable=False, default="#0F172A")
+    muted_color = Column(String(20), nullable=False, default="#64748B")
+    on_color_text = Column(String(20), nullable=False, default="#FFFFFF")
     logo_url = Column(Text, nullable=False, default="")
     footer_text = Column(String(500), nullable=False, default="Thank you for your business")
 

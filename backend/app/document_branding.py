@@ -80,7 +80,7 @@ def render_template(template: str, context: dict) -> str:
 # and each call site provides its own context dict.
 INVOICE_PLACEHOLDERS = [
     "company_name", "website", "footer_text", "logo_html",
-    "primary_color", "accent_color",
+    "primary_color", "accent_color", "text_color", "muted_color", "on_color_text",
     "invoice_id", "status", "status_color", "paid_stamp_html",
     "client_name", "client_email_html", "address_html",
     "issue_date", "due_date_html", "tickets_html",
@@ -91,7 +91,7 @@ INVOICE_PLACEHOLDERS = [
 
 QUOTE_PLACEHOLDERS = [
     "company_name", "website", "footer_text", "logo_html",
-    "primary_color", "accent_color",
+    "primary_color", "accent_color", "text_color", "muted_color", "on_color_text",
     "quote_id", "status", "status_color",
     "client_name", "client_email_html", "project_html",
     "issue_date", "expiry_html",

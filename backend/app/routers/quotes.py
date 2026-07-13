@@ -439,6 +439,9 @@ def _quote_template_context(q: Quote, branding) -> dict:
         "logo_html": logo_html(branding),
         "primary_color": branding.primary_color,
         "accent_color": branding.accent_color,
+        "text_color": branding.text_color,
+        "muted_color": branding.muted_color,
+        "on_color_text": branding.on_color_text,
         "font_size_header": branding.font_size_header,
         "font_size_body": branding.font_size_body,
         "font_size_table": branding.font_size_table,
@@ -466,24 +469,24 @@ _QUOTE_DEFAULT_TEMPLATE = """<!DOCTYPE html>
 <title>Quote {{quote_id}}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Arial,sans-serif;font-size:{{font_size_body}}px;color:#0f172a;background:#f1f5f9;padding:32px}
+  body{font-family:Arial,sans-serif;font-size:{{font_size_body}}px;color:{{text_color}};background:#f1f5f9;padding:32px}
   .page{max-width:780px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 16px rgba(0,0,0,0.10);overflow:hidden}
-  .header{background:{{primary_color}};color:#fff;padding:28px 36px;display:flex;justify-content:space-between;align-items:flex-start}
+  .header{background:{{primary_color}};color:{{on_color_text}};padding:28px 36px;display:flex;justify-content:space-between;align-items:flex-start}
   .logo{font-size:{{font_size_header}}px;font-weight:800;letter-spacing:-0.5px}
   .logo span{color:{{accent_color}}}
   .body{padding:28px 36px}
   .meta{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px}
-  .meta-block p{margin:3px 0;font-size:{{font_size_body}}px;color:#334155}
-  .meta-block strong{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;display:block;margin-bottom:4px}
+  .meta-block p{margin:3px 0;font-size:{{font_size_body}}px;color:{{text_color}}}
+  .meta-block strong{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:{{muted_color}};display:block;margin-bottom:4px}
   .badge{display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;color:#fff;background:{{status_color}}}
   table{width:100%;border-collapse:collapse;margin-top:4px}
-  thead th{background:#f8fafc;padding:8px 12px;text-align:left;font-size:{{font_size_table}}px;text-transform:uppercase;letter-spacing:0.4px;color:#64748b;border-bottom:2px solid #e2e8f0}
+  thead th{background:#f8fafc;padding:8px 12px;text-align:left;font-size:{{font_size_table}}px;text-transform:uppercase;letter-spacing:0.4px;color:{{muted_color}};border-bottom:2px solid #e2e8f0}
   .totals{margin-top:16px;display:flex;justify-content:flex-end}
   .totals table{width:260px}
   .totals td{padding:5px 12px;font-size:{{font_size_totals}}px}
-  .totals .grand{font-weight:700;font-size:{{font_size_totals}}px;border-top:2px solid #0f172a}
-  .notes{margin-top:24px;padding:16px;background:#f8fafc;border-radius:8px;font-size:{{font_size_body}}px;color:#334155;white-space:pre-wrap;border-left:3px solid {{primary_color}}}
-  .footer{background:#f1f5f9;padding:14px 36px;font-size:11px;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0}
+  .totals .grand{font-weight:700;font-size:{{font_size_totals}}px;border-top:2px solid {{text_color}}}
+  .notes{margin-top:24px;padding:16px;background:#f8fafc;border-radius:8px;font-size:{{font_size_body}}px;color:{{text_color}};white-space:pre-wrap;border-left:3px solid {{primary_color}}}
+  .footer{background:#f1f5f9;padding:14px 36px;font-size:11px;color:{{muted_color}};text-align:center;border-top:1px solid #e2e8f0}
   @media print{body{background:#fff;padding:0} .page{box-shadow:none;border-radius:0}}
 </style>
 </head>
@@ -597,12 +600,12 @@ def send_quote(
     company_name_safe = html_lib.escape(branding.company_name)
 
     html = f"""<!DOCTYPE html><html><head><style>
-    body{{font-family:'Segoe UI',Arial,sans-serif;font-size:14px;color:#0f172a;background:#f4f7fc;margin:0;padding:0}}
+    body{{font-family:'Segoe UI',Arial,sans-serif;font-size:14px;color:{branding.text_color};background:#f4f7fc;margin:0;padding:0}}
     .wrap{{max-width:580px;margin:32px auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08)}}
-    .header{{background:{branding.primary_color};padding:20px 28px;color:#fff}}
+    .header{{background:{branding.primary_color};padding:20px 28px;color:{branding.on_color_text}}}
     .logo{{font-size:20px;font-weight:800}}.logo span{{color:{branding.accent_color}}}
     .body{{padding:24px 28px}}
-    .footer{{background:#f4f7fc;padding:12px 28px;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0}}
+    .footer{{background:#f4f7fc;padding:12px 28px;font-size:11px;color:{branding.muted_color};border-top:1px solid #e2e8f0}}
     </style></head><body>
     <div class="wrap">
       <div class="header">{logo_html(branding)}</div>

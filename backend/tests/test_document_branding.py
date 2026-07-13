@@ -18,6 +18,9 @@ def test_get_returns_defaults(client, admin_headers):
     assert data["primary_color"] == "#1A5CBA"
     assert data["accent_color"] == "#E8A020"
     assert data["footer_text"] == "Thank you for your business"
+    assert data["text_color"] == "#0F172A"
+    assert data["muted_color"] == "#64748B"
+    assert data["on_color_text"] == "#FFFFFF"
 
 
 def test_get_requires_auth(client):
@@ -58,6 +61,7 @@ def test_document_branding_independent_of_other_branding_tables(client, admin_he
 DEFAULT_DOCUMENT_BRANDING = {
     "company_name": "ATech Solutions", "website": "atechsolutions.org",
     "primary_color": "#1A5CBA", "accent_color": "#E8A020",
+    "text_color": "#0F172A", "muted_color": "#64748B", "on_color_text": "#FFFFFF",
     "logo_url": "", "footer_text": "Thank you for your business",
     "font_size_header": 22, "font_size_body": 14, "font_size_table": 13, "font_size_totals": 15,
     "use_custom_invoice_template": False, "custom_invoice_template": "",
@@ -166,12 +170,70 @@ def test_invoice_pdf_reflects_custom_font_sizes(client, admin_headers):
         _reset_document_branding(client, admin_headers)
 
 
+def test_font_color_defaults_and_update(client, admin_headers):
+    r = client.get("/api/document-branding", headers=admin_headers)
+    data = r.json()
+    assert data["text_color"] == "#0F172A"
+    assert data["muted_color"] == "#64748B"
+    assert data["on_color_text"] == "#FFFFFF"
+
+    body = {**DEFAULT_DOCUMENT_BRANDING, "text_color": "#111111", "muted_color": "#222222", "on_color_text": "#333333"}
+    r = client.put("/api/document-branding", json=body, headers=admin_headers)
+    assert r.status_code == 200
+    assert r.json()["text_color"] == "#111111"
+    assert r.json()["muted_color"] == "#222222"
+    assert r.json()["on_color_text"] == "#333333"
+    _reset_document_branding(client, admin_headers)
+
+
+def test_invoice_pdf_reflects_custom_font_colors(client, admin_headers):
+    r = client.post("/api/invoices", json={
+        "client_name": "Font Color Test Co", "client_email": "", "client_address": "",
+        "status": "Sent", "issue_date": "2026-06-01", "notes": "", "tax_rate": 0,
+        "lines": [{"description": "Work", "qty": 1, "unit_price": 100, "amount": 100}],
+    }, headers=admin_headers)
+    invoice_id = r.json()["id"]
+
+    body = {**DEFAULT_DOCUMENT_BRANDING, "text_color": "#123456", "muted_color": "#654321", "on_color_text": "#abcdef"}
+    client.put("/api/document-branding", json=body, headers=admin_headers)
+    try:
+        pdf = client.get(f"/api/invoices/{invoice_id}/pdf", headers=admin_headers)
+        assert "color:#123456" in pdf.text
+        assert "color:#654321" in pdf.text
+        assert "color:#abcdef" in pdf.text
+    finally:
+        _reset_document_branding(client, admin_headers)
+
+
+def test_quote_pdf_reflects_custom_font_colors(client, admin_headers):
+    r = client.post("/api/quotes", json={
+        "client_name": "Font Color Test Co", "client_email": "", "client_address": "",
+        "tax_rate": 0, "notes": "",
+        "lines": [{"description": "Consulting", "qty": 1, "unit_price": 100, "amount": 100}],
+    }, headers=admin_headers)
+    quote_id = r.json()["id"]
+
+    body = {**DEFAULT_DOCUMENT_BRANDING, "text_color": "#123456", "muted_color": "#654321", "on_color_text": "#abcdef"}
+    client.put("/api/document-branding", json=body, headers=admin_headers)
+    try:
+        pdf = client.get(f"/api/quotes/{quote_id}/pdf", headers=admin_headers)
+        assert "color:#123456" in pdf.text
+        assert "color:#654321" in pdf.text
+        assert "color:#abcdef" in pdf.text
+    finally:
+        _reset_document_branding(client, admin_headers)
+
+
 def test_get_template_placeholders(client, admin_headers):
     r = client.get("/api/document-branding/placeholders", headers=admin_headers)
     assert r.status_code == 200
     data = r.json()
     assert "lines_html" in data["invoice_placeholders"]
     assert "invoice_id" in data["invoice_placeholders"]
+    assert "text_color" in data["invoice_placeholders"]
+    assert "muted_color" in data["invoice_placeholders"]
+    assert "on_color_text" in data["invoice_placeholders"]
+    assert "text_color" in data["quote_placeholders"]
     assert "quote_id" in data["quote_placeholders"]
     assert "lines_html" in data["quote_placeholders"]
 

@@ -20,6 +20,9 @@ class DocumentBrandingIn(BaseModel):
     website: str = Field("atechsolutions.org", max_length=255)
     primary_color: str = Field("#1A5CBA", max_length=20)
     accent_color: str = Field("#E8A020", max_length=20)
+    text_color: str = Field("#0F172A", max_length=20)
+    muted_color: str = Field("#64748B", max_length=20)
+    on_color_text: str = Field("#FFFFFF", max_length=20)
     logo_url: str = ""
     footer_text: str = Field("Thank you for your business", max_length=500)
     font_size_header: int = Field(22, ge=10, le=48)
@@ -61,6 +64,7 @@ def _sample_invoice_context() -> dict:
         "footer_text": "Thank you for your business",
         "logo_html": '<div class="logo">ATech<span>Solutions</span></div>',
         "primary_color": "#1A5CBA", "accent_color": "#E8A020",
+        "text_color": "#0F172A", "muted_color": "#64748B", "on_color_text": "#FFFFFF",
         "font_size_header": 22, "font_size_body": 14, "font_size_table": 13, "font_size_totals": 15,
         "invoice_id": "INV-2026-00001", "status": "Sent", "status_color": "#1A5CBA",
         "paid_stamp_html": "",
@@ -85,6 +89,7 @@ def _sample_quote_context() -> dict:
         "footer_text": "Thank you for your business",
         "logo_html": '<div class="logo">ATech<span>Solutions</span></div>',
         "primary_color": "#1A5CBA", "accent_color": "#E8A020",
+        "text_color": "#0F172A", "muted_color": "#64748B", "on_color_text": "#FFFFFF",
         "font_size_header": 22, "font_size_body": 14, "font_size_table": 13, "font_size_totals": 15,
         "quote_id": "QUO-2026-00001", "status": "Sent", "status_color": "#1A5CBA",
         "client_name": "Acme Corp", "client_email_html": "<p>billing@acme.example.com</p>",
@@ -136,6 +141,9 @@ def update_document_branding(
     b.website = body.website
     b.primary_color = body.primary_color
     b.accent_color = body.accent_color
+    b.text_color = body.text_color
+    b.muted_color = body.muted_color
+    b.on_color_text = body.on_color_text
     b.logo_url = body.logo_url
     b.footer_text = body.footer_text
     b.font_size_header = body.font_size_header
