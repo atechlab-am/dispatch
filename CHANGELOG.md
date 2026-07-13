@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.40.1] — 2026-07-13
+
+### Added — small polish items from the QA pass's "suggested improvements" list
+- **PAID stamp on invoice PDF**: a diagonal "Paid" ribbon now overlays the invoice PDF once its status is Paid, so a printed/saved copy is unambiguous at a glance.
+- **SLA Compliance empty state**: the Reports → SLA Compliance tab now shows "No resolved tickets for selected period." instead of a bare, unexplained 0% and an all-zero table when there's no data for the selected date range — matching the Technician report's existing empty-state convention.
+- **Quote Conversion funnel now shows Rejected/Expired counts**: previously only visible by scrolling to the separate "By Status" table below; now surfaced right alongside the funnel's Approved/Tickets/Invoices summary.
+- **"Business billing email" label on the Portal add-user contact picker**: the company's primary contact record (lowest id in the group, which holds the company-level billing email rather than a named person) is now labeled explicitly in the dropdown, instead of looking like just another contact.
+- **Clearer visual state while editing a user row** in Settings → Users & Account — a blue inset border accent in addition to the existing background tint, which was easy to miss.
+
+### Tests
+- New/updated tests across `test_invoices.py`, `ReportsPage.test.jsx`, `PortalPage.test.jsx`, and `SettingsPage.test.jsx`. Full suite: 551 backend (pytest) + 182 frontend (Vitest) passing.
+
+## [1.40.0] — 2026-07-13
+
+### Added — Customizable Quote/Invoice PDF branding
+- New admin-only Settings tab "Quote/Invoice PDFs", following the same pattern as the existing Appearance/Login Page/Client Portal branding settings — company name, website, logo (upload or URL, falls back to a styled text wordmark when unset), primary/accent colors, and a customizable footer line.
+- New single-row `document_branding` table (migration 0044) and `GET`/`PUT /api/document-branding` endpoints (any authenticated user can read, admin-only to write).
+- Wired into all four previously-hardcoded document templates — the invoice PDF, invoice email, quote PDF, and quote email all had the company name ("ATechSolutions"), colors, and a text-only logo hardcoded and duplicated four times; they now share a `document_branding.py` helper (`get_document_branding()` / `logo_html()`) and render from the saved settings.
+- The client-portal-facing invoice PDF endpoint (`portal.py`) was quietly missing the `db` argument `_build_invoice_html` now requires — caught and fixed while wiring this up, before it could have caused a runtime error there.
+
+### Tests
+- New `test_document_branding.py` (CRUD + admin-only write + confirms a custom company name/color/footer/logo actually appears in a generated invoice/quote PDF, not just accepted by the settings endpoint) and `DocumentBrandingSettingsPanel.test.jsx`. Full suite: 550 backend (pytest) + 176 frontend (Vitest) passing.
+
 ## [1.39.0] — 2026-07-13
 
 ### Added — remaining gaps from the full-app QA pass

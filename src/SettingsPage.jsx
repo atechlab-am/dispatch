@@ -179,7 +179,7 @@ function UserRow({ user, currentUserId, onUpdated, onDeactivated, showToast }) {
 
   if (editing) {
     return (
-      <tr style={{ background: "#f0f6ff" }}>
+      <tr style={{ background: "#e8f0fe", boxShadow: `inset 3px 0 0 ${brand.blue}` }}>
         <td style={cellStyle}>
           <input style={{ ...inp, width: "100%" }} value={form.name} onChange={e => up("name", e.target.value)} />
         </td>

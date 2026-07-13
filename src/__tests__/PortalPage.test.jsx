@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";
 import PortalPage from "../PortalPage.jsx";
@@ -51,4 +51,18 @@ test("deep-linking with ?search= shows and expands the matching company even wit
   expect(screen.queryByText("Beacon Plumbing")).not.toBeInTheDocument();
   // Auto-expanded: its "+ Add Portal User" action should already be visible.
   expect(await screen.findByText("+ Add Portal User")).toBeInTheDocument();
+});
+
+test("Add Portal User contact dropdown labels the company's primary (lowest-id) record as the billing email", async () => {
+  const primaryContact = { id: 5, name: "Acme Corp", email: "billing@acme.example.com", phone: "", address: "", client_type: "business", company: "Acme Corp", slug: null };
+  const namedContact = { id: 9, name: "Jane Smith", email: "jane@acme.example.com", phone: "", address: "", client_type: "business", company: "Acme Corp", slug: null };
+  listClients.mockResolvedValue([namedContact, primaryContact]);
+  renderAt("/portal?search=Acme%20Corp");
+
+  fireEvent.click(await screen.findByText("+ Add Portal User"));
+
+  const options = await screen.findAllByRole("option");
+  const optionTexts = options.map(o => o.textContent);
+  expect(optionTexts).toContain("Acme Corp (billing@acme.example.com) — business billing email");
+  expect(optionTexts).toContain("Jane Smith (jane@acme.example.com)");
 });

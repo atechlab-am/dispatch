@@ -119,6 +119,10 @@ function SlugEditor({ slugClient, onUpdated, showToast }) {
 
 function AddUserForm({ portalClientId, contacts, onAdded, onCancel, showToast }) {
   const isBusiness = contacts.length > 0;
+  // The primary record (lowest id in the company group, same convention as
+  // ClientsPage.jsx) holds the company-level billing email, not a named
+  // person — labeled explicitly so it isn't mistaken for a regular contact.
+  const primaryContactId = isBusiness ? String(contacts.reduce((min, c) => c.id < min.id ? c : min).id) : null;
   const [selectedId, setSelectedId] = useState("");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [saving, setSaving] = useState(false);
@@ -164,7 +168,9 @@ function AddUserForm({ portalClientId, contacts, onAdded, onCancel, showToast })
               <select style={{ ...inp, maxWidth: 380 }} value={selectedId} onChange={handlePick}>
                 <option value="">— select a company contact —</option>
                 {contacts.map(c => (
-                  <option key={c.id} value={String(c.id)}>{c.name}{c.email ? ` (${c.email})` : ""}</option>
+                  <option key={c.id} value={String(c.id)}>
+                    {c.name}{c.email ? ` (${c.email})` : ""}{String(c.id) === primaryContactId ? " — business billing email" : ""}
+                  </option>
                 ))}
               </select>
             </div>

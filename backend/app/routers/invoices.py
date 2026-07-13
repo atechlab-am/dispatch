@@ -14,6 +14,7 @@ from ..security import get_current_user
 from .. import email as mail
 from ..audit import write_audit
 from ..notifications import create_notification
+from ..document_branding import get_document_branding, logo_html
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
@@ -607,7 +608,8 @@ def delete_payment(payment_id: int, db: Session = Depends(get_db), _: User = Dep
 
 # ─── PDF (styled HTML, opened by browser print dialog) ───────────────────────
 
-def _build_invoice_html(inv: Invoice) -> str:
+def _build_invoice_html(inv: Invoice, db: Session) -> str:
+    branding = get_document_branding(db)
     paid = round(float(sum(p.amount for p in inv.payments)), 2)
     balance = round(float(inv.total) - paid, 2)
     tax_pct = round(float(inv.tax_rate) * 100, 3)
@@ -640,12 +642,16 @@ def _build_invoice_html(inv: Invoice) -> str:
           <tbody>{rows}</tbody>
         </table>"""
 
-    status_color = {"Draft": "#64748b", "Sent": "#1A5CBA", "Paid": "#059669", "Void": "#dc2626"}.get(str(inv.status), "#64748b")
+    status_color = {"Draft": "#64748b", "Sent": branding.primary_color, "Paid": "#059669", "Void": "#dc2626"}.get(str(inv.status), "#64748b")
     due_html = f"<p><strong>Due Date:</strong> {inv.due_date}</p>" if inv.due_date else ""
     client_name_safe = html_lib.escape(inv.client_name or "—")
     client_email_safe = html_lib.escape(inv.client_email)
     notes_safe = html_lib.escape(inv.notes)
     address_html = f"<p style='white-space:pre-line'>{html_lib.escape(inv.client_address)}</p>" if inv.client_address else ""
+    website_safe = html_lib.escape(branding.website)
+    footer_safe = html_lib.escape(branding.footer_text)
+    company_name_safe = html_lib.escape(branding.company_name)
+    paid_stamp_html = '<div class="paid-stamp">Paid</div>' if inv.status == InvoiceStatus.paid else ""
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -656,10 +662,11 @@ def _build_invoice_html(inv: Invoice) -> str:
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
   *{{box-sizing:border-box;margin:0;padding:0}}
   body{{font-family:'Inter',Arial,sans-serif;font-size:14px;color:#0f172a;background:#f1f5f9;padding:32px}}
-  .page{{max-width:780px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 16px rgba(0,0,0,0.10);overflow:hidden}}
-  .header{{background:#1A5CBA;color:#fff;padding:28px 36px;display:flex;justify-content:space-between;align-items:flex-start}}
+  .page{{position:relative;max-width:780px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 16px rgba(0,0,0,0.10);overflow:hidden}}
+  .paid-stamp{{position:absolute;top:120px;right:-60px;background:rgba(5,150,105,0.12);color:#059669;border:4px solid #059669;border-radius:10px;padding:8px 70px;font-size:28px;font-weight:800;letter-spacing:4px;text-transform:uppercase;transform:rotate(20deg);pointer-events:none;z-index:1}}
+  .header{{background:{branding.primary_color};color:#fff;padding:28px 36px;display:flex;justify-content:space-between;align-items:flex-start}}
   .logo{{font-size:22px;font-weight:800;letter-spacing:-0.5px}}
-  .logo span{{color:#E8A020}}
+  .logo span{{color:{branding.accent_color}}}
   .inv-id{{font-size:28px;font-weight:800;letter-spacing:-0.5px;opacity:0.95}}
   .body{{padding:28px 36px}}
   .meta{{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px}}
@@ -672,17 +679,18 @@ def _build_invoice_html(inv: Invoice) -> str:
   .totals table{{width:260px}}
   .totals td{{padding:5px 12px;font-size:13px}}
   .totals .grand{{font-weight:700;font-size:15px;border-top:2px solid #0f172a}}
-  .notes{{margin-top:24px;padding:16px;background:#f8fafc;border-radius:8px;font-size:13px;color:#334155;white-space:pre-wrap;border-left:3px solid #1A5CBA}}
+  .notes{{margin-top:24px;padding:16px;background:#f8fafc;border-radius:8px;font-size:13px;color:#334155;white-space:pre-wrap;border-left:3px solid {branding.primary_color}}}
   .footer{{background:#f1f5f9;padding:14px 36px;font-size:11px;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0}}
   @media print{{body{{background:#fff;padding:0}} .page{{box-shadow:none;border-radius:0}}}}
 </style>
 </head>
 <body>
 <div class="page">
+  {paid_stamp_html}
   <div class="header">
     <div>
-      <div class="logo">ATech<span>Solutions</span></div>
-      <div style="font-size:12px;opacity:0.75;margin-top:4px">atechsolutions.org</div>
+      {logo_html(branding)}
+      <div style="font-size:12px;opacity:0.75;margin-top:4px">{website_safe}</div>
     </div>
     <div style="text-align:right">
       <div class="inv-id">{inv.id}</div>
@@ -731,7 +739,7 @@ def _build_invoice_html(inv: Invoice) -> str:
 
     {f'<div class="notes">{notes_safe}</div>' if inv.notes else ""}
   </div>
-  <div class="footer">ATechSolutions &nbsp;|&nbsp; atechsolutions.org &nbsp;|&nbsp; Thank you for your business</div>
+  <div class="footer">{company_name_safe} &nbsp;|&nbsp; {website_safe} &nbsp;|&nbsp; {footer_safe}</div>
 </div>
 <script>window.onload = function(){{ window.print(); }}</script>
 </body>
@@ -744,7 +752,7 @@ def invoice_pdf(invoice_id: str, db: Session = Depends(get_db), _: User = Depend
     inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
-    return HTMLResponse(content=_build_invoice_html(inv))
+    return HTMLResponse(content=_build_invoice_html(inv, db))
 
 
 # ─── Send invoice by email ────────────────────────────────────────────────────
@@ -758,6 +766,7 @@ def _send_invoice_email(inv: Invoice, to: str, message: str, db: Session) -> Non
     """Build and send the invoice HTML email, then mark Sent if still Draft.
     Shared by the manual send-invoice endpoint and the recurring-invoice
     auto-send path so the template/status-flip logic lives in one place."""
+    branding = get_document_branding(db)
     paid = round(float(sum(p.amount for p in inv.payments)), 2)
     balance = round(float(inv.total) - paid, 2)
     tax_pct = round(float(inv.tax_rate) * 100, 3)
@@ -769,20 +778,22 @@ def _send_invoice_email(inv: Invoice, to: str, message: str, db: Session) -> Non
         for l in inv.lines
     )
 
-    note_block = f"<div style='background:#f8fafc;border-left:3px solid #1A5CBA;padding:12px;border-radius:0 6px 6px 0;margin:16px 0;font-size:13px;white-space:pre-wrap'>{html_lib.escape(message)}</div>" if message else ""
+    note_block = f"<div style='background:#f8fafc;border-left:3px solid {branding.primary_color};padding:12px;border-radius:0 6px 6px 0;margin:16px 0;font-size:13px;white-space:pre-wrap'>{html_lib.escape(message)}</div>" if message else ""
     due_line = f"<p style='margin:4px 0'><strong>Due:</strong> {inv.due_date}</p>" if inv.due_date else ""
     client_display_safe = html_lib.escape(inv.client_name or to)
+    website_safe = html_lib.escape(branding.website)
+    company_name_safe = html_lib.escape(branding.company_name)
 
     html = f"""<!DOCTYPE html><html><head><style>
     body{{font-family:'Segoe UI',Arial,sans-serif;font-size:14px;color:#0f172a;background:#f4f7fc;margin:0;padding:0}}
     .wrap{{max-width:580px;margin:32px auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08)}}
-    .header{{background:#1A5CBA;padding:20px 28px;color:#fff}}
-    .logo{{font-size:20px;font-weight:800}}.logo span{{color:#E8A020}}
+    .header{{background:{branding.primary_color};padding:20px 28px;color:#fff}}
+    .logo{{font-size:20px;font-weight:800}}.logo span{{color:{branding.accent_color}}}
     .body{{padding:24px 28px}}
     .footer{{background:#f4f7fc;padding:12px 28px;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0}}
     </style></head><body>
     <div class="wrap">
-      <div class="header"><div class="logo">ATech<span>Solutions</span></div></div>
+      <div class="header">{logo_html(branding)}</div>
       <div class="body">
         <p style="font-size:16px;font-weight:700;margin:0 0 8px">Invoice {inv.id}</p>
         <p style="margin:4px 0"><strong>To:</strong> {client_display_safe}</p>
@@ -807,10 +818,10 @@ def _send_invoice_email(inv: Invoice, to: str, message: str, db: Session) -> Non
           {f"<tr style='font-weight:700'><td style='padding:4px 10px'>Balance Due</td><td style='text-align:right;padding:4px 10px'>${balance:,.2f}</td></tr>" if paid > 0 else ""}
         </table>
       </div>
-      <div class="footer">ATechSolutions &nbsp;|&nbsp; atechsolutions.org</div>
+      <div class="footer">{company_name_safe} &nbsp;|&nbsp; {website_safe}</div>
     </div></body></html>"""
 
-    mail._send(to, f"Invoice {inv.id} from ATechSolutions", html)
+    mail._send(to, f"Invoice {inv.id} from {branding.company_name}", html)
     # mark as Sent if still Draft
     if inv.status == InvoiceStatus.draft:
         inv.status = InvoiceStatus.sent

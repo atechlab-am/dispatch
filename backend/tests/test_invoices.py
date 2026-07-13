@@ -212,6 +212,22 @@ def test_invoice_pdf_escapes_payment_method_and_note(client, admin_headers):
     assert "&lt;b&gt;cash&lt;/b&gt;" in pdf.text
 
 
+def test_invoice_pdf_shows_paid_stamp_once_fully_paid(client, admin_headers):
+    r = client.post("/api/invoices", json={**INVOICE_BASE, "status": "Sent", "tax_rate": 0}, headers=admin_headers)
+    iid = r.json()["id"]
+    total = r.json()["total"]
+
+    pdf_before = client.get(f"/api/invoices/{iid}/pdf", headers=admin_headers)
+    assert '<div class="paid-stamp">' not in pdf_before.text
+
+    client.post(f"/api/invoices/{iid}/payments", json={
+        "amount": total, "method": "cash", "note": "", "payment_date": "2026-06-15",
+    }, headers=admin_headers)
+
+    pdf_after = client.get(f"/api/invoices/{iid}/pdf", headers=admin_headers)
+    assert '<div class="paid-stamp">Paid</div>' in pdf_after.text
+
+
 def test_send_invoice_no_smtp(client, admin_headers, invoice_id):
     # SMTP_HOST not set in test env → returns 204 (silently skips send)
     r = client.post(f"/api/invoices/{invoice_id}/send", json={

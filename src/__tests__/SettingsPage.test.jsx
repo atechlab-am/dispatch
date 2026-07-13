@@ -93,6 +93,18 @@ describe("SettingsPage — Users tab (admin)", () => {
     expect(screen.getAllByRole("button", { name: /Change Password/i })).toHaveLength(2);
   });
 
+  it("gives the row a clear visual state (accent border) while editing a user", async () => {
+    listUsers.mockResolvedValue([techUser]);
+    render(<SettingsPage user={adminUser} showToast={() => {}} />);
+
+    await screen.findByText("tech@test.com");
+    fireEvent.click(screen.getByRole("button", { name: /^Edit$/i }));
+
+    const nameInput = screen.getByDisplayValue("Tech");
+    const row = nameInput.closest("tr");
+    expect(row.style.boxShadow).toMatch(/inset 3px 0 0/);
+  });
+
   it("shows Canned Responses tab for admin when the feature is enabled", async () => {
     listUsers.mockResolvedValue([adminUser]);
     render(<SettingsPage user={adminUser} showToast={() => {}} features={{ canned_responses: true }} />);

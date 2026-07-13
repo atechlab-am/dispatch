@@ -17,6 +17,7 @@ from ..security import get_current_user
 from .. import email as mail
 from ..audit import write_audit
 from .. import config
+from ..document_branding import get_document_branding, logo_html
 
 router = APIRouter(prefix="/quotes", tags=["quotes"])
 
@@ -418,7 +419,8 @@ def convert_quote_to_invoice(
 
 # ─── PDF (styled HTML, opened by browser print dialog) ───────────────────────
 
-def _build_quote_html(q: Quote) -> str:
+def _build_quote_html(q: Quote, db: Session) -> str:
+    branding = get_document_branding(db)
     tax_pct = round(float(q.tax_rate) * 100, 3)
     lines_html = "".join(
         f"<tr><td style='padding:8px 12px;border-bottom:1px solid #e2e8f0'>{html_lib.escape(l.description)}</td>"
@@ -427,12 +429,15 @@ def _build_quote_html(q: Quote) -> str:
         f"<td style='padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right'>${float(l.amount):,.2f}</td></tr>"
         for l in q.lines
     )
-    status_color = {"Draft": "#64748b", "Sent": "#1A5CBA", "Approved": "#059669", "Rejected": "#dc2626", "Expired": "#94a3b8"}.get(str(q.status), "#64748b")
+    status_color = {"Draft": "#64748b", "Sent": branding.primary_color, "Approved": "#059669", "Rejected": "#dc2626", "Expired": "#94a3b8"}.get(str(q.status), "#64748b")
     expiry_html = f"<p><strong>Expires:</strong> {q.expiry_date}</p>" if q.expiry_date else ""
     client_name_safe = html_lib.escape(q.client_name or "—")
     client_email_safe = html_lib.escape(q.client_email)
     project_name_html = f"<p><strong>Project:</strong> {html_lib.escape(q.project_name)}</p>" if q.project_name else ""
     notes_safe = html_lib.escape(q.notes)
+    website_safe = html_lib.escape(branding.website)
+    footer_safe = html_lib.escape(branding.footer_text)
+    company_name_safe = html_lib.escape(branding.company_name)
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -443,9 +448,9 @@ def _build_quote_html(q: Quote) -> str:
   *{{box-sizing:border-box;margin:0;padding:0}}
   body{{font-family:Arial,sans-serif;font-size:14px;color:#0f172a;background:#f1f5f9;padding:32px}}
   .page{{max-width:780px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 16px rgba(0,0,0,0.10);overflow:hidden}}
-  .header{{background:#1A5CBA;color:#fff;padding:28px 36px;display:flex;justify-content:space-between;align-items:flex-start}}
+  .header{{background:{branding.primary_color};color:#fff;padding:28px 36px;display:flex;justify-content:space-between;align-items:flex-start}}
   .logo{{font-size:22px;font-weight:800;letter-spacing:-0.5px}}
-  .logo span{{color:#E8A020}}
+  .logo span{{color:{branding.accent_color}}}
   .body{{padding:28px 36px}}
   .meta{{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px}}
   .meta-block p{{margin:3px 0;font-size:13px;color:#334155}}
@@ -457,7 +462,7 @@ def _build_quote_html(q: Quote) -> str:
   .totals table{{width:260px}}
   .totals td{{padding:5px 12px;font-size:13px}}
   .totals .grand{{font-weight:700;font-size:15px;border-top:2px solid #0f172a}}
-  .notes{{margin-top:24px;padding:16px;background:#f8fafc;border-radius:8px;font-size:13px;color:#334155;white-space:pre-wrap;border-left:3px solid #1A5CBA}}
+  .notes{{margin-top:24px;padding:16px;background:#f8fafc;border-radius:8px;font-size:13px;color:#334155;white-space:pre-wrap;border-left:3px solid {branding.primary_color}}}
   .footer{{background:#f1f5f9;padding:14px 36px;font-size:11px;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0}}
   @media print{{body{{background:#fff;padding:0}} .page{{box-shadow:none;border-radius:0}}}}
 </style>
@@ -466,8 +471,8 @@ def _build_quote_html(q: Quote) -> str:
 <div class="page">
   <div class="header">
     <div>
-      <div class="logo">ATech<span>Solutions</span></div>
-      <div style="font-size:12px;opacity:0.75;margin-top:4px">atechsolutions.org</div>
+      {logo_html(branding)}
+      <div style="font-size:12px;opacity:0.75;margin-top:4px">{website_safe}</div>
     </div>
     <div style="text-align:right">
       <div style="font-size:28px;font-weight:800;letter-spacing:-0.5px;opacity:0.95">{q.id}</div>
@@ -508,7 +513,7 @@ def _build_quote_html(q: Quote) -> str:
     </div>
     {f'<div class="notes">{notes_safe}</div>' if q.notes else ""}
   </div>
-  <div class="footer">ATechSolutions &nbsp;|&nbsp; atechsolutions.org</div>
+  <div class="footer">{company_name_safe} &nbsp;|&nbsp; {website_safe}</div>
 </div>
 <script>window.onload = function(){{ window.print(); }}</script>
 </body>
@@ -522,7 +527,7 @@ def quote_pdf(quote_id: str, db: Session = Depends(get_db), _: User = Depends(ge
     q = db.query(Quote).filter(Quote.id == quote_id).first()
     if not q:
         raise HTTPException(status_code=404, detail="Quote not found")
-    return HTMLResponse(content=_build_quote_html(q))
+    return HTMLResponse(content=_build_quote_html(q, db))
 
 
 # ─── Send quote by email ──────────────────────────────────────────────────────
@@ -546,6 +551,7 @@ def send_quote(
     if q.status not in (QuoteStatus.draft, QuoteStatus.sent):
         raise HTTPException(status_code=400, detail=f"Cannot send a quote in {q.status} status")
 
+    branding = get_document_branding(db)
     tax_pct = round(float(q.tax_rate) * 100, 3)
     lines_html = "".join(
         f"<tr><td style='padding:6px 10px;border-bottom:1px solid #e2e8f0'>{html_lib.escape(l.description)}</td>"
@@ -553,21 +559,23 @@ def send_quote(
         f"<td style='padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right'>${float(l.amount):,.2f}</td></tr>"
         for l in q.lines
     )
-    note_block = f"<div style='background:#f8fafc;border-left:3px solid #1A5CBA;padding:12px;border-radius:0 6px 6px 0;margin:16px 0;font-size:13px;white-space:pre-wrap'>{html_lib.escape(body.message)}</div>" if body.message else ""
+    note_block = f"<div style='background:#f8fafc;border-left:3px solid {branding.primary_color};padding:12px;border-radius:0 6px 6px 0;margin:16px 0;font-size:13px;white-space:pre-wrap'>{html_lib.escape(body.message)}</div>" if body.message else ""
     expiry_line = f"<p style='margin:4px 0'><strong>Expires:</strong> {q.expiry_date}</p>" if q.expiry_date else ""
     project_line = f"<p style='margin:4px 0'><strong>Project:</strong> {html_lib.escape(q.project_name)}</p>" if q.project_name else ""
     client_display_safe = html_lib.escape(q.client_name or body.to)
+    website_safe = html_lib.escape(branding.website)
+    company_name_safe = html_lib.escape(branding.company_name)
 
     html = f"""<!DOCTYPE html><html><head><style>
     body{{font-family:'Segoe UI',Arial,sans-serif;font-size:14px;color:#0f172a;background:#f4f7fc;margin:0;padding:0}}
     .wrap{{max-width:580px;margin:32px auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08)}}
-    .header{{background:#1A5CBA;padding:20px 28px;color:#fff}}
-    .logo{{font-size:20px;font-weight:800}}.logo span{{color:#E8A020}}
+    .header{{background:{branding.primary_color};padding:20px 28px;color:#fff}}
+    .logo{{font-size:20px;font-weight:800}}.logo span{{color:{branding.accent_color}}}
     .body{{padding:24px 28px}}
     .footer{{background:#f4f7fc;padding:12px 28px;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0}}
     </style></head><body>
     <div class="wrap">
-      <div class="header"><div class="logo">ATech<span>Solutions</span></div></div>
+      <div class="header">{logo_html(branding)}</div>
       <div class="body">
         <p style="font-size:16px;font-weight:700;margin:0 0 8px">Quote {q.id}</p>
         <p style="margin:4px 0"><strong>To:</strong> {client_display_safe}</p>
@@ -591,10 +599,10 @@ def send_quote(
           </tr>
         </table>
       </div>
-      <div class="footer">ATechSolutions &nbsp;|&nbsp; atechsolutions.org</div>
+      <div class="footer">{company_name_safe} &nbsp;|&nbsp; {website_safe}</div>
     </div></body></html>"""
 
-    mail._send(body.to, f"Quote {q.id} from ATechSolutions", html)
+    mail._send(body.to, f"Quote {q.id} from {branding.company_name}", html)
     if q.status == QuoteStatus.draft:
         q.status = QuoteStatus.sent
         q.updated_at = datetime.now(timezone.utc)

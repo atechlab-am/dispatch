@@ -449,7 +449,7 @@ def portal_invoice_pdf(
     ).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
-    return HTMLResponse(content=_build_invoice_html(inv))
+    return HTMLResponse(content=_build_invoice_html(inv, db))
 
 
 class CheckoutSessionOut(BaseModel):

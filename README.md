@@ -148,7 +148,7 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 ### Invoices
 - Create invoices manually or directly from a ticket
 - Line items, tax presets, status tracking (Draft / Sent / Paid / Void)
-- PDF generation per invoice
+- PDF generation per invoice — logo, company name/website, colors, and footer text are customizable (Settings → Quote/Invoice PDFs, admin only), applied to both the PDF and the emailed version
 - **Recurring/retainer invoicing** — schedule an invoice to auto-generate on a daily/weekly/monthly/quarterly interval, with an optional auto-send toggle (admin only)
 
 ### Projects
@@ -222,6 +222,7 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Live preview while editing; Save persists it for everyone, Cancel reverts without saving
 - **Login Page** and **Client Portal** each have their own separate appearance settings (Settings → Login Page / Client Portal) — company name, colors, font colors, and logo, independent from the staff app's Appearance settings and from each other. Both are readable without being logged in (a public endpoint returns only the cosmetic display fields) since both screens render before any session exists
 - Both login screens use a clean, Microsoft-style centered card with an email-first sign-in flow (email, then password, then 2FA if enabled)
+- **Quote/Invoice PDFs** have their own separate branding too (Settings → Quote/Invoice PDFs) — company name, website, logo, primary/accent colors, and a customizable footer line, applied to the quote/invoice PDF and the emailed version alike. Independent from the other three branding surfaces above; falls back to a styled text wordmark when no logo is set.
 
 ### Backups (admin only)
 - Database + uploaded files backed up to a NAS share over SMB2/3 — pushed directly over the network from the backend container, no CIFS mount or elevated container privileges required

@@ -19,6 +19,7 @@ import PortalPage from "./PortalPage.jsx";
 import BrandingSettingsPanel from "./BrandingSettingsPanel.jsx";
 import LoginPageSettingsPanel from "./LoginPageSettingsPanel.jsx";
 import PortalSettingsPanel from "./PortalSettingsPanel.jsx";
+import DocumentBrandingSettingsPanel from "./DocumentBrandingSettingsPanel.jsx";
 import UpdateBanner from "./UpdateBanner.jsx";
 import NotificationBell from "./NotificationBell.jsx";
 import GlobalSearch from "./GlobalSearch.jsx";
@@ -331,6 +332,7 @@ export default function AppNew({
                       { id: "appearance", label: "✦ Appearance" },
                       { id: "login", label: "Login Page" },
                       { id: "portal", label: "Client Portal" },
+                      { id: "documents", label: "Quote/Invoice PDFs" },
                     ] : []),
                   ].map(tab => (
                     <button key={tab.id} onClick={() => setSettingsTab(tab.id)}
@@ -342,6 +344,7 @@ export default function AppNew({
                 {settingsTab === "appearance" && isAdmin && <BrandingSettingsPanel onClose={() => setSettingsTab("users")} showToast={showToast} />}
                 {settingsTab === "login" && isAdmin && <LoginPageSettingsPanel onClose={() => setSettingsTab("users")} showToast={showToast} />}
                 {settingsTab === "portal" && isAdmin && <PortalSettingsPanel onClose={() => setSettingsTab("users")} showToast={showToast} />}
+                {settingsTab === "documents" && isAdmin && <DocumentBrandingSettingsPanel onClose={() => setSettingsTab("users")} showToast={showToast} />}
                 {(settingsTab === "users" || !isAdmin) && <SettingsPage user={user} showToast={showToast} features={features} />}
               </div>
             } />

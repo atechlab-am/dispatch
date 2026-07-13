@@ -14,7 +14,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from . import database as _db
 from .models.models import RefreshToken, PortalRefreshToken, Notification
-from .routers import auth, tickets, users, setup, clients, invoices, dashboard, comments, templates, attachments, recurring, documents, reports, form_templates, version, ticket_documents, portal, audit, timer, payments, notifications, inbound_email, recurring_invoices, appointments, quotes, search, canned_responses, materials, backups, projects, branding, login_branding, portal_branding, leads
+from .routers import auth, tickets, users, setup, clients, invoices, dashboard, comments, templates, attachments, recurring, documents, reports, form_templates, version, ticket_documents, portal, audit, timer, payments, notifications, inbound_email, recurring_invoices, appointments, quotes, search, canned_responses, materials, backups, projects, branding, login_branding, portal_branding, document_branding, leads
 from .tasks import recurring_ticket_loop, recurring_invoice_loop, sla_escalation_loop, backup_loop
 from . import config
 
@@ -164,6 +164,7 @@ app.include_router(projects.router, prefix="/api")
 app.include_router(branding.router, prefix="/api")
 app.include_router(login_branding.router, prefix="/api")
 app.include_router(portal_branding.router, prefix="/api")
+app.include_router(document_branding.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 app.include_router(canned_responses.router, prefix="/api")
 app.include_router(materials.router, prefix="/api")

@@ -275,6 +275,9 @@ function SLATab() {
       {loading && <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>Loading…</div>}
 
       {!loading && data && (
+        data.rows.every(row => row.total === 0)
+          ? <div style={{ color: brand.muted, fontSize: 13 }}>No resolved tickets for selected period.</div>
+          : (
         <>
           <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px", marginBottom: 24, display: "inline-block" }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>Overall Compliance</div>
@@ -312,6 +315,7 @@ function SLATab() {
             <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: brand.border, marginRight: 4 }} />No SLA Set</span>
           </div>
         </>
+          )
       )}
     </div>
   );
@@ -454,7 +458,7 @@ function QuoteConversionTab() {
 
       {!loading && data && (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 16 }}>
             {[
               { label: "Quotes Approved", value: data.approved_count, color: brand.blue },
               { label: "Tickets Created", value: data.ticket_created_count, color: brand.amber },
@@ -466,6 +470,11 @@ function QuoteConversionTab() {
                 <div style={{ fontSize: 24, fontWeight: 800, color: card.color }}>{card.value}</div>
               </div>
             ))}
+          </div>
+
+          <div style={{ display: "flex", gap: 24, marginBottom: 28, fontSize: 13, color: brand.muted }}>
+            <div>Rejected: <strong style={{ color: brand.danger }}>{data.by_status.find(r => r.status === "Rejected")?.count ?? 0}</strong></div>
+            <div>Expired: <strong style={{ color: brand.muted }}>{data.by_status.find(r => r.status === "Expired")?.count ?? 0}</strong></div>
           </div>
 
           <div style={{ marginBottom: 28 }}>
