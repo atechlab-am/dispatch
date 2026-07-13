@@ -84,6 +84,37 @@ def test_create_quote_with_material_line(client, admin_headers):
     assert data["lines"][0]["qty"] == 3
 
 
+def test_create_quote_with_service_line(client, admin_headers):
+    body = {
+        **QUOTE_BASE,
+        "lines": [
+            {"description": "Network setup", "item_type": "Service", "qty": 1, "unit_price": 150, "amount": 150},
+        ],
+    }
+    r = client.post("/api/quotes", headers=admin_headers, json=body)
+    assert r.status_code == 201, r.text
+    data = r.json()
+    assert data["lines"][0]["item_type"] == "Service"
+    assert data["lines"][0]["qty"] == 1
+
+
+def test_update_quote_with_mixed_line_types(client, admin_headers):
+    r = client.post("/api/quotes", headers=admin_headers, json=QUOTE_BASE)
+    qid = r.json()["id"]
+    body = {
+        **QUOTE_BASE,
+        "lines": [
+            {"description": "Install labor", "item_type": "Labor", "qty": 4, "unit_price": 95, "amount": 380},
+            {"description": "Cat6 cable", "item_type": "Material", "qty": 1, "unit_price": 220, "amount": 220},
+            {"description": "Network setup", "item_type": "Service", "qty": 1, "unit_price": 150, "amount": 150},
+        ],
+    }
+    r2 = client.put(f"/api/quotes/{qid}", headers=admin_headers, json=body)
+    assert r2.status_code == 200, r2.text
+    types = [l["item_type"] for l in r2.json()["lines"]]
+    assert types == ["Labor", "Material", "Service"]
+
+
 def test_list_quotes(client, admin_headers):
     client.post("/api/quotes", headers=admin_headers, json=QUOTE_BASE)
     r = client.get("/api/quotes", headers=admin_headers)

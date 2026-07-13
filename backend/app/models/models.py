@@ -225,6 +225,7 @@ class Quote(Base):
 class QuoteLineType(str, enum.Enum):
     labor = "Labor"
     material = "Material"
+    service = "Service"
 
 
 class QuoteLine(Base):

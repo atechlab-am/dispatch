@@ -23,6 +23,20 @@ export function hasStoredSession() {
   return !!localStorage.getItem(STORAGE_KEY);
 }
 
+// Proactively exchange the stored refresh token for a fresh access token.
+// Used on app boot: the access token is memory-only and is always empty
+// after a full page load, so calling an authed endpoint first would send a
+// guaranteed-401 request that the response interceptor then has to recover
+// from reactively. Refreshing up front avoids that doomed round-trip.
+export async function refreshAccessToken() {
+  if (!_refreshToken) throw new Error("No stored session");
+  const { data } = await axios.post("/api/auth/refresh", {
+    refresh_token: _refreshToken,
+  });
+  setTokens(data.access_token, data.refresh_token);
+  return data;
+}
+
 export function registerLogoutHandler(fn) {
   _onLogout = fn;
 }

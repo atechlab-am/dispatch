@@ -156,6 +156,54 @@ test("clicking Not now dismisses the prompt and still proceeds with the save", a
   expect(screen.queryByText("Convert Quote to Invoice?")).not.toBeInTheDocument();
 });
 
+describe("Timer elapsed-time display", () => {
+  test("shows a small positive elapsed time for a timer started a few seconds ago, even when the server timestamp has no timezone suffix", async () => {
+    const { getActiveTimer } = await import("../api/timer.js");
+    // The backend serializes started_at as a naive UTC datetime with no "Z"
+    // suffix — this is exactly that shape. Parsing it as local time (the bug)
+    // would produce a negative elapsed time in any timezone behind UTC.
+    const startedAt = new Date(Date.now() - 5000).toISOString().replace("Z", "");
+    getActiveTimer.mockResolvedValueOnce({ id: 1, started_at: startedAt, is_running: true });
+
+    render(<TicketEditor ticket={baseTicket()} onSave={vi.fn()} showToast={() => {}} />);
+
+    await waitFor(() => expect(screen.getByText("■ Stop Timer")).toBeInTheDocument());
+    const elapsedText = screen.getByText(/^\d{2}:\d{2}:\d{2}$/).textContent;
+    const [h, m, s] = elapsedText.split(":").map(Number);
+    // Should read as a few seconds elapsed (00:00:0x), never negative/garbled.
+    expect(h).toBe(0);
+    expect(m).toBe(0);
+    expect(s).toBeGreaterThanOrEqual(0);
+    expect(s).toBeLessThan(30);
+  });
+});
+
+describe("Autosave pending indicator", () => {
+  test("shows an immediate 'Unsaved changes' indicator on a header field change, before the debounced autosave fires", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const onSave = vi.fn().mockResolvedValue();
+    const ticket = baseTicket();
+    render(<TicketEditor ticket={ticket} onSave={onSave} showToast={() => {}} />);
+
+    fireEvent.change(screen.getByDisplayValue("Medium"), { target: { value: "High" } });
+
+    // Immediately after the change (well before the 3s autosave debounce),
+    // the pending indicator should already be visible and onSave not yet called.
+    expect(await screen.findByText("● Unsaved changes…")).toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(3000);
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ priority: "High" }), true));
+
+    vi.useRealTimers();
+  });
+
+  test("does not show the pending indicator on initial render with no edits", () => {
+    render(<TicketEditor ticket={baseTicket()} onSave={vi.fn()} showToast={() => {}} />);
+    expect(screen.queryByText("● Unsaved changes…")).not.toBeInTheDocument();
+  });
+});
+
 describe("Materials Used section", () => {
   const CATALOG = [
     { id: 1, name: "Cat6 Cable", category: "Networking", description: "", unit_price: 25 },

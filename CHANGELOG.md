@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.38.3] — 2026-07-12
+
+### Fixed — 10 bugs found by a full-app QA pass
+- **Quote "Service" line items rejected on save**: backend `QuoteLineType` enum only defined `labor`/`material` even though the frontend offered "Service" as a full option — added `service = "Service"` (plain string column, no migration needed).
+- **`setShowBranding is not defined` console error on every sidebar click**: `src/AppNew.jsx` had two dead calls to a `setShowBranding` that no longer exists anywhere in the file (leftover from a removed branding-preview feature, confirmed via git history) — deleted both.
+- **Client Portal showed and allowed payment on Draft invoices**: `backend/app/routers/portal.py`'s invoice list/detail/PDF/checkout routes now exclude Draft-status invoices (404 on direct access), so a client can no longer see or pay an invoice staff hasn't sent yet.
+- **Dragging an appointment past the calendar's visible hours created an invisible, unmanageable appointment**: `src/SchedulePage.jsx`'s Day/Week grid only rendered 7am–6pm; an out-of-range appointment had no UI path to find or edit afterward. The grid now spans all 24 hours (scrollable, auto-scrolled to business hours on load), so it's always reachable.
+- **Ticket header fields (Status/Priority/Assignee/Type) silently discarded unsaved changes** on navigation, with no warning, unlike Comments/Hours Log which save immediately. `TicketEditor` now shows an immediate "● Unsaved changes…" indicator and warns via `beforeunload` before the 3s autosave debounce completes.
+- **Leads CSV export → re-import round-trip lost data / created duplicates**: added the missing `lost_reason`/`id` header aliases and id-based dedup, so re-importing the app's own export now updates existing leads in place instead of duplicating them with most fields blanked.
+- **Client "Edit Business" form didn't pre-fill the required Company Name field** when a client's `company` was blank — now falls back to the client's `name`, matching the fallback already used to display it elsewhere.
+- **Ticket timer displayed garbled/negative elapsed time** (e.g. `-4:-60:-58`): the backend's naive UTC `started_at` timestamp was being parsed as local time by `new Date(...)`. Added a `parseUtcDatetime()` helper that appends `Z` when no timezone suffix is present, plus a defensive clamp against residual clock skew.
+- **Stopping a timer after only a few seconds logged a `$0.00` Hours Log row**: `hours` is a `Numeric(6,2)` column, so anything under ~36 seconds rounded to `0.00`. `stop_timer` now floors any nonzero elapsed time at `0.01` hours instead of rounding down to zero.
+- **(Cosmetic) `GET /api/auth/me` 401'd on nearly every full-page navigation**: the access token is intentionally memory-only and always empty right after a page load, so the boot effect's first authed call was guaranteed to 401 before the response interceptor reactively refreshed it. Both app shells now proactively call a new `refreshAccessToken()` on boot before calling any authed endpoint, eliminating the doomed first request.
+
+### Tests
+- New/updated tests across `test_quotes.py`, `test_payments.py`, `test_timer.py`, `test_leads_import_export.py`, `SchedulePage.test.jsx`, `TicketEditor.test.jsx`, and `ClientsPage.test.jsx`. Full suite: 537 backend (pytest) + 165 frontend (Vitest) passing.
+
 ## [1.38.2] — 2026-07-12
 
 ### Fixed — CI was testing stale/incomplete versions

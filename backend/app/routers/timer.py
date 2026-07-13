@@ -86,9 +86,13 @@ def stop_timer(
 
     now = datetime.now(timezone.utc)
     started_at = log.started_at.replace(tzinfo=timezone.utc) if log.started_at.tzinfo is None else log.started_at
-    elapsed_hours = (now - started_at).total_seconds() / 3600
+    elapsed_seconds = (now - started_at).total_seconds()
+    elapsed_hours = elapsed_seconds / 3600
     log.ended_at = now
-    log.hours = round(elapsed_hours, 2)
+    # hours is Numeric(6,2), so anything under ~36s rounds to 0.00 — bill any
+    # nonzero timer run at least the smallest representable unit instead of
+    # silently logging a free $0.00 line item.
+    log.hours = max(round(elapsed_hours, 2), 0.01) if elapsed_seconds > 0 else 0
     log.is_running = False
     db.commit()
     db.refresh(log)

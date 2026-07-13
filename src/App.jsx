@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Routes, Route, useNavigate, useParams, Navigate } from "react-router-dom";
 import { fmt, esc, calcServiceTotal, calcHourTotal, calcMaterialsTotal } from "./helpers.js";
-import { setTokens, clearTokens, registerLogoutHandler, hasStoredSession, downloadWithAuth } from "./api/client.js";
+import { setTokens, clearTokens, registerLogoutHandler, hasStoredSession, refreshAccessToken, downloadWithAuth } from "./api/client.js";
 import { me, logout as apiLogout } from "./api/auth.js";
 import { listTickets, getTicket, createTicket, updateTicket, deleteTicket } from "./api/tickets.js";
 import { listQuotes, convertQuoteToInvoice } from "./api/quotes.js";
@@ -638,6 +638,19 @@ const TimerHourRow = ({ log }) => {
 };
 
 // ─── Start/stop timer control ──────────────────────────────────────────────────
+// The backend stores/serializes started_at as a naive datetime (no timezone
+// suffix in the JSON, e.g. "2026-07-12T23:48:07" rather than "...07Z") even
+// though it's always UTC internally — `new Date(...)` on a suffix-less ISO
+// string is parsed as LOCAL time by the browser, not UTC, which made the
+// elapsed-time math go negative (and render as a garbled "-4:-60:-58") for
+// anyone not in UTC. Appending "Z" (when no timezone info is already present)
+// tells the browser to parse it as UTC, matching what the value actually is.
+function parseUtcDatetime(iso) {
+  if (!iso) return null;
+  const hasTz = /Z$|[+-]\d{2}:?\d{2}$/.test(iso);
+  return new Date(hasTz ? iso : `${iso}Z`);
+}
+
 const TimerControl = ({ ticketId, onStopped }) => {
   const [active, setActive]   = useState(null);
   const [loading, setLoading] = useState(false);
@@ -649,7 +662,7 @@ const TimerControl = ({ ticketId, onStopped }) => {
 
   useEffect(() => {
     if (!active) return;
-    const tick = () => setElapsed((Date.now() - new Date(active.started_at).getTime()) / 1000);
+    const tick = () => setElapsed((Date.now() - parseUtcDatetime(active.started_at).getTime()) / 1000);
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
@@ -678,6 +691,7 @@ const TimerControl = ({ ticketId, onStopped }) => {
   };
 
   const fmtElapsed = (s) => {
+    s = Math.max(0, s); // clamp defensively against any residual clock skew
     const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60);
     return [h, m, sec].map(n => String(n).padStart(2, "0")).join(":");
   };
@@ -1593,7 +1607,7 @@ const AttachmentsSection = ({ ticketId, currentUser }) => {
 export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoice, users, currentUser, onTemplateSaved, showToast, clients = [], onClientUpdated, features, materials = [] }) => {
   const [t, setT] = useState(ticket);
   const [savingTpl, setSavingTpl] = useState(false);
-  const [autoSaveStatus, setAutoSaveStatus] = useState(null); // null | "saving" | "saved"
+  const [autoSaveStatus, setAutoSaveStatus] = useState(null); // null | "pending" | "saving" | "saved"
   const [holdModal, setHoldModal] = useState(false);
   const [holdJustification, setHoldJustification] = useState("");
   const [postingHold, setPostingHold] = useState(false);
@@ -1725,9 +1739,17 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
   };
   // ── end client picker ──
 
-  // Autosave: 3s after any change on existing tickets
+  // Autosave: 3s after any change on existing tickets. Shows "pending" the
+  // instant a field changes (e.g. Status/Priority/Assignee in the header),
+  // not just once the debounced save actually fires — previously there was
+  // no visible indication at all during the 3s window, so navigating away
+  // or reloading right after a header-field change looked like the edit was
+  // silently discarded even though it would have autosaved a moment later.
+  const isFirstRender = useRef(true);
   useEffect(() => {
     if (isNew) return;
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    setAutoSaveStatus("pending");
     clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(async () => {
       if (!t.title?.trim()) return;
@@ -1742,6 +1764,19 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
     }, 3000);
     return () => clearTimeout(autoSaveTimer.current);
   }, [t]);
+
+  // Warn on tab close/reload while a change hasn't autosaved yet — closes the
+  // window where a pending edit could otherwise be lost silently.
+  useEffect(() => {
+    const handler = (e) => {
+      if (autoSaveStatus === "pending" || autoSaveStatus === "saving") {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [autoSaveStatus]);
 
   const handleSaveAsTemplate = async () => {
     const name = window.prompt("Template name:", t.title || "New Template");
@@ -1900,6 +1935,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
           </div>
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          {autoSaveStatus === "pending" && <span style={{ fontSize:12, color:"#b45309", fontWeight:600 }}>● Unsaved changes…</span>}
           {autoSaveStatus === "saving" && <span style={{ fontSize:12, color:brand.muted }}>Saving…</span>}
           {autoSaveStatus === "saved" && <span style={{ fontSize:12, color:"#16a34a", fontWeight:600 }}>✓ Saved</span>}
           <Btn onClick={handleSaveAsTemplate} variant="ghost" disabled={savingTpl}>{savingTpl ? "Saving…" : "Save as Template"}</Btn>
@@ -1949,6 +1985,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
           <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
               <SectionHeader style={{ margin:0 }}>Client Information</SectionHeader>
+              {autoSaveStatus === "pending" && <span style={{ fontSize:11, color:"#b45309" }}>Unsaved changes…</span>}
               {autoSaveStatus === "saving" && <span style={{ fontSize:11, color:brand.muted }}>Saving…</span>}
               {autoSaveStatus === "saved"  && <span style={{ fontSize:11, color:brand.success }}>Saved ✓</span>}
             </div>
@@ -2482,7 +2519,11 @@ export default function App() {
 
   useEffect(() => {
     if (!hasStoredSession()) return;
-    me().then(() => handleLogin()).catch(() => clearTokens());
+    // Exchange the stored refresh token for an access token before calling
+    // any authed endpoint — on a fresh page load the in-memory access token
+    // is always empty, so calling me() first would always 401 once and rely
+    // on the response interceptor to recover.
+    refreshAccessToken().then(() => handleLogin()).catch(() => clearTokens());
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {

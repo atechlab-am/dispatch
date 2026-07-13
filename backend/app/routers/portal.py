@@ -398,7 +398,7 @@ def portal_list_invoices(
     client_ids = _company_client_ids(db, pu)
     invoices = (
         db.query(Invoice)
-        .filter(Invoice.client_id.in_(client_ids), Invoice.status != InvoiceStatus.void)
+        .filter(Invoice.client_id.in_(client_ids), Invoice.status.notin_([InvoiceStatus.draft, InvoiceStatus.void]))
         .order_by(Invoice.created_at.desc())
         .all()
     )
@@ -415,6 +415,7 @@ def portal_get_invoice(
     inv = db.query(Invoice).filter(
         Invoice.id == invoice_id,
         Invoice.client_id.in_(client_ids),
+        Invoice.status != InvoiceStatus.draft,
     ).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -432,6 +433,7 @@ def portal_invoice_pdf(
     inv = db.query(Invoice).filter(
         Invoice.id == invoice_id,
         Invoice.client_id.in_(client_ids),
+        Invoice.status != InvoiceStatus.draft,
     ).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -458,6 +460,7 @@ def portal_create_checkout_session(
     inv = db.query(Invoice).filter(
         Invoice.id == invoice_id,
         Invoice.client_id.in_(client_ids),
+        Invoice.status != InvoiceStatus.draft,
     ).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")

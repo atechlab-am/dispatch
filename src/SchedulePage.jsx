@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { listAppointments, createAppointment, updateAppointment, deleteAppointment } from "./api/appointments.js";
 import { listTickets } from "./api/tickets.js";
 
@@ -7,7 +7,15 @@ const brand = {
   border: "#D8E2F0", text: "var(--dispatch-text)", muted: "var(--dispatch-muted)", danger: "#c0392b",
 };
 
-const HOURS = Array.from({ length: 12 }, (_, i) => 7 + i); // 7am - 6pm
+// Full 24-hour range so an appointment at any hour (however it was created) is
+// always reachable/visible — the grid used to only render 7am-6pm, which made
+// any out-of-range appointment (e.g. from an over-drag past the last visible
+// row) silently disappear from the UI with no way to find or cancel it. The
+// grid scrolls to business hours by default (see scrollToBusinessHours below)
+// so the common case looks the same; scrolling reveals the rest.
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const BUSINESS_START_HOUR = 7;
+const ROW_HEIGHT = 40; // keep in sync with the slot's minHeight below
 
 function startOfDay(d) {
   const x = new Date(d);
@@ -33,6 +41,7 @@ export default function SchedulePage({ users = [], showToast }) {
   const [unscheduled, setUnscheduled] = useState([]);
   const [dragging, setDragging] = useState(null); // ticket being dragged, or {appointment} being rescheduled
   const [loading, setLoading] = useState(true);
+  const gridScrollRef = useRef(null);
 
   const technicians = users.filter(u => u.role === "technician" || u.role === "admin");
 
@@ -63,6 +72,14 @@ export default function SchedulePage({ users = [], showToast }) {
   }, [rangeStart.getTime(), rangeEnd.getTime()]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Default the scroll position to business hours so the common case looks
+  // the same as before the grid was extended to a full 24 hours.
+  useEffect(() => {
+    if (gridScrollRef.current) {
+      gridScrollRef.current.scrollTop = BUSINESS_START_HOUR * ROW_HEIGHT;
+    }
+  }, [view, rangeStart.getTime()]);
 
   const handleDropOnSlot = async (day, hour, technicianId) => {
     if (!dragging) return;
@@ -162,44 +179,52 @@ export default function SchedulePage({ users = [], showToast }) {
         {loading ? (
           <div style={{ color: brand.muted, padding: "60px 0", textAlign: "center" }}>Loading…</div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <div style={{ display: "grid", gridTemplateColumns: `60px repeat(${columns.length}, minmax(160px, 1fr))`, border: `1px solid ${brand.border}`, borderRadius: 8, overflow: "hidden" }}>
+          <div style={{ overflowX: "auto", border: `1px solid ${brand.border}`, borderRadius: 8 }}>
+            {/* Header row (technician/day labels) — stays fixed above the scrollable hour rows */}
+            <div style={{ display: "grid", gridTemplateColumns: `60px repeat(${columns.length}, minmax(160px, 1fr))` }}>
               <div style={{ background: brand.bg, borderBottom: `1px solid ${brand.border}` }} />
               {columns.map(col => (
                 <div key={col.key} style={{ background: brand.bg, borderBottom: `1px solid ${brand.border}`, borderLeft: `1px solid ${brand.border}`, padding: "8px 10px", fontSize: 12, fontWeight: 700, color: brand.text, textAlign: "center" }}>
                   {col.label}
                 </div>
               ))}
-              {HOURS.map(hour => (
-                <div key={hour} style={{ display: "contents" }}>
-                  <div style={{ borderTop: `1px solid ${brand.border}`, padding: "6px 8px", fontSize: 11, color: brand.muted, textAlign: "right" }}>
-                    {hour % 12 === 0 ? 12 : hour % 12}{hour < 12 ? "am" : "pm"}
+            </div>
+            {/* Hour rows — scrollable, full 24h, defaults to scrolled-to-business-hours
+                (see the scrollTop effect above) so no appointment at any hour is ever
+                unreachable/invisible regardless of when it was scheduled. */}
+            <div ref={gridScrollRef} style={{ maxHeight: ROW_HEIGHT * 11, overflowY: "auto" }}>
+              <div style={{ display: "grid", gridTemplateColumns: `60px repeat(${columns.length}, minmax(160px, 1fr))` }}>
+                {HOURS.map(hour => (
+                  <div key={hour} style={{ display: "contents" }}>
+                    <div style={{ borderTop: `1px solid ${brand.border}`, padding: "6px 8px", fontSize: 11, color: brand.muted, textAlign: "right" }}>
+                      {hour % 12 === 0 ? 12 : hour % 12}{hour < 12 ? "am" : "pm"}
+                    </div>
+                    {columns.map(col => {
+                      const techId = view === "day" ? col.key : col.techId;
+                      const day = col.day;
+                      const slotAppts = apptsFor(day, hour, techId);
+                      return (
+                        <div key={`${col.key}-${hour}`}
+                          onDragOver={e => e.preventDefault()}
+                          onDrop={() => handleDropOnSlot(day, hour, techId)}
+                          style={{ borderTop: `1px solid ${brand.border}`, borderLeft: `1px solid ${brand.border}`, minHeight: ROW_HEIGHT, padding: 4, background: dragging ? "#f0f6ff" : "#fff" }}>
+                          {slotAppts.map(a => (
+                            <div key={a.id}
+                              draggable
+                              onDragStart={() => setDragging({ ...a, rescheduling: true })}
+                              onDragEnd={() => setDragging(null)}
+                              style={{ background: brand.blue, color: "#fff", borderRadius: 6, padding: "4px 6px", fontSize: 11, marginBottom: 3, cursor: "grab" }}
+                              title={a.notes}>
+                              <div style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.ticket_title || a.ticket_id}</div>
+                              <button onClick={() => handleCancel(a.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 10, padding: 0, marginTop: 2 }}>Cancel</button>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
                   </div>
-                  {columns.map(col => {
-                    const techId = view === "day" ? col.key : col.techId;
-                    const day = col.day;
-                    const slotAppts = apptsFor(day, hour, techId);
-                    return (
-                      <div key={`${col.key}-${hour}`}
-                        onDragOver={e => e.preventDefault()}
-                        onDrop={() => handleDropOnSlot(day, hour, techId)}
-                        style={{ borderTop: `1px solid ${brand.border}`, borderLeft: `1px solid ${brand.border}`, minHeight: 40, padding: 4, background: dragging ? "#f0f6ff" : "#fff" }}>
-                        {slotAppts.map(a => (
-                          <div key={a.id}
-                            draggable
-                            onDragStart={() => setDragging({ ...a, rescheduling: true })}
-                            onDragEnd={() => setDragging(null)}
-                            style={{ background: brand.blue, color: "#fff", borderRadius: 6, padding: "4px 6px", fontSize: 11, marginBottom: 3, cursor: "grab" }}
-                            title={a.notes}>
-                            <div style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.ticket_title || a.ticket_id}</div>
-                            <button onClick={() => handleCancel(a.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 10, padding: 0, marginTop: 2 }}>Cancel</button>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         )}

@@ -2,6 +2,11 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
 import SchedulePage from "../SchedulePage.jsx";
 
+const OUT_OF_HOURS_APPOINTMENT = {
+  id: 99, ticket_id: "TKT-2026-00099", ticket_title: "After-hours emergency call",
+  technician_id: 1, start_at: "2026-07-12T22:00:00", end_at: "2026-07-12T23:00:00", notes: "",
+};
+
 vi.mock("../api/appointments.js", () => ({
   listAppointments: vi.fn().mockResolvedValue([]),
   createAppointment: vi.fn().mockResolvedValue({}),
@@ -45,4 +50,13 @@ test("dropping a ticket onto a time slot creates an appointment", async () => {
   const call = createAppointment.mock.calls[0][0];
   expect(call.ticket_id).toBe("TKT-2026-00001");
   expect(call.technician_id).toBe(1);
+});
+
+test("an appointment scheduled outside 7am-6pm still renders in the grid", async () => {
+  const { listAppointments } = await import("../api/appointments.js");
+  listAppointments.mockResolvedValueOnce([OUT_OF_HOURS_APPOINTMENT]);
+  render(<SchedulePage users={users} showToast={() => {}} />);
+  // Previously the grid only rendered 7am-6pm, so a 10pm appointment would
+  // never appear at all — this is the regression test for that bug.
+  expect(await screen.findByText("After-hours emergency call")).toBeInTheDocument();
 });

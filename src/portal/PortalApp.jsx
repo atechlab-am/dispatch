@@ -6,7 +6,7 @@ import {
   listMyInvoices, getMyInvoice, portalInvoicePdfUrl, createCheckoutSession,
   getPortalBrandingPublic,
 } from "./api.js";
-import { setTokens, clearTokens, hasStoredSession, registerLogoutHandler, openPdfWithAuth } from "./client.js";
+import { setTokens, clearTokens, hasStoredSession, refreshAccessToken, registerLogoutHandler, openPdfWithAuth } from "./client.js";
 import { isInvoicePayable } from "./helpers.js";
 
 // ─── Brand ───────────────────────────────────────────────────────────────────
@@ -1058,7 +1058,11 @@ function SlugPortal() {
   useEffect(() => {
     registerLogoutHandler(handleLogout);
     if (!hasStoredSession()) { setChecking(false); return; }
-    Promise.all([portalMe(), getClientBySlug(slug)])
+    // Exchange the stored refresh token for an access token before calling
+    // any authed endpoint — on a fresh page load the in-memory access token
+    // is always empty, so calling portalMe() first would always 401 once.
+    refreshAccessToken()
+      .then(() => Promise.all([portalMe(), getClientBySlug(slug)]))
       .then(([me, clientInfo]) => {
         const allowed = clientInfo.member_ids?.length ? clientInfo.member_ids : [clientInfo.id];
         if (!allowed.includes(me.client_id)) {

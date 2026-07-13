@@ -146,3 +146,59 @@ def test_export_returns_csv_with_created_lead(client, admin_headers):
     assert "business_name" in header
     name_idx = header.index("business_name")
     assert any(row[name_idx] == "Export Test Co" for row in rows[1:])
+
+
+def test_export_then_reimport_updates_existing_lead_instead_of_duplicating(client, admin_headers):
+    r = client.post("/api/leads", json={
+        "business_name": "Round Trip Co", "industry": "Plumbing", "area": "Downtown",
+        "address": "1 Main St", "phone": "555-1234", "website": "roundtrip.com",
+        "contact_name": "Jane Doe", "contact_email": "jane@roundtrip.com", "contact_phone": "555-5678",
+        "priority": "high", "notes": "original notes",
+    }, headers=admin_headers)
+    assert r.status_code == 201
+    lead_id = r.json()["id"]
+
+    export = client.get("/api/leads/export", headers=admin_headers)
+    assert export.status_code == 200
+
+    leads_before = client.get("/api/leads", headers=admin_headers).json()
+    count_before = len(leads_before)
+
+    r2 = client.post("/api/leads/import", headers=admin_headers, files=_csv_file(export.text, "export.csv"))
+    assert r2.status_code == 200, r2.text
+    body = r2.json()
+    assert body["created"] == 0  # every exported row matches an existing lead by id
+    assert body["updated"] == count_before
+    assert body["errors"] == []
+
+    leads_after = client.get("/api/leads", headers=admin_headers).json()
+    assert len(leads_after) == count_before  # no duplicates created
+    matching = [l for l in leads_after if l["business_name"] == "Round Trip Co"]
+    assert len(matching) == 1
+    lead = client.get(f"/api/leads/{lead_id}", headers=admin_headers).json()
+    assert lead["industry"] == "Plumbing"
+    assert lead["area"] == "Downtown"
+    assert lead["address"] == "1 Main St"
+    assert lead["phone"] == "555-1234"
+    assert lead["website"] == "roundtrip.com"
+    assert lead["contact_name"] == "Jane Doe"
+    assert lead["contact_email"] == "jane@roundtrip.com"
+    assert lead["contact_phone"] == "555-5678"
+    assert lead["priority"] == "high"
+    assert lead["notes"] == "original notes"
+
+
+def test_export_then_reimport_preserves_lost_reason(client, admin_headers):
+    r = client.post("/api/leads", json={"business_name": "Lost Reason Round Trip Co"}, headers=admin_headers)
+    lead_id = r.json()["id"]
+    client.post(f"/api/leads/{lead_id}/stage", json={"stage": "lost", "lost_reason": "Went with a competitor"}, headers=admin_headers)
+
+    export = client.get("/api/leads/export", headers=admin_headers)
+    r2 = client.post("/api/leads/import", headers=admin_headers, files=_csv_file(export.text, "export.csv"))
+    assert r2.status_code == 200, r2.text
+    assert r2.json()["updated"] >= 1
+    assert r2.json()["created"] == 0
+
+    lead = client.get(f"/api/leads/{lead_id}", headers=admin_headers).json()
+    assert lead["stage"] == "lost"
+    assert lead["lost_reason"] == "Went with a competitor"

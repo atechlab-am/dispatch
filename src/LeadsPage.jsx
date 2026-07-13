@@ -180,8 +180,9 @@ export default function LeadsPage({ showToast }) {
     try {
       const result = await importLeadsCsv(file);
       setImportResult(result);
-      if (result.errors.length === 0) showToast?.(`Imported ${result.created} lead(s).`, "ok");
-      else showToast?.(`Imported ${result.created}, ${result.errors.length} row(s) skipped — see details below.`, "err");
+      const updatedNote = result.updated ? `, ${result.updated} updated` : "";
+      if (result.errors.length === 0) showToast?.(`Imported ${result.created} lead(s)${updatedNote}.`, "ok");
+      else showToast?.(`Imported ${result.created}${updatedNote}, ${result.errors.length} row(s) skipped — see details below.`, "err");
       load();
     } catch (err) {
       showToast?.(err?.response?.data?.detail || "Import failed.", "err");

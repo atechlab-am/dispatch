@@ -103,6 +103,54 @@ def test_checkout_session_rejects_already_paid_invoice(client, admin_headers, pa
     assert r.status_code == 400
 
 
+def test_draft_invoice_hidden_from_portal_list(client, admin_headers, paid_client_setup, monkeypatch):
+    # A second invoice for the same client, left in Draft (never Sent)
+    r = client.post("/api/invoices", json={
+        "client_id": paid_client_setup["client_id"], "client_name": "Payer Co", "client_email": "payer@example.com",
+        "client_address": "", "status": "Draft", "issue_date": "2026-06-01", "notes": "", "tax_rate": 0,
+        "lines": [{"description": "Draft work", "qty": 1, "unit_price": 200, "amount": 200}],
+    }, headers=admin_headers)
+    draft_invoice_id = r.json()["id"]
+
+    r = client.get("/api/portal/invoices", headers=paid_client_setup["portal_headers"])
+    assert r.status_code == 200
+    ids = [inv["id"] for inv in r.json()]
+    assert draft_invoice_id not in ids
+    assert paid_client_setup["invoice_id"] in ids  # the Sent invoice still shows
+
+
+def test_draft_invoice_detail_hidden_from_portal(client, admin_headers, paid_client_setup):
+    r = client.post("/api/invoices", json={
+        "client_id": paid_client_setup["client_id"], "client_name": "Payer Co", "client_email": "payer@example.com",
+        "client_address": "", "status": "Draft", "issue_date": "2026-06-01", "notes": "", "tax_rate": 0,
+        "lines": [{"description": "Draft work", "qty": 1, "unit_price": 200, "amount": 200}],
+    }, headers=admin_headers)
+    draft_invoice_id = r.json()["id"]
+
+    r = client.get(f"/api/portal/invoices/{draft_invoice_id}", headers=paid_client_setup["portal_headers"])
+    assert r.status_code == 404
+
+    r = client.get(f"/api/portal/invoices/{draft_invoice_id}/pdf", headers=paid_client_setup["portal_headers"])
+    assert r.status_code == 404
+
+
+def test_checkout_session_rejects_draft_invoice(client, admin_headers, paid_client_setup, monkeypatch):
+    monkeypatch.setattr(config, "STRIPE_SECRET_KEY", "sk_test_fake")
+    r = client.post("/api/invoices", json={
+        "client_id": paid_client_setup["client_id"], "client_name": "Payer Co", "client_email": "payer@example.com",
+        "client_address": "", "status": "Draft", "issue_date": "2026-06-01", "notes": "", "tax_rate": 0,
+        "lines": [{"description": "Draft work", "qty": 1, "unit_price": 200, "amount": 200}],
+    }, headers=admin_headers)
+    draft_invoice_id = r.json()["id"]
+
+    with patch("stripe.checkout.Session.create", return_value=_mock_stripe_session()):
+        r = client.post(
+            f"/api/portal/invoices/{draft_invoice_id}/checkout",
+            headers=paid_client_setup["portal_headers"],
+        )
+    assert r.status_code == 404
+
+
 # ─── Webhook ──────────────────────────────────────────────────────────────────
 
 def _checkout_completed_event(invoice_id, payment_intent="pi_test_123", amount_total=10000):

@@ -335,6 +335,7 @@ IMPORT_EXPORT_COLUMNS = [
 ]
 
 HEADER_ALIASES = {
+    "id": "id",
     "business name": "business_name", "company name": "business_name", "company": "business_name", "name": "business_name",
     "title": "title",
     "category": "industry", "industry": "industry",
@@ -353,6 +354,7 @@ HEADER_ALIASES = {
     "priority": "priority",
     "source": "source",
     "value estimate": "value_estimate", "value_estimate": "value_estimate",
+    "lost reason": "lost_reason", "reason lost": "lost_reason",
 }
 
 PRIORITY_ALIASES = {"h": "high", "hi": "high", "m": "medium", "med": "medium", "mid": "medium", "l": "low", "lo": "low"}
@@ -483,8 +485,10 @@ async def import_leads_csv(
         raise HTTPException(status_code=413, detail=f"Too many rows (max {MAX_IMPORT_ROWS})")
 
     to_create: list[Lead] = []
+    to_update: list[tuple[Lead, dict]] = []
     errors: list[dict] = []
     now = datetime.now(timezone.utc)
+    has_id_column = "id" in header_map.values()
 
     for i, raw_row in enumerate(rows):
         row_num = i + 2
@@ -493,6 +497,17 @@ async def import_leads_csv(
             internal = header_map.get(raw_key)
             if internal:
                 row[internal] = (raw_val or "").strip()
+
+        # Re-importing this app's own Export CSV includes an `id` column —
+        # when a row's id matches an existing lead, update that lead in place
+        # instead of creating a duplicate. A blank/unmatched id (e.g. the
+        # Sample CSV, which has no id column at all) always creates new.
+        existing_lead = None
+        if has_id_column and row.get("id"):
+            try:
+                existing_lead = db.query(Lead).filter(Lead.id == int(row["id"])).first()
+            except ValueError:
+                pass
 
         business_name = row.get("business_name", "")
         if not business_name:
@@ -557,7 +572,7 @@ async def import_leads_csv(
             errors.append({"row": row_num, "error": row_error})
             continue
 
-        to_create.append(Lead(
+        lead_fields = dict(
             business_name=business_name,
             title=row.get("title") or business_name,
             industry=row.get("industry", ""), area=row.get("area", ""), address=row.get("address", ""),
@@ -565,15 +580,25 @@ async def import_leads_csv(
             contact_name=row.get("contact_name", ""), contact_email=row.get("contact_email", ""),
             contact_phone=row.get("contact_phone", ""),
             priority=priority, source=source, outreach_channel=outreach_channel, stage=stage,
+            lost_reason=row.get("lost_reason", "") if stage == LeadStage.lost else "",
             value_estimate=value_estimate, date_contacted=date_contacted, follow_up_date=follow_up_date,
-            notes=row.get("notes", ""), owner_id=current_user.id, created_at=now, updated_at=now,
-        ))
+            notes=row.get("notes", ""),
+        )
+
+        if existing_lead is not None:
+            to_update.append((existing_lead, lead_fields))
+        else:
+            to_create.append(Lead(**lead_fields, owner_id=current_user.id, created_at=now, updated_at=now))
 
     for lead in to_create:
         db.add(lead)
+    for lead, fields in to_update:
+        for k, v in fields.items():
+            setattr(lead, k, v)
+        lead.updated_at = now
     db.commit()
 
-    return {"created": len(to_create), "errors": errors}
+    return {"created": len(to_create), "updated": len(to_update), "errors": errors}
 
 
 @router.get("/{lead_id}", response_model=LeadOut)

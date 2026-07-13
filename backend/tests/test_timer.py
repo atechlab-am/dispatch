@@ -1,4 +1,9 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
+
+import app.database as _db_module
+from app.models.models import HourLog
 
 TICKET_BASE = {
     "status": "Open",
@@ -85,6 +90,30 @@ def test_running_timer_survives_ticket_autosave(client, admin_headers, ticket_id
     ticket = client.get(f"/api/tickets/{ticket_id}", headers=admin_headers).json()
     # Both the manual row and the still-running timer row must be present.
     assert len(ticket["hour_logs"]) == 2
+
+
+def test_stopping_a_very_short_timer_does_not_log_zero_hours(client, admin_headers, ticket_id):
+    """Regression test: a timer stopped after only a few seconds must still bill
+    at least the smallest representable unit (0.01h), not round down to a free
+    $0.00 Hours Log line item."""
+    r = client.post(f"/api/tickets/{ticket_id}/timer", json={}, headers=admin_headers)
+    log_id = r.json()["id"]
+
+    # Backdate started_at by 5 seconds to simulate a very short-lived timer,
+    # without actually sleeping in the test.
+    db = _db_module.SessionLocal()
+    try:
+        log = db.query(HourLog).filter(HourLog.id == log_id).first()
+        log.started_at = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=5)
+        db.commit()
+    finally:
+        db.close()
+
+    r = client.post(f"/api/tickets/{ticket_id}/timer/stop", headers=admin_headers)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["is_running"] is False
+    assert float(data["hours"]) == 0.01
 
 
 def test_running_timer_contributes_zero_to_total_until_stopped(client, admin_headers, ticket_id):

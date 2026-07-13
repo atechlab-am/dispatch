@@ -180,7 +180,13 @@ function AddBusinessForm({ onAdd, onCancel }) {
 
 function EditBusinessForm({ primary, onSaved, onCancel, showToast, showSlaTiers }) {
   const [form, setForm] = useState({
-    company: primary.company,
+    // Fall back to primary.name, matching the same fallback used to display
+    // the company name everywhere else (e.g. the CompanyGroup header) — a
+    // client whose `company` field happens to be blank (legacy data, or
+    // created via a path that didn't set it explicitly) would otherwise
+    // render this required field empty even though its name is clearly
+    // visible elsewhere on the page, looking like the edit silently failed.
+    company: primary.company || primary.name,
     email: primary.email,
     phone: primary.phone,
     address: primary.address,

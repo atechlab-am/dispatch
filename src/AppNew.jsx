@@ -227,14 +227,14 @@ export default function AppNew({
         {/* Main nav */}
         <nav style={{ flex: 1, padding: "10px 8px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
           {NAV.map(n => (
-            <NavItem key={n.path} {...n} active={isActive(n.path)} onClick={(p) => { navigate(p); setShowBranding(false); }} primary={accent} collapsed={collapsed} dark={dark} />
+            <NavItem key={n.path} {...n} active={isActive(n.path)} onClick={(p) => navigate(p)} primary={accent} collapsed={collapsed} dark={dark} />
           ))}
         </nav>
 
         {/* Bottom nav */}
         <div style={{ padding: "8px 8px 6px", borderTop: `1px solid ${sidebarBorder}`, display: "flex", flexDirection: "column", gap: 2 }}>
           {BOTTOM_NAV.map(n => (
-            <NavItem key={n.path} {...n} active={isActive(n.path)} onClick={(p) => { navigate(p); setShowBranding(false); }} primary={accent} collapsed={collapsed} dark={dark} />
+            <NavItem key={n.path} {...n} active={isActive(n.path)} onClick={(p) => navigate(p)} primary={accent} collapsed={collapsed} dark={dark} />
           ))}
           {/* User info + logout */}
           {user && (
