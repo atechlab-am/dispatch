@@ -2,9 +2,22 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
 import SchedulePage from "../SchedulePage.jsx";
 
+// The grid filters appointments by exact calendar-day match against "today"
+// (SchedulePage's `anchor = new Date()`), so the fixture's date must track
+// the real current day rather than being hardcoded — a fixed past/future
+// date will fall outside the rendered range and silently stop matching as
+// soon as the wall-clock date moves on (this bit us: it passed locally but
+// failed in CI once the date rolled over in a different timezone).
+function todayAt(hour, minute = 0) {
+  const d = new Date();
+  d.setHours(hour, minute, 0, 0);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+}
+
 const OUT_OF_HOURS_APPOINTMENT = {
   id: 99, ticket_id: "TKT-2026-00099", ticket_title: "After-hours emergency call",
-  technician_id: 1, start_at: "2026-07-12T22:00:00", end_at: "2026-07-12T23:00:00", notes: "",
+  technician_id: 1, start_at: todayAt(22), end_at: todayAt(23), notes: "",
 };
 
 vi.mock("../api/appointments.js", () => ({
