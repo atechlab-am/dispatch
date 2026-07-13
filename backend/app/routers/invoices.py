@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models.models import Invoice, InvoiceLine, InvoicePayment, InvoiceStatus, User, Ticket, TicketStatus
+from ..models.models import Invoice, InvoiceLine, InvoicePayment, InvoiceStatus, User, Ticket, TicketStatus, ACTIVE_INVOICE_STATUSES
 from ..security import get_current_user
 from .. import email as mail
 from ..audit import write_audit
@@ -222,7 +222,10 @@ def list_invoices(
 ):
     q = db.query(Invoice)
     if status_filter and status_filter != "All":
-        q = q.filter(Invoice.status == status_filter)
+        if status_filter == "Active":
+            q = q.filter(Invoice.status.in_(ACTIVE_INVOICE_STATUSES))
+        else:
+            q = q.filter(Invoice.status == status_filter)
     total = q.count()
     items = q.order_by(Invoice.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     return InvoicesPage(items=items, total=total, page=page, page_size=page_size)

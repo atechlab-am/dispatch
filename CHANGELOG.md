@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.42.0] — 2026-07-13
+
+### Changed — Tickets, Invoices, and Quotes now default to "Active" instead of "All"
+- All three list views previously loaded with every record shown regardless of status, requiring a manual filter click every time to see just what still needs attention. They now default to a new "Active" filter pill (shown first, before "All"):
+  - **Tickets**: Open, In Progress, Awaiting Client — matches the Dashboard's existing definition of active work (deliberately excludes On Hold as well as Resolved/Closed). The same set now backs a shared `ACTIVE_TICKET_STATUSES` constant (`backend/app/models/models.py`), replacing a locally-duplicated copy in `dashboard.py`.
+  - **Invoices**: Draft, Sent — excludes Paid and Void.
+  - **Quotes**: Draft, Sent — excludes Approved, Rejected, and Expired.
+- "All" is still one click away and behaves exactly as before. Backend list endpoints accept `status=Active` as a special multi-status alias (in addition to exact single-status matches), so pagination/totals stay accurate server-side rather than being filtered client-side.
+- `App.jsx`'s `TicketList` is now a named export, enabling direct component testing without needing to boot the full app/auth flow — closes a real test-coverage gap (no test file previously covered the ticket list view at all).
+
+### Tests
+- 3 new backend tests (one per domain, confirming the Active alias includes/excludes the right statuses) and 8 new frontend tests (Invoices, Quotes, and a new `TicketList.test.jsx`) confirming the Active pill is selected by default and that switching pills calls through correctly. Full suite: 570 backend (pytest) + 194 frontend (Vitest) passing.
+
 ## [1.41.3] — 2026-07-13
 
 ### Added — automatic GitHub Releases on every dev → main deploy

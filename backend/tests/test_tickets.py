@@ -92,6 +92,26 @@ def test_list_tickets_status_filter(client, admin_headers, ticket_id):
         assert t["status"] == "Open"
 
 
+def test_list_tickets_active_status_filter_excludes_on_hold_resolved_closed(client, admin_headers):
+    r = client.post("/api/tickets", json={**TICKET_BASE, "status": "On Hold", "title": "On hold ticket"}, headers=admin_headers)
+    on_hold_id = r.json()["id"]
+    r = client.post("/api/tickets", json={**TICKET_BASE, "status": "Resolved", "title": "Resolved ticket"}, headers=admin_headers)
+    resolved_id = r.json()["id"]
+    r = client.post("/api/tickets", json={**TICKET_BASE, "status": "Awaiting Client", "title": "Awaiting client ticket"}, headers=admin_headers)
+    awaiting_id = r.json()["id"]
+
+    r = client.get("/api/tickets", params={"status": "Active", "page_size": 100}, headers=admin_headers)
+    assert r.status_code == 200
+    items = r.json()["items"]
+    ids = [t["id"] for t in items]
+    statuses = {t["status"] for t in items}
+
+    assert awaiting_id in ids
+    assert on_hold_id not in ids
+    assert resolved_id not in ids
+    assert statuses <= {"Open", "In Progress", "Awaiting Client"}
+
+
 def test_update_ticket(client, admin_headers, ticket_id):
     updated = {**TICKET_BASE, "status": "In Progress", "title": "Server down — updated", "service_lines": [], "hour_logs": []}
     r = client.put(f"/api/tickets/{ticket_id}", json=updated, headers=admin_headers)

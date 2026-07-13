@@ -6,14 +6,14 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from ..database import get_db
-from ..models.models import Ticket, TicketStatus, User, Quote, QuoteStatus
+from ..models.models import Ticket, TicketStatus, User, Quote, QuoteStatus, ACTIVE_TICKET_STATUSES
 from ..schemas import TicketListItem
 from ..security import get_current_user
 from .. import config
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
-ACTIVE_STATUSES = {"Open", "In Progress", "Awaiting Client"}
+ACTIVE_STATUSES = ACTIVE_TICKET_STATUSES
 
 
 class StatCard(BaseModel):

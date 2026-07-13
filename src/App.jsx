@@ -1097,7 +1097,7 @@ const BoardView = ({ tickets, onSelect, onStatusChange, users }) => {
 };
 
 // ─── Ticket list ──────────────────────────────────────────────────────────────
-const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch, statusFilter, onStatusFilter, quickFilter, onClearQuickFilter, onExport, users, assigneeFilter, onAssigneeFilter, onStatusChange }) => {
+export const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch, statusFilter, onStatusFilter, quickFilter, onClearQuickFilter, onExport, users, assigneeFilter, onAssigneeFilter, onStatusChange }) => {
   const [showExport, setShowExport] = useState(false);
   const [viewMode, setViewMode]     = useState("list"); // "list" | "board"
   const statusColor = { Open:"blue", "In Progress":"amber", "Awaiting Client":"gray", Resolved:"green", Closed:"gray" };
@@ -1155,7 +1155,7 @@ const TicketList = ({ tickets, total, loading, onSelect, onNew, search, onSearch
         </div>
         {viewMode === "list" && (
           <div style={{ display:"flex", gap:6 }}>
-            {["All", ...STATUS_OPTIONS].map(s => (
+            {["Active", "All", ...STATUS_OPTIONS].map(s => (
               <button key={s} onClick={()=>onStatusFilter(s)}
                 style={{ padding:"6px 14px", borderRadius:20, fontSize:12, fontWeight:600, cursor:"pointer", border:`1.5px solid ${statusFilter===s?brand.blue:brand.border}`, background:statusFilter===s?brand.blue:"#fff", color:statusFilter===s?"#fff":brand.muted }}>
                 {s}
@@ -2476,7 +2476,7 @@ export default function App() {
   const [users, setUsers]           = useState([]);
   const [templates, setTemplates]   = useState([]);
   const [search, setSearch]         = useState("");
-  const [statusFilter, setStatus]   = useState("All");
+  const [statusFilter, setStatus]   = useState("Active");
   const [quickFilter, setQuickFilter] = useState(null);
   const [assigneeFilter, setAssigneeFilter] = useState(null);
   const [toast, setToast]           = useState(null);
@@ -2587,7 +2587,7 @@ export default function App() {
 
   const handleDashboardNav = ({ status, quick }) => {
     setSearch("");
-    setStatus(status || "All");
+    setStatus(status || "Active");
     setQuickFilter(quick || null);
     navigate("/tickets");
   };

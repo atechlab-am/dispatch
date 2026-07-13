@@ -23,7 +23,7 @@ vi.mock("../api/clients.js", () => ({ listClients: vi.fn().mockResolvedValue([])
 vi.mock("../api/materials.js", () => ({ listMaterials: vi.fn().mockResolvedValue([]) }));
 vi.mock("../api/client.js", () => ({ openPdfWithAuth: vi.fn() }));
 
-import { getQuote } from "../api/quotes.js";
+import { getQuote, listQuotes } from "../api/quotes.js";
 
 const noop = () => {};
 
@@ -36,6 +36,22 @@ test("quote list renders rows from the API", async () => {
   expect(await screen.findByText("QUO-2026-00001")).toBeInTheDocument();
   expect(screen.getByText("Acme Corp")).toBeInTheDocument();
   expect(screen.getByText("Office Network Upgrade")).toBeInTheDocument();
+});
+
+test("defaults to the Active status filter on load, not All", async () => {
+  render(
+    <MemoryRouter initialEntries={["/quotes"]}>
+      <QuotesPage showToast={noop} />
+    </MemoryRouter>
+  );
+  await screen.findByText("QUO-2026-00001");
+
+  expect(listQuotes).toHaveBeenCalledWith(expect.objectContaining({ status: "Active" }));
+  const activeButton = screen.getByText("Active");
+  expect(activeButton.style.background).toBe("rgb(26, 92, 186)"); // brand.blue — selected pill
+
+  fireEvent.click(screen.getByText("All"));
+  expect(listQuotes).toHaveBeenCalledWith(expect.not.objectContaining({ status: expect.anything() }));
 });
 
 test("/quotes/new renders the create form (no fetch)", async () => {

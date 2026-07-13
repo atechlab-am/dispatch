@@ -63,6 +63,26 @@ def test_list_invoices_status_filter(client, admin_headers):
         assert inv["status"] == "Draft"
 
 
+def test_list_invoices_active_status_filter_excludes_paid_and_void(client, admin_headers):
+    r = client.post("/api/invoices", json={**INVOICE_BASE, "status": "Paid"}, headers=admin_headers)
+    paid_id = r.json()["id"]
+    r = client.post("/api/invoices", json={**INVOICE_BASE, "status": "Void"}, headers=admin_headers)
+    void_id = r.json()["id"]
+    r = client.post("/api/invoices", json={**INVOICE_BASE, "status": "Sent"}, headers=admin_headers)
+    sent_id = r.json()["id"]
+
+    r = client.get("/api/invoices", params={"status": "Active", "page_size": 100}, headers=admin_headers)
+    assert r.status_code == 200
+    items = r.json()["items"]
+    ids = [inv["id"] for inv in items]
+    statuses = {inv["status"] for inv in items}
+
+    assert sent_id in ids
+    assert paid_id not in ids
+    assert void_id not in ids
+    assert statuses <= {"Draft", "Sent"}
+
+
 def test_get_invoice(client, admin_headers, invoice_id):
     r = client.get(f"/api/invoices/{invoice_id}", headers=admin_headers)
     assert r.status_code == 200

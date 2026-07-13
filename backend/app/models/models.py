@@ -38,6 +38,11 @@ class TicketStatus(str, enum.Enum):
     closed = "Closed"
 
 
+# "Active" ticket statuses — deliberately excludes On Hold as well as
+# Resolved/Closed, matching the Dashboard's existing definition of active work.
+ACTIVE_TICKET_STATUSES = {"Open", "In Progress", "Awaiting Client"}
+
+
 class TicketPriority(str, enum.Enum):
     low = "Low"
     medium = "Medium"
@@ -167,12 +172,21 @@ class InvoiceStatus(str, enum.Enum):
     void = "Void"
 
 
+# "Active" invoice statuses — still-open/unpaid, excludes Paid (done) and Void (cancelled).
+ACTIVE_INVOICE_STATUSES = {"Draft", "Sent"}
+
+
 class QuoteStatus(str, enum.Enum):
     draft = "Draft"
     sent = "Sent"
     approved = "Approved"
     rejected = "Rejected"
     expired = "Expired"
+
+
+# "Active" quote statuses — still in play, excludes Approved (won), Rejected
+# (lost), and Expired (dead).
+ACTIVE_QUOTE_STATUSES = {"Draft", "Sent"}
 
 
 class Project(Base):

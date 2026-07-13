@@ -52,7 +52,7 @@ const STATUS_COLORS = {
   Expired:  { bg: "#f3f4f6", color: "#6b7280" },
 };
 
-const STATUSES = ["All", "Draft", "Sent", "Approved", "Rejected", "Expired"];
+const STATUSES = ["Active", "All", "Draft", "Sent", "Approved", "Rejected", "Expired"];
 const TAX_PRESETS = [
   { label: "No tax (0%)", value: 0 },
   { label: "QC (14.975%)", value: 0.14975 },
@@ -547,7 +547,7 @@ export default function QuotesPage({ showToast }) {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("Active");
 
   const PAGE_SIZE = 25;
 

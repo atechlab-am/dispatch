@@ -176,6 +176,38 @@ def test_status_transitions_draft_to_sent_to_approved(client, admin_headers):
     assert r3.json()["status"] == "Approved"
 
 
+def test_list_quotes_active_status_filter_excludes_approved_rejected_expired(client, admin_headers):
+    r = client.post("/api/quotes", headers=admin_headers, json=QUOTE_BASE)
+    sent_id = r.json()["id"]
+    client.patch(f"/api/quotes/{sent_id}/status", headers=admin_headers, json={"status": "Sent"})
+
+    r = client.post("/api/quotes", headers=admin_headers, json=QUOTE_BASE)
+    approved_id = r.json()["id"]
+    client.patch(f"/api/quotes/{approved_id}/status", headers=admin_headers, json={"status": "Sent"})
+    client.patch(f"/api/quotes/{approved_id}/status", headers=admin_headers, json={"status": "Approved"})
+
+    r = client.post("/api/quotes", headers=admin_headers, json=QUOTE_BASE)
+    rejected_id = r.json()["id"]
+    client.patch(f"/api/quotes/{rejected_id}/status", headers=admin_headers, json={"status": "Rejected"})
+
+    r = client.post("/api/quotes", headers=admin_headers, json=QUOTE_BASE)
+    expired_id = r.json()["id"]
+    client.patch(f"/api/quotes/{expired_id}/status", headers=admin_headers, json={"status": "Sent"})
+    client.patch(f"/api/quotes/{expired_id}/status", headers=admin_headers, json={"status": "Expired"})
+
+    r = client.get("/api/quotes", params={"status": "Active", "page_size": 100}, headers=admin_headers)
+    assert r.status_code == 200
+    items = r.json()["items"]
+    ids = [q["id"] for q in items]
+    statuses = {q["status"] for q in items}
+
+    assert sent_id in ids
+    assert approved_id not in ids
+    assert rejected_id not in ids
+    assert expired_id not in ids
+    assert statuses <= {"Draft", "Sent"}
+
+
 def test_invalid_status_transition_rejected(client, admin_headers):
     r = client.post("/api/quotes", headers=admin_headers, json=QUOTE_BASE)
     qid = r.json()["id"]

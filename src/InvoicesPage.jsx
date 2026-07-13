@@ -54,7 +54,7 @@ const STATUS_COLORS = {
   Void:  { bg: "#fee2e2", color: "#991b1b" },
 };
 
-const STATUSES = ["All", "Draft", "Sent", "Paid", "Void"];
+const STATUSES = ["Active", "All", "Draft", "Sent", "Paid", "Void"];
 const TAX_PRESETS = [
   { label: "No tax (0%)", value: 0 },
   { label: "QC (14.975%)", value: 0.14975 },
@@ -839,7 +839,7 @@ function InvoiceListTab({ showToast }) {
   const [total,    setTotal]    = useState(0);
   const [page,     setPage]     = useState(1);
   const [loading,  setLoading]  = useState(true);
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("Active");
 
   const PAGE_SIZE = 25;
 

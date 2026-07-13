@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.models import (
     Quote, QuoteLine, QuoteLineType, QuoteStatus, Invoice, InvoiceLine, InvoiceStatus, User,
-    Ticket, HourLog, TicketType, TicketStatus, TicketPriority, ClientType, TravelFee,
+    Ticket, HourLog, TicketType, TicketStatus, TicketPriority, ClientType, TravelFee, ACTIVE_QUOTE_STATUSES,
 )
 from ..security import get_current_user
 from .. import email as mail
@@ -161,7 +161,10 @@ def list_quotes(
     _require_quotes_enabled()
     q = db.query(Quote)
     if status_filter and status_filter != "All":
-        q = q.filter(Quote.status == status_filter)
+        if status_filter == "Active":
+            q = q.filter(Quote.status.in_(ACTIVE_QUOTE_STATUSES))
+        else:
+            q = q.filter(Quote.status == status_filter)
     if ticket_id:
         q = q.filter(Quote.ticket_id == ticket_id)
     total = q.count()

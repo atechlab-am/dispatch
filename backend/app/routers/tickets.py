@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from .. import config
 from ..database import get_db
-from ..models.models import User, Ticket, ServiceLine, HourLog, TicketMaterial, TicketStatus
+from ..models.models import User, Ticket, ServiceLine, HourLog, TicketMaterial, TicketStatus, ACTIVE_TICKET_STATUSES
 from ..schemas import TicketIn, TicketOut, TicketsPage, TicketListItem
 from ..security import get_current_user, require_admin
 from .. import email as mailer
@@ -186,7 +186,10 @@ def export_tickets(
 ):
     q = db.query(Ticket)
     if status_filter and status_filter != "All":
-        q = q.filter(Ticket.status == status_filter)
+        if status_filter == "Active":
+            q = q.filter(Ticket.status.in_(ACTIVE_TICKET_STATUSES))
+        else:
+            q = q.filter(Ticket.status == status_filter)
     if priority and priority != "All":
         q = q.filter(Ticket.priority == priority)
     if client_name:
@@ -265,7 +268,10 @@ def list_tickets(
     q = db.query(Ticket)
 
     if status_filter and status_filter != "All":
-        q = q.filter(Ticket.status == status_filter)
+        if status_filter == "Active":
+            q = q.filter(Ticket.status.in_(ACTIVE_TICKET_STATUSES))
+        else:
+            q = q.filter(Ticket.status == status_filter)
 
     if assigned_to:
         q = q.filter(Ticket.assigned_to == assigned_to)

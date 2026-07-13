@@ -34,7 +34,7 @@ vi.mock("../api/recurringInvoices.js", () => ({
   updateRecurringInvoice: vi.fn(), deleteRecurringInvoice: vi.fn(),
 }));
 
-import { getInvoice } from "../api/invoices.js";
+import { getInvoice, listInvoices } from "../api/invoices.js";
 import { listRecurringInvoices } from "../api/recurringInvoices.js";
 
 const noop = () => {};
@@ -47,6 +47,22 @@ test("invoice list renders rows from the API", async () => {
   );
   expect(await screen.findByText("INV-2026-00001")).toBeInTheDocument();
   expect(screen.getByText("Acme Corp")).toBeInTheDocument();
+});
+
+test("defaults to the Active status filter on load, not All", async () => {
+  render(
+    <MemoryRouter initialEntries={["/invoices"]}>
+      <InvoicesPage showToast={noop} />
+    </MemoryRouter>
+  );
+  await screen.findByText("INV-2026-00001");
+
+  expect(listInvoices).toHaveBeenCalledWith(expect.objectContaining({ status: "Active" }));
+  const activeButton = screen.getByText("Active");
+  expect(activeButton.style.background).toBe("rgb(26, 92, 186)"); // brand.blue — selected pill
+
+  fireEvent.click(screen.getByText("All"));
+  expect(listInvoices).toHaveBeenCalledWith(expect.not.objectContaining({ status: expect.anything() }));
 });
 
 test("/invoices/new renders the create form (no fetch)", async () => {

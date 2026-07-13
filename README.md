@@ -106,7 +106,7 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 
 ### Tickets
 - Create, edit, delete tickets with status, priority, client, and technician assignment
-- Search and filter by status, priority, assigned technician
+- Search and filter by status, priority, assigned technician — defaults to an **Active** view (Open, In Progress, Awaiting Client), one click away from "All"
 - **Services** — type-to-search the business/residential service catalogue to add a line (flat-fee, per-unit, or hourly pricing), same search-as-you-type UX as Materials
 - PDF export per ticket; CSV bulk export (admin only)
 - **SLA tracking** — response and resolution deadlines per priority:
@@ -147,7 +147,7 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 
 ### Invoices
 - Create invoices manually or directly from a ticket
-- Line items, tax presets, status tracking (Draft / Sent / Paid / Void)
+- Line items, tax presets, status tracking (Draft / Sent / Paid / Void) — list defaults to an **Active** view (Draft, Sent), one click away from "All"
 - PDF generation per invoice — logo, company name/website, colors, and footer text are customizable (Settings → Quote/Invoice PDFs, admin only), applied to both the PDF and the emailed version
 - **Recurring/retainer invoicing** — schedule an invoice to auto-generate on a daily/weekly/monthly/quarterly interval, with an optional auto-send toggle (admin only)
 
@@ -157,7 +157,7 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - The Projects list shows one row per project with its Quote/Ticket/Invoice status (once each stage exists) and a derived Stage badge, each linking straight through to the underlying record — status is always derived by following the linked quote's own `ticket_id`/`converted_invoice_id`, the same automatic Quote→Ticket→Invoice flow described below
 
 ### Quotes/Estimates
-- Send a quote (Draft → Sent → Approved/Rejected/Expired) with the same line-item/tax/PDF/email shape as invoices
+- Send a quote (Draft → Sent → Approved/Rejected/Expired) with the same line-item/tax/PDF/email shape as invoices — list defaults to an **Active** view (Draft, Sent), one click away from "All"
 - One-click **Convert to Invoice** on an Approved quote — copies client, line items, and totals into a new Draft invoice
 - Draft is the only editable state; Sent/Approved/Rejected/Expired are locked to preserve what the client actually saw
 - **Materials catalog** — each quote line is tagged Labor, Material, or Service; Material lines search a reusable parts catalog (Settings → Materials, admin-managed) to autofill description and unit price, and round quantity up to the nearest whole unit. Materials have an optional **category** (free text with autocomplete) — the catalog is grouped/sorted by category, then name, then unit price; category is searchable in the catalog but not shown in the quote/invoice line-item autofill dropdown. **Bulk edit** — select multiple materials to set their category, adjust price (%, flat, or set), or delete, all in one action. Bulk-add entries via **Import CSV** (columns: `name`, `category`, `description`, `unit_price`) — validates every row before writing anything and reports per-row errors (e.g. missing name, invalid price) without blocking the valid rows
