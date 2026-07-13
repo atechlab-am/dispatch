@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.41.3] — 2026-07-13
+
+### Added — automatic GitHub Releases on every dev → main deploy
+- After tests pass and `dev` is pushed to `main`, CI now creates a git tag (`v<VERSION>`) and a GitHub Release titled the same, with the release notes auto-extracted from the matching `## [x.y.z]` section of `CHANGELOG.md`.
+- Idempotent: if a push to `dev` didn't bump `VERSION`, the tag already exists and the job skips cleanly instead of failing or creating a duplicate/empty release.
+
 ## [1.41.2] — 2026-07-13
 
 ### Fixed — Save button changed color as you edited a branding panel's Primary Color
