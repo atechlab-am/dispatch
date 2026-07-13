@@ -1103,7 +1103,14 @@ export const TicketList = ({ tickets, total, loading, onSelect, onNew, search, o
   const statusColor = { Open:"blue", "In Progress":"amber", "Awaiting Client":"gray", Resolved:"green", Closed:"gray" };
   const priorityColor = { Low:"gray", Medium:"blue", High:"amber", Urgent:"red" };
 
+  // The list endpoint returns a precomputed grand_total (service lines + hour
+  // logs + materials + travel fee) since its lightweight TicketListItem never
+  // sends the raw arrays those figures come from — recomputing from arrays
+  // that are always empty here previously rendered $0 regardless of what was
+  // actually logged on the ticket. Fall back to computing from arrays only
+  // when grand_total isn't present (e.g. a full TicketOut-shaped object).
   const grandTotal = (t) => {
+    if (typeof t.grand_total === "number") return t.grand_total;
     const svc   = (t.service_lines ?? []).reduce((s, sv) => s + calcServiceTotal({ serviceId: sv.service_id, type: sv.type, rate: Number(sv.rate), base: Number(sv.base), perUnit: Number(sv.per_unit), qty: sv.qty, extraQty: sv.extra_qty }), 0);
     const hours = (t.hour_logs ?? []).reduce((s, l) => s + (parseFloat(l.hours) || 0) * (parseFloat(l.rate) || 0), 0);
     const materials = (t.materials_used ?? []).reduce((s, m) => s + (parseFloat(m.qty) || 0) * (parseFloat(m.unit_price) || 0), 0);

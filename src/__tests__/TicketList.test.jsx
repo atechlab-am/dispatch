@@ -94,6 +94,23 @@ test("clicking All calls onStatusFilter with All", () => {
   expect(onStatusFilter).toHaveBeenCalledWith("All");
 });
 
+test("shows the backend-computed grand_total even though hour_logs/service_lines/materials_used are never sent by the list endpoint", () => {
+  // Mirrors the real TicketListItem shape: no service_lines/hour_logs/materials_used
+  // arrays at all (too heavy for a paginated list) — only a precomputed grand_total.
+  // Regression test: recomputing the total from those (always-empty-here) arrays
+  // used to silently render $0 regardless of what was actually logged on the ticket.
+  const ticket = {
+    id: "TKT-2026-00001", status: "Open", priority: "Medium", client_type: "business",
+    client_name: "Acme Corp", title: "Quick fix", created_at: "2026-07-13T00:00:00Z",
+    travel_fee: "travel_none", grand_total: 55,
+  };
+  render(<TicketList {...defaultProps} tickets={[ticket]} total={1} />);
+
+  // Both the per-row amount and the Total Revenue stat should read $55.00
+  // (a single $55 ticket), not $0 — proves grand_total is actually used.
+  expect(screen.getAllByText("$55.00").length).toBe(2);
+});
+
 test("clicking a specific status calls onStatusFilter with that status", () => {
   const onStatusFilter = vi.fn();
   render(<TicketList {...defaultProps} statusFilter="Active" onStatusFilter={onStatusFilter} />);

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.42.1] — 2026-07-13
+
+### Fixed — Tickets list/board "Total Revenue" and per-ticket dollar amount always showed $0
+- Reported: logging hours on a ticket (e.g. 0.5h at $110/hr) correctly showed the $55 total in the ticket editor, but the Tickets tab's list view still showed $0 for that ticket and in "Total Revenue."
+- Root cause: the ticket list endpoint's lightweight response (`TicketListItem`) never included `service_lines`/`hour_logs`/`materials_used` at all — by design, to keep a 25-ticket page light — but the frontend's dollar-total calculation was written assuming those arrays would be present, so it silently computed `$0` from arrays that were always empty in this view. This had nothing to do with invoicing status; the total was always meant to be computed live from logged hours/services/materials, not gated on creating an invoice.
+- `GET /api/tickets` now precomputes each ticket's total server-side (reusing the existing `_ticket_total()` helper, previously only used for audit-log price-change detection) and returns it as a new `grand_total` field, eager-loading the three relationships in 3 batched queries via `selectinload` rather than one query per ticket per relationship. The frontend now reads `grand_total` directly instead of recomputing from arrays that were never sent.
+
+### Tests
+- New backend test confirming a ticket with a 0.5h/$110 hour log returns `grand_total: 55.0` from the list endpoint, and a new frontend test confirming the list view renders `$55.00` (not `$0.00`) for the same shape of data the real endpoint now returns. Full suite: 571 backend (pytest) + 195 frontend (Vitest) passing.
+
 ## [1.42.0] — 2026-07-13
 
 ### Changed — Tickets, Invoices, and Quotes now default to "Active" instead of "All"

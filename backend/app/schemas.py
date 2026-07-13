@@ -169,6 +169,7 @@ class TicketListItem(BaseModel):
     assigned_to: Optional[int] = None
     sla_response_due: Optional[datetime] = None
     sla_resolution_due: Optional[datetime] = None
+    grand_total: float = 0
 
     model_config = {"from_attributes": True}
 

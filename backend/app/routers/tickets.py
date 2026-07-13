@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from .. import config
 from ..database import get_db
@@ -296,13 +296,29 @@ def list_tickets(
 
     total = q.count()
     items = (
-        q.order_by(Ticket.created_at.desc())
+        q.options(
+            selectinload(Ticket.service_lines),
+            selectinload(Ticket.hour_logs),
+            selectinload(Ticket.materials_used),
+        )
+        .order_by(Ticket.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
     )
 
-    return TicketsPage(items=items, total=total, page=page, page_size=page_size)
+    # TicketListItem doesn't carry the raw service_lines/hour_logs/materials_used
+    # arrays (too heavy for a paginated list), so the dollar total the ticket
+    # list/board view displays has to be precomputed here instead — otherwise
+    # the frontend's own total-from-arrays math silently sees empty arrays and
+    # renders $0 regardless of what's actually logged on the ticket.
+    out_items = []
+    for t in items:
+        item = TicketListItem.model_validate(t)
+        item.grand_total = _ticket_total(t)
+        out_items.append(item)
+
+    return TicketsPage(items=out_items, total=total, page=page, page_size=page_size)
 
 
 @router.post("", response_model=TicketOut, status_code=status.HTTP_201_CREATED)

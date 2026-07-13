@@ -78,6 +78,25 @@ def test_list_tickets(client, admin_headers):
     assert data["total"] >= 1
 
 
+def test_list_tickets_includes_grand_total_from_hour_logs(client, admin_headers):
+    """Regression test: the ticket list view computes its dollar total
+    client-side from service_lines/hour_logs/materials_used, but the list
+    endpoint's lightweight TicketListItem never included those arrays — so
+    logged hours always rendered as $0 on the Tickets tab even though the
+    ticket editor (which fetches the full TicketOut) showed the correct total."""
+    body = {**TICKET_BASE, "travel_fee": "travel_none", "service_lines": [], "hour_logs": [
+        {"date": "2026-06-01", "hours": 0.5, "rate": 110, "description": "Quick fix"},
+    ]}
+    r = client.post("/api/tickets", json=body, headers=admin_headers)
+    assert r.status_code == 201
+    tid = r.json()["id"]
+
+    r = client.get("/api/tickets", params={"search": tid}, headers=admin_headers)
+    assert r.status_code == 200
+    item = next(t for t in r.json()["items"] if t["id"] == tid)
+    assert item["grand_total"] == 55.0
+
+
 def test_list_tickets_search(client, admin_headers, ticket_id):
     r = client.get("/api/tickets", params={"search": "Acme"}, headers=admin_headers)
     assert r.status_code == 200
