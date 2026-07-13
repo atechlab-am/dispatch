@@ -13,6 +13,7 @@ from ..models.models import Invoice, InvoiceLine, InvoicePayment, InvoiceStatus,
 from ..security import get_current_user
 from .. import email as mail
 from ..audit import write_audit
+from ..notifications import create_notification
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
@@ -188,6 +189,11 @@ def _apply_payment_and_maybe_mark_paid(
     if paid >= float(inv.total):
         inv.status = InvoiceStatus.paid
         _sync_ticket_billing(inv, db, actor_id=actor_id, actor_label=actor_label)
+        if inv.created_by:
+            create_notification(
+                db, user_id=inv.created_by, ticket_id=None, kind="invoice_paid",
+                message=f"Invoice {inv.id} was paid in full ({actor_label})",
+            )
 
 
 def _enrich(inv: Invoice) -> dict:

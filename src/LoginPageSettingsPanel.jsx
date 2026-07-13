@@ -13,7 +13,7 @@ const label = (text) => (
 );
 
 const DEFAULT_FORM = {
-  company_name: "ATech Solutions",
+  company_name: "ATechSolutions",
   subtitle: "internal use only",
   primary_color: "#1A5CBA",
   accent_color: "#E8A020",

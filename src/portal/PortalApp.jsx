@@ -486,10 +486,11 @@ function Shell({ user, slug, onLogout, onChangePassword, children, branding = DE
 
 // ─── Tickets List ─────────────────────────────────────────────────────────────
 
-function TicketsPage({ slug, showToast }) {
+export function TicketsPage({ slug, showToast, branding = DEFAULT_PORTAL_BRANDING }) {
   const navigate = useNavigate();
   const [tickets, setTickets] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const onColor = branding.on_color_text || DEFAULT_PORTAL_BRANDING.on_color_text;
 
   useEffect(() => {
     listMyTickets().then(setTickets).catch(() => showToast("Failed to load tickets", "error"));
@@ -506,7 +507,7 @@ function TicketsPage({ slug, showToast }) {
         <button
           onClick={() => setShowForm(true)}
           style={{
-            background: brand.primary, color: brand.white, border: "none",
+            background: branding.primary_color, color: onColor, border: "none",
             padding: "9px 20px", borderRadius: 8, fontSize: 14, fontWeight: 600,
             cursor: "pointer", fontFamily: "inherit",
           }}
@@ -1133,7 +1134,7 @@ function SlugPortal() {
     <>
       <Shell user={user} slug={slug} onLogout={handleLogout} onChangePassword={() => setChangingPassword(true)} branding={branding}>
         <Routes>
-          <Route path="tickets" element={<TicketsPage slug={slug} showToast={showToast} />} />
+          <Route path="tickets" element={<TicketsPage slug={slug} showToast={showToast} branding={branding} />} />
           <Route path="tickets/:ticketId" element={<TicketDetailPage slug={slug} showToast={showToast} />} />
           <Route path="invoices" element={<InvoicesPage slug={slug} showToast={showToast} />} />
           <Route path="invoices/:invoiceId" element={<InvoiceDetailPage slug={slug} showToast={showToast} />} />

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { listClients, updateClient } from "./api/clients.js";
 import { listPortalAccounts, createPortalAccount, updatePortalAccount, deletePortalAccount } from "./api/portal.js";
 
@@ -286,10 +287,10 @@ function UserRow({ account, onUpdated, onDeleted, showToast }) {
 
 // ─── Portal card (one per business group or residential individual) ────────────
 
-function PortalCard({ label, subtitle, badge, slugClient, contacts, portalClientId, portalAccounts, allAccounts, onClientUpdated, onAccountsChanged, showToast }) {
+function PortalCard({ label, subtitle, badge, slugClient, contacts, portalClientId, portalAccounts, allAccounts, onClientUpdated, onAccountsChanged, showToast, defaultExpanded }) {
   const [localAccounts, setLocalAccounts] = useState(portalAccounts);
   const [showAdd, setShowAdd] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(!!defaultExpanded);
 
   useEffect(() => {
     setLocalAccounts(portalAccounts);
@@ -458,11 +459,16 @@ function SectionHeader({ label, count }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PortalPage({ showToast }) {
+  const [searchParams] = useSearchParams();
+  const searchParam = searchParams.get("search") || "";
   const [clients, setClients] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [showAll, setShowAll] = useState(false);
+  const [search, setSearch] = useState(searchParam);
+  // Deep-linked from a client's "Portal Access" link: show its card even if
+  // it has no portal activity yet, since that's exactly the case that link
+  // exists for (provisioning access for the first time).
+  const [showAll, setShowAll] = useState(!!searchParam);
 
   useEffect(() => {
     Promise.all([listClients(), listPortalAccounts()])
@@ -580,6 +586,7 @@ export default function PortalPage({ showToast }) {
                 setAccounts(prev => [...prev.filter(a => !memberIds.has(a.client_id)), ...updated]);
               }}
               showToast={showToast}
+              defaultExpanded={!!searchParam && g.label === searchParam}
             />
           ))}
         </>
@@ -603,6 +610,7 @@ export default function PortalPage({ showToast }) {
                 setAccounts(prev => [...prev.filter(a => a.client_id !== client.id), ...updated]);
               }}
               showToast={showToast}
+              defaultExpanded={!!searchParam && client.name === searchParam}
             />
           ))}
         </>

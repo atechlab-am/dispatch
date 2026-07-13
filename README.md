@@ -142,6 +142,8 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Business model: a company is a group of client records sharing the same company name; the primary record (lowest ID) holds company-level info; additional records are contacts
 - New Ticket modal picks company first, then contact within that company
 - **Per-client SLA tiers** — optionally assign a business Gold/Silver/Bronze tier that tightens or relaxes its tickets' SLA deadlines relative to the global per-priority table (no tier = global default)
+- Expanding a business shows a ticket/invoice summary (ticket count + open count, invoice count + total billed/outstanding) aggregated across every contact in the company
+- **Portal Access** button on both business and residential clients deep-links straight to the Portal admin page, pre-filtered and expanded to that client, for provisioning portal access without leaving the Clients tab
 
 ### Invoices
 - Create invoices manually or directly from a ticket
@@ -167,7 +169,8 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Per-client portal at `/p/<slug>` — clients log in to view their tickets and invoices
 - **Online payments** — Pay Now button creates a Stripe Checkout session for the invoice balance; a webhook auto-records the payment and marks the invoice Paid on success (optional — requires `STRIPE_*` env vars; safely disabled if unset)
 - Business clients: all contacts in the company share one portal (same slug); each contact sees all company tickets but new tickets are attributed to the submitter
-- Portal users are managed per-client from the Portal admin page (admin only)
+- Portal users are managed per-client from the Portal admin page (admin only), reachable directly from a client's row on the Clients tab via a "Portal Access" link
+- Staff are notified (in-app notification bell) when a client submits a new ticket via the portal, and when one of their invoices is paid in full
 - Forced password change on first login or after admin reset
 - Auto logout after 30 minutes of inactivity
 

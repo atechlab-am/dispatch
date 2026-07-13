@@ -4,7 +4,7 @@ import { setTokens } from "./api/client.js";
 import { getLoginBrandingPublic } from "./api/loginBranding.js";
 
 const DEFAULT_BRANDING = {
-  company_name: "ATech Solutions",
+  company_name: "ATechSolutions",
   subtitle: "internal use only",
   primary_color: "#1A5CBA",
   accent_color: "#E8A020",

@@ -14,6 +14,7 @@ from ..models.models import (
     Client, ClientPortalUser, PortalRefreshToken,
     Ticket, TicketStatus, Invoice, InvoiceStatus,
 )
+from ..notifications import create_notification
 from ..schemas import TokenOut, RefreshIn
 from ..security import (
     hash_password, verify_password,
@@ -355,6 +356,17 @@ def portal_create_ticket(
         sla_resolution_due=resolution_due,
     )
     db.add(ticket)
+    db.flush()
+
+    # Unassigned on submission (staff triage it), so notify every active
+    # admin — same fallback convention as SLA-breach escalation in tasks.py.
+    admin_ids = [u.id for u in db.query(StaffUser.id).filter(StaffUser.role == UserRole.admin, StaffUser.active == True).all()]
+    for uid in admin_ids:
+        create_notification(
+            db, user_id=uid, ticket_id=ticket.id, kind="portal_ticket_submitted",
+            message=f"New request from {display_name}: {ticket.title}",
+        )
+
     db.commit()
     db.refresh(ticket)
     return ticket

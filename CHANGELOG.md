@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.39.0] — 2026-07-13
+
+### Added — remaining gaps from the full-app QA pass
+- **Clients tab: ticket/invoice history and counts.** Expanding a business now shows a summary (ticket count + open count, invoice count + total billed/outstanding) aggregated across every contact in the company, not just the primary record. New `GET /api/clients/company-summary?company=...` endpoint.
+- **"Portal Access" link from a client's row/detail.** Both business (company header) and residential clients now have a "Portal Access" button that deep-links straight to the Portal admin page, pre-filtered and auto-expanded to that client — previously portal provisioning was only reachable via the separate sidebar "Portal" section with no path to it from the Clients tab.
+- **Notification bell now fires for client-submitted portal tickets and paid invoices.** A ticket submitted via the Client Portal now notifies all active admins (same fallback convention as SLA-breach escalation); an invoice being paid in full (manual or via Stripe webhook) now notifies whoever created it. Previously only appointment scheduling, assignment, and internal comments triggered notifications.
+- **Portal "+ New Request" button now uses the configured accent color** instead of a static default blue, matching the rest of the client-portal branding.
+
+### Fixed — naming confusion
+- The sidebar's "Recurring" nav item (recurring **tickets**) has been renamed "Recurring Tickets" to avoid confusion with the Invoices page's unrelated "Recurring" tab (a genuine, separate recurring-**invoices** feature) — both previously shared an identical label despite being unrelated features.
+
+### Tests
+- New/updated tests across `test_clients.py`, `test_notifications.py`, `ClientsPage.test.jsx`, `PortalApp.test.jsx`, `InvoicesPage.test.jsx`, and a new `PortalPage.test.jsx`. Full suite: 541 backend (pytest) + 171 frontend (Vitest) passing.
+
 ## [1.38.3] — 2026-07-12
 
 ### Fixed — 10 bugs found by a full-app QA pass

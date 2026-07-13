@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { listClients, createClient, updateClient, deleteClient } from "./api/clients.js";
+import { useNavigate } from "react-router-dom";
+import { listClients, createClient, updateClient, deleteClient, getCompanySummary } from "./api/clients.js";
 import { clientStatement } from "./api/invoices.js";
 
 const brand = {
@@ -410,11 +411,12 @@ function ContactRow({ c, onUpdated, onDeleted, onStatement, showToast }) {
 
 // ─── Residential contact row (with address/notes expand) ──────────────────────
 
-function ResidentialRow({ c, onUpdated, onDeleted, onStatement, showToast, companies }) {
+function ResidentialRow({ c, onUpdated, onDeleted, onStatement, showToast, companies, isAdmin }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ name: c.name, email: c.email, phone: c.phone, address: c.address, notes: c.notes });
   const [saving, setSaving] = useState(false);
+  const navigate = useNavigate();
   const up = (k, v) => setForm(p => ({ ...p, [k]: v }));
   const cell = { padding: "11px 14px", borderBottom: expanded ? "none" : `1px solid ${brand.border}`, verticalAlign: "middle" };
 
@@ -441,6 +443,11 @@ function ResidentialRow({ c, onUpdated, onDeleted, onStatement, showToast, compa
         <td style={{ ...cell, textAlign: "right", whiteSpace: "nowrap" }} onClick={e => e.stopPropagation()}>
           <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
             <Btn small variant="ghost" onClick={() => onStatement(c)}>Statement</Btn>
+            {isAdmin && (
+              <Btn small variant="secondary" onClick={() => navigate(`/portal?search=${encodeURIComponent(c.name)}`)}>
+                Portal Access
+              </Btn>
+            )}
             <Btn small variant="secondary" onClick={() => { setEditing(true); setExpanded(true); }}>Edit</Btn>
             <Btn small variant="danger" onClick={() => onDeleted(c.id, c.name)}>Delete</Btn>
           </div>
@@ -481,12 +488,19 @@ function ResidentialRow({ c, onUpdated, onDeleted, onStatement, showToast, compa
 
 // ─── Business company group ───────────────────────────────────────────────────
 
-function CompanyGroup({ primary, contacts, company, showToast, onPrimaryUpdated, onContactUpdated, onContactDeleted, onContactAdded, onBusinessDeleted, companies, showSlaTiers }) {
+function CompanyGroup({ primary, contacts, company, showToast, onPrimaryUpdated, onContactUpdated, onContactDeleted, onContactAdded, onBusinessDeleted, companies, showSlaTiers, isAdmin }) {
   const [expanded, setExpanded] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
+  const [summary, setSummary] = useState(null);
+  const navigate = useNavigate();
 
   const slug = primary.slug;
+
+  useEffect(() => {
+    if (!expanded || summary) return;
+    getCompanySummary(company).then(setSummary).catch(() => {});
+  }, [expanded, company, summary]);
 
   function handleCancelEdit() {
     setEditingBusiness(false);
@@ -519,6 +533,11 @@ function CompanyGroup({ primary, contacts, company, showToast, onPrimaryUpdated,
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }} onClick={e => e.stopPropagation()}>
+          {isAdmin && (
+            <Btn small variant="secondary" onClick={() => navigate(`/portal?search=${encodeURIComponent(company)}`)}>
+              Portal Access
+            </Btn>
+          )}
           <Btn small variant="secondary" onClick={() => { setEditingBusiness(p => !p); setShowAddContact(false); setExpanded(true); }}>
             {editingBusiness ? "Cancel" : "Edit Business"}
           </Btn>
@@ -540,6 +559,25 @@ function CompanyGroup({ primary, contacts, company, showToast, onPrimaryUpdated,
           showToast={showToast}
           showSlaTiers={showSlaTiers}
         />
+      )}
+
+      {/* Ticket/invoice summary across every contact in this company */}
+      {expanded && !editingBusiness && summary && (
+        <div style={{ padding: "10px 18px", background: "#fafcff", borderBottom: `1px solid ${brand.border}`, display: "flex", gap: 20, flexWrap: "wrap" }}>
+          <div>
+            <FieldLabel>Tickets</FieldLabel>
+            <div style={{ fontSize: 13 }}>
+              {summary.ticket_count} total{summary.open_ticket_count > 0 ? `, ${summary.open_ticket_count} open` : ""}
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Invoices</FieldLabel>
+            <div style={{ fontSize: 13 }}>
+              {summary.invoice_count} total — ${fmt(summary.total_billed)} billed
+              {summary.outstanding > 0 && <span style={{ color: brand.danger, fontWeight: 700 }}> (${fmt(summary.outstanding)} outstanding)</span>}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Business detail (read-only, when expanded and not editing) */}
@@ -619,7 +657,7 @@ function SectionHeader({ label, count }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function ClientsPage({ showToast, features }) {
+export default function ClientsPage({ showToast, features, isAdmin }) {
   const showSlaTiers = features?.sla_tiers !== false;
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -734,6 +772,7 @@ export default function ClientsPage({ showToast, features }) {
                   onContactAdded={c => { setClients(p => [...p, c]); showToast("Contact added.", "ok"); }}
                   onBusinessDeleted={(id, name) => handleDelete(id, name)}
                   showSlaTiers={showSlaTiers}
+                  isAdmin={isAdmin}
                 />
               ))}
             </>
@@ -761,6 +800,7 @@ export default function ClientsPage({ showToast, features }) {
                         onStatement={setStatement}
                         showToast={showToast}
                         companies={companies}
+                        isAdmin={isAdmin}
                       />
                     ))}
                   </tbody>

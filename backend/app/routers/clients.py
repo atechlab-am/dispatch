@@ -6,7 +6,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models.models import Client, ClientType, ClientSlaTier, Invoice, InvoicePayment, RecurringTicket
+from ..models.models import Client, ClientType, ClientSlaTier, Invoice, InvoicePayment, RecurringTicket, Ticket, TicketStatus
 from ..security import get_current_user
 from .. import config
 
@@ -98,6 +98,54 @@ def create_client(
     db.commit()
     db.refresh(client)
     return client
+
+
+# ─── Company summary (ticket/invoice counts across every contact in a company) ─
+# Declared before /{client_id} so this literal path segment isn't swallowed by
+# the int path-param route (FastAPI resolves routes in declaration order and
+# does not fall through to the next route on a param-coercion failure).
+
+_TICKET_OPEN_STATUSES = [TicketStatus.open, TicketStatus.in_progress, TicketStatus.awaiting_client, TicketStatus.on_hold]
+
+
+class CompanySummaryOut(BaseModel):
+    ticket_count: int
+    open_ticket_count: int
+    invoice_count: int
+    total_billed: float
+    total_paid: float
+    outstanding: float
+
+
+@router.get("/company-summary", response_model=CompanySummaryOut)
+def company_summary(
+    company: str,
+    db: Session = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Aggregate ticket/invoice counts across every contact record that shares
+    this company name — a business's tickets/invoices can be attached to any
+    of its contacts' client_id, not just the primary record."""
+    client_ids = [c.id for c in db.query(Client.id).filter(Client.company == company).all()]
+    if not client_ids:
+        return CompanySummaryOut(ticket_count=0, open_ticket_count=0, invoice_count=0, total_billed=0, total_paid=0, outstanding=0)
+
+    tickets = db.query(Ticket).filter(Ticket.client_id.in_(client_ids)).all()
+    ticket_count = len(tickets)
+    open_ticket_count = sum(1 for t in tickets if t.status in _TICKET_OPEN_STATUSES)
+
+    invoices = db.query(Invoice).filter(Invoice.client_id.in_(client_ids), Invoice.status != "Void").all()
+    total_billed = round(sum(float(inv.total) for inv in invoices), 2)
+    total_paid = round(sum(float(p.amount) for inv in invoices for p in inv.payments), 2)
+
+    return CompanySummaryOut(
+        ticket_count=ticket_count,
+        open_ticket_count=open_ticket_count,
+        invoice_count=len(invoices),
+        total_billed=total_billed,
+        total_paid=total_paid,
+        outstanding=round(total_billed - total_paid, 2),
+    )
 
 
 @router.get("/{client_id}", response_model=ClientOut)

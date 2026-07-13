@@ -105,3 +105,52 @@ def test_delete_client_with_recurring_ticket(client, admin_headers):
 def test_unauthenticated_cannot_list_clients(client):
     r = client.get("/api/clients")
     assert r.status_code in (401, 403)
+
+
+def test_company_summary_aggregates_across_contacts(client, admin_headers):
+    company = "Summary Aggregation Co"
+    r = client.post("/api/clients", json={**CLIENT_BASE, "name": "Primary Contact", "company": company}, headers=admin_headers)
+    primary_id = r.json()["id"]
+    r = client.post("/api/clients", json={**CLIENT_BASE, "name": "Second Contact", "company": company}, headers=admin_headers)
+    second_id = r.json()["id"]
+
+    # A ticket against the *second* contact, not the primary — must still be counted.
+    r = client.post("/api/tickets", json={"status": "Open", "priority": "Low",
+        "client_type": "business", "client_id": second_id, "client_name": "Second Contact",
+        "client_email": "", "client_phone": "", "client_address": "", "title": "Ticket via second contact",
+        "description": "", "internal_notes": "", "travel_fee": "travel_none",
+        "service_lines": [], "hour_logs": []}, headers=admin_headers)
+    assert r.status_code == 201
+
+    # A closed ticket against the primary contact.
+    r = client.post("/api/tickets", json={"status": "Closed", "priority": "Low",
+        "client_type": "business", "client_id": primary_id, "client_name": "Primary Contact",
+        "client_email": "", "client_phone": "", "client_address": "", "title": "Closed ticket",
+        "description": "", "internal_notes": "", "travel_fee": "travel_none",
+        "service_lines": [], "hour_logs": []}, headers=admin_headers)
+    assert r.status_code == 201
+
+    # An invoice against the primary contact.
+    r = client.post("/api/invoices", json={
+        "client_id": primary_id, "client_name": "Primary Contact", "client_email": "",
+        "client_address": "", "status": "Sent", "issue_date": "2026-06-01", "due_date": "2026-06-30",
+        "notes": "", "tax_rate": 0, "lines": [{"description": "Work", "qty": 1, "unit_price": 200, "amount": 200}],
+    }, headers=admin_headers)
+    assert r.status_code == 201
+
+    r = client.get("/api/clients/company-summary", params={"company": company}, headers=admin_headers)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["ticket_count"] == 2
+    assert data["open_ticket_count"] == 1
+    assert data["invoice_count"] == 1
+    assert data["total_billed"] == 200
+    assert data["outstanding"] == 200
+
+
+def test_company_summary_unknown_company_returns_zeros(client, admin_headers):
+    r = client.get("/api/clients/company-summary", params={"company": "Nonexistent Co"}, headers=admin_headers)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["ticket_count"] == 0
+    assert data["invoice_count"] == 0

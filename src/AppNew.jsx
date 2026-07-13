@@ -150,7 +150,7 @@ export default function AppNew({
     { path: "/invoices",  label: "Invoices",   icon: ICONS.invoices },
     ...(features?.quotes !== false ? [{ path: "/projects", label: "Projects", icon: ICONS.projects }] : []),
     ...(features?.quotes !== false ? [{ path: "/quotes", label: "Quotes", icon: ICONS.quotes }] : []),
-    { path: "/recurring", label: "Recurring",  icon: ICONS.recurring },
+    { path: "/recurring", label: "Recurring Tickets",  icon: ICONS.recurring },
     ...(features?.scheduling !== false ? [{ path: "/schedule", label: "Schedule", icon: ICONS.schedule }] : []),
     { path: "/documents", label: "Documents",  icon: ICONS.documents },
     { path: "/reports",   label: "Reports",    icon: ICONS.reports },
@@ -309,7 +309,7 @@ export default function AppNew({
               />
             } />
             {features?.leads !== false && <Route path="/leads" element={<LeadsPage showToast={showToast} />} />}
-            <Route path="/clients"   element={<ClientsPage showToast={showToast} features={features} />} />
+            <Route path="/clients"   element={<ClientsPage showToast={showToast} features={features} isAdmin={isAdmin} />} />
             <Route path="/invoices"      element={<InvoicesPage showToast={showToast} features={features} />} />
             <Route path="/invoices/new"  element={<InvoiceEditorRoute showToast={showToast} prefill={invoiceDraft} onDraftConsumed={() => setInvoiceDraft(null)} />} />
             <Route path="/invoices/:invoiceId" element={<InvoiceEditorRoute showToast={showToast} />} />

@@ -119,6 +119,60 @@ def test_unauthenticated_cannot_list_notifications(client):
     assert r.status_code in (401, 403)
 
 
+def test_portal_ticket_submission_notifies_admins(client, admin_headers):
+    from app.security import create_portal_access_token
+
+    r = client.post("/api/clients", json={
+        "name": "Portal Notif Co", "email": "notify@example.com", "phone": "", "address": "",
+        "client_type": "business", "company": "Portal Notif Co", "notes": "",
+    }, headers=admin_headers)
+    client_id = r.json()["id"]
+
+    r = client.post("/api/portal/accounts", json={
+        "client_id": client_id, "email": "portalnotif@example.com", "name": "Portal Requester", "password": "portalpass123",
+    }, headers=admin_headers)
+    assert r.status_code == 201
+    portal_user_id = r.json()["id"]
+
+    # Mint the portal access token directly rather than going through
+    # /api/portal/auth/login, which is rate-limited (10/minute) and already
+    # shared/exhausted across many other tests using the same fake client IP.
+    portal_headers = {"Authorization": f"Bearer {create_portal_access_token(portal_user_id)}"}
+
+    before = client.get("/api/notifications", headers=admin_headers).json()
+
+    r = client.post("/api/portal/tickets", json={"title": "Something is broken", "description": "Help"}, headers=portal_headers)
+    assert r.status_code == 201
+    ticket_id = r.json()["id"]
+
+    after = client.get("/api/notifications", headers=admin_headers).json()
+    assert len(after) == len(before) + 1
+    new_note = next(n for n in after if n["ticket_id"] == ticket_id)
+    assert new_note["kind"] == "portal_ticket_submitted"
+    assert "Something is broken" in new_note["message"]
+
+
+def test_invoice_paid_in_full_notifies_creator(client, admin_headers):
+    r = client.post("/api/invoices", json={
+        "client_id": None, "client_name": "Notify Payer Co", "client_email": "notifypayer@example.com",
+        "client_address": "", "status": "Sent", "issue_date": "2026-06-01", "due_date": "2026-06-30",
+        "notes": "", "tax_rate": 0, "lines": [{"description": "Work", "qty": 1, "unit_price": 150, "amount": 150}],
+    }, headers=admin_headers)
+    assert r.status_code == 201
+    invoice_id = r.json()["id"]
+
+    before = client.get("/api/notifications", headers=admin_headers).json()
+
+    r = client.post(f"/api/invoices/{invoice_id}/payments", json={"amount": 150, "method": "cash"}, headers=admin_headers)
+    assert r.status_code == 201
+
+    after = client.get("/api/notifications", headers=admin_headers).json()
+    assert len(after) == len(before) + 1
+    new_note = next(n for n in after if n["kind"] == "invoice_paid")
+    assert invoice_id in new_note["message"]
+    assert new_note["ticket_id"] is None
+
+
 def test_purge_deletes_old_read_notifications_only(client, admin_headers, tech_headers, tech_id):
     from datetime import datetime, timedelta, timezone
     from app.main import _purge_old_notifications_once
