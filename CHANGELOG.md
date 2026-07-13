@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.41.0] — 2026-07-13
+
+### Added — full layout control over Quote/Invoice PDFs
+- **Font size controls** — Settings → Quote/Invoice PDFs now has sliders for header/logo, body text, table header, and totals font sizes, applied directly to the built-in PDF layout.
+- **Custom HTML templates** — an "Advanced" section lets you fully replace the built-in invoice or quote layout with your own raw HTML, using `{{placeholder}}` substitution (`{{company_name}}`, `{{invoice_id}}`, `{{lines_html}}`, `{{total}}`, etc. — a full reference list is shown in the editor). Invoice and quote templates are independent and each optional; when off, the built-in layout (with your font-size/color settings) is used as before.
+- **Safety net**: saving a custom template with an unknown `{{placeholder}}` is rejected up front with a specific error (e.g. "Unknown placeholder(s): foo") — a broken template can never be saved and can never break a real invoice/quote send. A **Preview** button renders the template against realistic sample data in a new tab before you save, so you can iterate safely.
+- Backend: `_build_invoice_html`/`_build_quote_html` were split into a shared context-builder (the `{{placeholder}}` -> value map) and a template string, so the built-in layout and any custom template are always fed the exact same data. New `app/document_branding.py::render_template()` does safe regex-based substitution — deliberately not `str.format()`, which would choke on the stray `{`/`}` in ordinary CSS.
+- New `GET /api/document-branding/placeholders` (reference list) and `POST /api/document-branding/preview/{invoice,quote}` (render-only, no save) endpoints.
+- New `document_branding` migration (0045) adding `font_size_*`, `use_custom_*_template`, and `custom_*_template` columns.
+
+### Tests
+- 13 new backend tests (font-size persistence/validation, custom-template save-time validation, real PDF override when enabled, fallback to default when disabled, preview endpoints) and 6 new frontend tests for the settings panel's new sections. Full suite: 564 backend (pytest) + 188 frontend (Vitest) passing.
+
 ## [1.40.1] — 2026-07-13
 
 ### Added — small polish items from the QA pass's "suggested improvements" list

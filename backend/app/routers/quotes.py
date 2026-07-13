@@ -17,7 +17,7 @@ from ..security import get_current_user
 from .. import email as mail
 from ..audit import write_audit
 from .. import config
-from ..document_branding import get_document_branding, logo_html
+from ..document_branding import get_document_branding, logo_html, render_template, TemplateRenderError
 
 router = APIRouter(prefix="/quotes", tags=["quotes"])
 
@@ -419,8 +419,9 @@ def convert_quote_to_invoice(
 
 # ─── PDF (styled HTML, opened by browser print dialog) ───────────────────────
 
-def _build_quote_html(q: Quote, db: Session) -> str:
-    branding = get_document_branding(db)
+def _quote_template_context(q: Quote, branding) -> dict:
+    """Build the full {{placeholder}} -> value context for a quote document.
+    Shared by the default built-in layout and any custom template."""
     tax_pct = round(float(q.tax_rate) * 100, 3)
     lines_html = "".join(
         f"<tr><td style='padding:8px 12px;border-bottom:1px solid #e2e8f0'>{html_lib.escape(l.description)}</td>"
@@ -430,67 +431,86 @@ def _build_quote_html(q: Quote, db: Session) -> str:
         for l in q.lines
     )
     status_color = {"Draft": "#64748b", "Sent": branding.primary_color, "Approved": "#059669", "Rejected": "#dc2626", "Expired": "#94a3b8"}.get(str(q.status), "#64748b")
-    expiry_html = f"<p><strong>Expires:</strong> {q.expiry_date}</p>" if q.expiry_date else ""
-    client_name_safe = html_lib.escape(q.client_name or "—")
-    client_email_safe = html_lib.escape(q.client_email)
-    project_name_html = f"<p><strong>Project:</strong> {html_lib.escape(q.project_name)}</p>" if q.project_name else ""
-    notes_safe = html_lib.escape(q.notes)
-    website_safe = html_lib.escape(branding.website)
-    footer_safe = html_lib.escape(branding.footer_text)
-    company_name_safe = html_lib.escape(branding.company_name)
 
-    html = f"""<!DOCTYPE html>
+    return {
+        "company_name": html_lib.escape(branding.company_name),
+        "website": html_lib.escape(branding.website),
+        "footer_text": html_lib.escape(branding.footer_text),
+        "logo_html": logo_html(branding),
+        "primary_color": branding.primary_color,
+        "accent_color": branding.accent_color,
+        "font_size_header": branding.font_size_header,
+        "font_size_body": branding.font_size_body,
+        "font_size_table": branding.font_size_table,
+        "font_size_totals": branding.font_size_totals,
+        "quote_id": q.id,
+        "status": str(q.status),
+        "status_color": status_color,
+        "client_name": html_lib.escape(q.client_name or "—"),
+        "client_email_html": f"<p>{html_lib.escape(q.client_email)}</p>" if q.client_email else "",
+        "project_html": f"<p><strong>Project:</strong> {html_lib.escape(q.project_name)}</p>" if q.project_name else "",
+        "issue_date": str(q.issue_date),
+        "expiry_html": f"<p><strong>Expires:</strong> {q.expiry_date}</p>" if q.expiry_date else "",
+        "lines_html": lines_html,
+        "subtotal": f"{float(q.subtotal):,.2f}",
+        "tax_line_html": "" if tax_pct == 0 else f"<tr><td>Tax ({tax_pct}%)</td><td style='text-align:right'>${float(q.tax_amount):,.2f}</td></tr>",
+        "total": f"{float(q.total):,.2f}",
+        "notes_html": f'<div class="notes">{html_lib.escape(q.notes)}</div>' if q.notes else "",
+    }
+
+
+_QUOTE_DEFAULT_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Quote {q.id}</title>
+<title>Quote {{quote_id}}</title>
 <style>
-  *{{box-sizing:border-box;margin:0;padding:0}}
-  body{{font-family:Arial,sans-serif;font-size:14px;color:#0f172a;background:#f1f5f9;padding:32px}}
-  .page{{max-width:780px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 16px rgba(0,0,0,0.10);overflow:hidden}}
-  .header{{background:{branding.primary_color};color:#fff;padding:28px 36px;display:flex;justify-content:space-between;align-items:flex-start}}
-  .logo{{font-size:22px;font-weight:800;letter-spacing:-0.5px}}
-  .logo span{{color:{branding.accent_color}}}
-  .body{{padding:28px 36px}}
-  .meta{{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px}}
-  .meta-block p{{margin:3px 0;font-size:13px;color:#334155}}
-  .meta-block strong{{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;display:block;margin-bottom:4px}}
-  .badge{{display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;color:#fff;background:{status_color}}}
-  table{{width:100%;border-collapse:collapse;margin-top:4px}}
-  thead th{{background:#f8fafc;padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:#64748b;border-bottom:2px solid #e2e8f0}}
-  .totals{{margin-top:16px;display:flex;justify-content:flex-end}}
-  .totals table{{width:260px}}
-  .totals td{{padding:5px 12px;font-size:13px}}
-  .totals .grand{{font-weight:700;font-size:15px;border-top:2px solid #0f172a}}
-  .notes{{margin-top:24px;padding:16px;background:#f8fafc;border-radius:8px;font-size:13px;color:#334155;white-space:pre-wrap;border-left:3px solid {branding.primary_color}}}
-  .footer{{background:#f1f5f9;padding:14px 36px;font-size:11px;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0}}
-  @media print{{body{{background:#fff;padding:0}} .page{{box-shadow:none;border-radius:0}}}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,sans-serif;font-size:{{font_size_body}}px;color:#0f172a;background:#f1f5f9;padding:32px}
+  .page{max-width:780px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 16px rgba(0,0,0,0.10);overflow:hidden}
+  .header{background:{{primary_color}};color:#fff;padding:28px 36px;display:flex;justify-content:space-between;align-items:flex-start}
+  .logo{font-size:{{font_size_header}}px;font-weight:800;letter-spacing:-0.5px}
+  .logo span{color:{{accent_color}}}
+  .body{padding:28px 36px}
+  .meta{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px}
+  .meta-block p{margin:3px 0;font-size:{{font_size_body}}px;color:#334155}
+  .meta-block strong{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;display:block;margin-bottom:4px}
+  .badge{display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;color:#fff;background:{{status_color}}}
+  table{width:100%;border-collapse:collapse;margin-top:4px}
+  thead th{background:#f8fafc;padding:8px 12px;text-align:left;font-size:{{font_size_table}}px;text-transform:uppercase;letter-spacing:0.4px;color:#64748b;border-bottom:2px solid #e2e8f0}
+  .totals{margin-top:16px;display:flex;justify-content:flex-end}
+  .totals table{width:260px}
+  .totals td{padding:5px 12px;font-size:{{font_size_totals}}px}
+  .totals .grand{font-weight:700;font-size:{{font_size_totals}}px;border-top:2px solid #0f172a}
+  .notes{margin-top:24px;padding:16px;background:#f8fafc;border-radius:8px;font-size:{{font_size_body}}px;color:#334155;white-space:pre-wrap;border-left:3px solid {{primary_color}}}
+  .footer{background:#f1f5f9;padding:14px 36px;font-size:11px;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0}
+  @media print{body{background:#fff;padding:0} .page{box-shadow:none;border-radius:0}}
 </style>
 </head>
 <body>
 <div class="page">
   <div class="header">
     <div>
-      {logo_html(branding)}
-      <div style="font-size:12px;opacity:0.75;margin-top:4px">{website_safe}</div>
+      {{logo_html}}
+      <div style="font-size:12px;opacity:0.75;margin-top:4px">{{website}}</div>
     </div>
     <div style="text-align:right">
-      <div style="font-size:28px;font-weight:800;letter-spacing:-0.5px;opacity:0.95">{q.id}</div>
-      <div style="margin-top:6px"><span class="badge">{q.status}</span></div>
+      <div style="font-size:28px;font-weight:800;letter-spacing:-0.5px;opacity:0.95">{{quote_id}}</div>
+      <div style="margin-top:6px"><span class="badge">{{status}}</span></div>
     </div>
   </div>
   <div class="body">
     <div class="meta">
       <div class="meta-block">
         <strong>Quote For</strong>
-        <p style="font-weight:600">{client_name_safe}</p>
-        {f"<p>{client_email_safe}</p>" if q.client_email else ""}
+        <p style="font-weight:600">{{client_name}}</p>
+        {{client_email_html}}
       </div>
       <div class="meta-block">
         <strong>Quote Details</strong>
-        {project_name_html}
-        <p><strong>Issue Date:</strong> {q.issue_date}</p>
-        {expiry_html}
+        {{project_html}}
+        <p><strong>Issue Date:</strong> {{issue_date}}</p>
+        {{expiry_html}}
       </div>
     </div>
     <table>
@@ -502,23 +522,33 @@ def _build_quote_html(q: Quote, db: Session) -> str:
           <th style="width:18%;text-align:right">Amount</th>
         </tr>
       </thead>
-      <tbody>{lines_html}</tbody>
+      <tbody>{{lines_html}}</tbody>
     </table>
     <div class="totals">
       <table>
-        <tr><td>Subtotal</td><td style="text-align:right">${float(q.subtotal):,.2f}</td></tr>
-        {"" if tax_pct == 0 else f"<tr><td>Tax ({tax_pct}%)</td><td style='text-align:right'>${float(q.tax_amount):,.2f}</td></tr>"}
-        <tr class="grand"><td>Total</td><td style="text-align:right">${float(q.total):,.2f}</td></tr>
+        <tr><td>Subtotal</td><td style="text-align:right">${{subtotal}}</td></tr>
+        {{tax_line_html}}
+        <tr class="grand"><td>Total</td><td style="text-align:right">${{total}}</td></tr>
       </table>
     </div>
-    {f'<div class="notes">{notes_safe}</div>' if q.notes else ""}
+    {{notes_html}}
   </div>
-  <div class="footer">{company_name_safe} &nbsp;|&nbsp; {website_safe}</div>
+  <div class="footer">{{company_name}} &nbsp;|&nbsp; {{website}}</div>
 </div>
-<script>window.onload = function(){{ window.print(); }}</script>
+<script>window.onload = function(){ window.print(); }</script>
 </body>
 </html>"""
-    return html
+
+
+def _build_quote_html(q: Quote, db: Session) -> str:
+    branding = get_document_branding(db)
+    context = _quote_template_context(q, branding)
+    if branding.use_custom_quote_template and branding.custom_quote_template:
+        try:
+            return render_template(branding.custom_quote_template, context)
+        except TemplateRenderError:
+            pass
+    return render_template(_QUOTE_DEFAULT_TEMPLATE, context)
 
 
 @router.get("/{quote_id}/pdf", response_class=HTMLResponse)
