@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.41.2] — 2026-07-13
+
+### Fixed — Save button changed color as you edited a branding panel's Primary Color
+- Reported: changing the Primary Color in Settings → Quote/Invoice PDFs made the "Save Changes" button itself change color, which read as a bug rather than the intended live-preview touch it originally was.
+- The Save button's `background`/`boxShadow` was bound to the in-progress `primary_color` form value in all four branding settings panels (Appearance, Login Page, Client Portal, Quote/Invoice PDFs) — now a fixed neutral blue in all four, consistent with the Close/Cancel button's fixed styling.
+
 ## [1.41.1] — 2026-07-13
 
 ### Fixed — font color wasn't actually customizable on Quote/Invoice PDFs

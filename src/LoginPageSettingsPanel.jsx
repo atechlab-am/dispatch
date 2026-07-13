@@ -180,7 +180,7 @@ export default function LoginPageSettingsPanel({ onClose, showToast }) {
         <button onClick={onClose} style={{ padding: "9px 20px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", color: "#64748b" }}>
           Close
         </button>
-        <button onClick={handleSave} disabled={saving} style={{ padding: "9px 24px", borderRadius: 8, border: "none", background: form.primary_color, color: "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit", boxShadow: `0 2px 8px ${form.primary_color}44`, opacity: saving ? 0.7 : 1 }}>
+        <button onClick={handleSave} disabled={saving} style={{ padding: "9px 24px", borderRadius: 8, border: "none", background: "#1A5CBA", color: "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit", boxShadow: "0 2px 8px #1A5CBA44", opacity: saving ? 0.7 : 1 }}>
           {saving ? "Saving…" : saved ? "✓ Saved!" : "Save Changes"}
         </button>
       </div>
