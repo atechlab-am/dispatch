@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.48.3] — 2026-07-14
+
+### Fixed — `upgrade.sh`: works with the legacy `docker-compose` binary too
+- User report: on their Linux server, `docker compose` (v2, no hyphen) is unrecognized — only the legacy standalone `docker-compose` binary is installed.
+- The script now detects which form is actually available at startup (`docker compose version` first, falling back to `command -v docker-compose`) and uses that consistently via a `$DC` variable, instead of hardcoding `docker compose` everywhere and breaking on hosts that only have the legacy binary. Exits with a clear error if neither is found.
+- `docker compose ps --format json` is a v2-only flag the legacy binary doesn't support — the health-check loop now checks for it once up front and falls back to plain-text `grep`-for-"unhealthy"/"starting" parsing (the same approach already used by `scripts/linux/install.sh`) when it's unavailable, rather than failing outright on legacy installs.
+- This repo's other scripts (`scripts/linux/install.sh`, `scripts/linux/update.sh`, etc.) still assume Compose v2 only and explicitly error out if it's missing — `upgrade.sh` is now the more portable one of the two, since it's the script most likely to run unattended against whatever happens to be installed on a given server.
+
+### Tests
+- Shell script — verified via `bash -n` and by directly testing the bash word-splitting behavior of an unquoted `$DC` variable (confirmed `docker` and `compose` split into two separate argv words when `$DC="docker compose"`, as needed for the substitution to work). The legacy-binary code path (`docker-compose` invocation, plain-text health-check fallback) was not exercised end-to-end — no host with the legacy binary available in this environment — recommend a real run on the affected server.
+
+## [1.48.2] — 2026-07-14
+
+### Changed — `upgrade.sh`: buildx auto-install, hostname/IP in the summary instead of localhost
+- User follow-up on v1.48.1: (1) `localhost` in the final summary isn't useful when checking the deploy from another machine — wanted the server's actual hostname and LAN IP instead; (2) the legacy-builder deprecation warning seen in an earlier build log needs a real fix, not just quieter output.
+- **buildx**: root-caused the deprecation warning — `docker compose build` silently falls back to the old, non-BuildKit builder when the `buildx` CLI plugin isn't installed, rather than erroring. The script now checks `docker buildx version` up front and, if missing, downloads and installs the official release binary into `~/.docker/cli-plugins/` automatically (detects amd64/arm64, fails with a clear manual-install link if the architecture is unsupported or the download fails) — no more silent fallback to the deprecated path. Also sets `DOCKER_BUILDKIT=1` explicitly.
+- **Addresses**: replaced both `http://localhost` URLs with four — hostname and LAN IP, for both the Staff app and Client Portal. Hostname via `hostname -f` (falls back to bare `hostname`); LAN IP via `hostname -I` (Debian/Ubuntu default) with an `ip route get 1.1.1.1` fallback for systems where that's unavailable.
+
+### Tests
+- Shell script — verified via `bash -n` and by exercising the riskiest new pieces standalone: confirmed the `if [ -n "$VAR" ]; then ...; fi` guards around the optional IP lines don't trip `set -e` when the variable is empty (a bare `[ ... ] && echo` chain would have), and confirmed the hostname-fallback logic resolves correctly. The buildx download/install path and the Linux-specific `hostname -I`/`ip route` calls were not exercised end-to-end (no Linux Docker host available in this environment) — recommend a real dry run on the target server.
+
+## [1.48.1] — 2026-07-14
+
+### Changed — `upgrade.sh`: recoverable rollback, quiet builds, health summary with URLs
+- User request: keep the previous build around for recovery instead of deleting it, make the build output quiet-but-visible (progress bar, not a wall of `pip`/`npm`/`apt-get` logs), and print "open at this address" URLs once everything is confirmed healthy.
+- **Recovery point**: before rebuilding, the script now tags the current `backend`/`frontend`/`frontend-portal` images as `:previous` (`docker tag`, not a copy — cheap, no extra disk). It no longer runs `docker image prune -f` (which was deleting the just-superseded image the moment the new one replaced its `:latest` tag) — only `docker builder prune -f` still runs, since that only clears intermediate build-cache layers, not the tagged images themselves. The final summary prints the exact `docker tag ... :previous ... :latest` + `docker compose up -d` commands to roll back.
+- **Quiet builds**: sets `BUILDKIT_PROGRESS=tty` (and `COMPOSE_PROGRESS=tty`) before building. BuildKit falls back to verbose plain-text output when it can't detect an interactive terminal — exactly what happens running this script over SSH or through `tee`/a log file — so this forces the normal compact progress-bar UI back on regardless of how the script is invoked.
+- **Health-checked summary**: replaced the old blind `sleep 5` with a poll loop (up to 60 × 2s) reading `docker compose ps --format json` (parsed via a small inline `python3` snippet, tolerant of both the NDJSON and JSON-array output shapes different Compose versions emit) — waits until every service reports `healthy` or has no healthcheck defined. Prints the Staff app (`http://localhost`) and Client Portal (`http://localhost:$PORTAL_PORT`, read from `.env`, defaulting to 8080) URLs at the end, alongside the health status and rollback instructions.
+- Image names (`dispatch-backend` etc.) are resolved via `docker compose config --images` rather than hardcoded, since Compose's project-naming convention (hyphen vs. underscore) varies by version/config and hardcoding it risked silently no-op'ing the recovery-tag step on a server using a different convention than assumed.
+
+### Tests
+- Shell script — no automated test suite for these; verified via `bash -n` syntax check and by exercising the image-name resolution (`docker compose config --images`) and the Python health-parsing snippet standalone against synthetic NDJSON/array input covering the healthy, unhealthy, and no-healthcheck cases. Not run end-to-end against a live Docker daemon in this pass (none available in this environment) — recommend a real dry run before relying on the rollback path in production.
+
 ## [1.48.0] — 2026-07-14
 
 ### Changed — Both themes are now centrally editable from one file (follow-up to v1.46.0/v1.47.0)
