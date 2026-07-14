@@ -200,6 +200,7 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - **Quote → Ticket → Invoice funnel** — stage counts (quotes approved, tickets created, invoices converted) shown as a compact widget, with a **+ New Project** button that opens the Projects page to kick off the workflow
 - Priority and status charts
 - My Active Tickets, SLA at Risk, Recent Open sections
+- **Leads section** (shown when `FEATURE_LEADS` is enabled) — stat cards (Total, Active, Won, Lost), a pipeline-by-stage chart (New → Contacted → Qualified → Proposal → Won/Lost), and a "Leads to Follow Up" list (leads with Follow-up scheduled checked, overdue ones sorted first) — all clicking through to the Leads page
 - All cards and sections are clickable and navigate to a filtered ticket list
 
 ### Reports (admin only)

@@ -46,3 +46,63 @@ def test_dashboard_total_tickets_matches_list(client, admin_headers):
     total_stat = next(s for s in dash["stats"] if s["label"] == "Total Tickets")
     list_total = client.get("/api/tickets", headers=admin_headers).json()["total"]
     assert total_stat["value"] == list_total
+
+
+def test_dashboard_includes_lead_stats(client, admin_headers):
+    client.post("/api/leads", json={"business_name": "Dashboard Lead Co"}, headers=admin_headers)
+    r = client.get("/api/dashboard", headers=admin_headers)
+    data = r.json()
+    assert "lead_stats" in data
+    assert "lead_pipeline" in data
+    assert "leads_follow_up" in data
+
+    labels = {s["label"] for s in data["lead_stats"]}
+    assert labels == {"Total Leads", "Active Leads", "Won", "Lost"}
+    total_stat = next(s for s in data["lead_stats"] if s["label"] == "Total Leads")
+    list_total = len(client.get("/api/leads", headers=admin_headers).json())
+    assert total_stat["value"] == list_total
+
+
+def test_dashboard_lead_pipeline_counts_by_stage(client, admin_headers):
+    lead = client.post("/api/leads", json={"business_name": "Pipeline Lead Co"}, headers=admin_headers).json()
+    client.post(f"/api/leads/{lead['id']}/stage", json={"stage": "qualified"}, headers=admin_headers)
+
+    r = client.get("/api/dashboard", headers=admin_headers)
+    pipeline = {p["stage"]: p["count"] for p in r.json()["lead_pipeline"]}
+    assert set(pipeline.keys()) == {"new", "contacted", "qualified", "proposal", "won", "lost"}
+    assert pipeline["qualified"] >= 1
+
+
+def test_dashboard_leads_follow_up_only_includes_scheduled(client, admin_headers):
+    scheduled = client.post("/api/leads", json={
+        "business_name": "Follow-up Needed Co", "follow_up_date": "2026-01-01", "follow_up_scheduled": True,
+    }, headers=admin_headers).json()
+    client.post("/api/leads", json={"business_name": "No Follow-up Co"}, headers=admin_headers)
+
+    r = client.get("/api/dashboard", headers=admin_headers)
+    ids = {l["id"] for l in r.json()["leads_follow_up"]}
+    assert scheduled["id"] in ids
+    assert all(l["follow_up_scheduled"] for l in r.json()["leads_follow_up"])
+
+
+def test_dashboard_leads_follow_up_overdue_sorted_first(client, admin_headers):
+    client.post("/api/leads", json={
+        "business_name": "Future Follow-up Co", "follow_up_date": "2099-01-01", "follow_up_scheduled": True,
+    }, headers=admin_headers)
+    overdue = client.post("/api/leads", json={
+        "business_name": "Overdue Follow-up Co", "follow_up_date": "2020-01-01", "follow_up_scheduled": True,
+    }, headers=admin_headers).json()
+
+    r = client.get("/api/dashboard", headers=admin_headers)
+    follow_up = r.json()["leads_follow_up"]
+    assert follow_up[0]["id"] == overdue["id"]
+
+
+def test_dashboard_lead_stats_empty_when_feature_disabled(client, admin_headers, monkeypatch):
+    from app import config as app_config
+    monkeypatch.setattr(app_config, "FEATURE_LEADS", False)
+    r = client.get("/api/dashboard", headers=admin_headers)
+    data = r.json()
+    assert data["lead_stats"] == []
+    assert data["lead_pipeline"] == []
+    assert data["leads_follow_up"] == []

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.45.0] — 2026-07-13
+
+### Added — Dashboard now shows Leads stats
+- User request: the Dashboard covered tickets/quotes/invoices but had no visibility into the sales pipeline at all — checking lead status required opening the Leads tab every time.
+- New "Leads" section on the Dashboard (shown when `FEATURE_LEADS` is enabled and there's at least one lead): stat cards for Total/Active/Won/Lost leads (clickable, navigate to the Leads page), a pipeline-by-stage bar chart (New/Contacted/Qualified/Proposal/Won/Lost), and a "Leads to Follow Up" list — leads with Follow-up scheduled checked (from v1.43.0), overdue ones sorted to the top, then soonest-due.
+- Backend: `GET /api/dashboard` gained `lead_stats`, `lead_pipeline`, and `leads_follow_up` fields, computed the same way the existing Quote→Ticket→Invoice funnel is gated on its own feature flag (`FEATURE_QUOTES`) — these are gated on `FEATURE_LEADS` and come back as empty lists when the feature is off, so the frontend section simply doesn't render rather than needing a separate disabled-state check.
+
+### Tests
+- 5 new backend tests (`test_dashboard.py`): lead stats/pipeline/follow-up present in the response shape, pipeline counts match stage moves, follow-up list only includes `follow_up_scheduled` leads and sorts overdue first, and everything comes back empty when `FEATURE_LEADS` is off. 5 new frontend tests (`DashboardPage.test.jsx`): section renders with data, hides with no lead data, hides when the feature flag is off, and a stat card click navigates to `/leads`. Full suite: 588 backend (pytest) + 217 frontend (Vitest) passing.
+
 ## [1.44.1] — 2026-07-13
 
 ### Fixed — Leads table columns couldn't be resized and the horizontal scrollbar never appeared

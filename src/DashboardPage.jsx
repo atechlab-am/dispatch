@@ -184,6 +184,53 @@ function FunnelWidget({ stages, onNewProject }) {
   );
 }
 
+// ─── Lead pipeline breakdown ───────────────────────────────────────────────────
+const PIPELINE_COLOR = {
+  new: brand.blue, contacted: "#7c3aed", qualified: brand.amber,
+  proposal: "#0891b2", won: brand.success, lost: brand.muted,
+};
+
+function LeadPipelineChart({ stages }) {
+  const max = Math.max(...stages.map(s => s.count), 1);
+  return (
+    <div style={{ display: "flex", gap: 10, alignItems: "flex-end", height: 80, padding: "0 4px" }}>
+      {stages.map(s => (
+        <div key={s.stage} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: PIPELINE_COLOR[s.stage] || brand.muted }}>{s.count}</div>
+          <div style={{ width: "100%", background: `${PIPELINE_COLOR[s.stage] || brand.muted}22`, borderRadius: 4, height: `${Math.max(4, (s.count / max) * 56)}px`, border: `1px solid ${PIPELINE_COLOR[s.stage] || brand.muted}44` }} />
+          <div style={{ fontSize: 10, color: brand.muted, fontWeight: 600, whiteSpace: "nowrap" }}>{s.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function LeadFollowUpRow({ lead, onSelect }) {
+  const overdue = lead.follow_up_date && new Date(lead.follow_up_date + "T00:00:00") < new Date(new Date().toDateString());
+  return (
+    <div onClick={() => onSelect(lead)}
+      style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderBottom: `1px solid ${brand.border}`, cursor: "pointer", transition: "background 0.12s" }}
+      onMouseEnter={e => e.currentTarget.style.background = brand.bg}
+      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+    >
+      <div style={{ width: 10, height: 10, borderRadius: "50%", background: overdue ? brand.danger : brand.blue, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 600, fontSize: 13, color: brand.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {lead.business_name}
+        </div>
+        <div style={{ fontSize: 11, color: brand.muted, marginTop: 1 }}>
+          {lead.contact_name || "—"} · {STAGE_LABEL[lead.stage] || lead.stage}
+        </div>
+      </div>
+      <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: overdue ? brand.danger : brand.muted, whiteSpace: "nowrap" }}>
+        {overdue ? "Overdue" : "Due"} {new Date(lead.follow_up_date + "T00:00:00").toLocaleDateString()}
+      </div>
+    </div>
+  );
+}
+
+const STAGE_LABEL = { new: "New", contacted: "Contacted", qualified: "Qualified", proposal: "Proposal", won: "Won", lost: "Lost" };
+
 function StatusChart({ tickets }) {
   const statuses = ["Open", "In Progress", "Awaiting Client", "Resolved", "Closed"];
   const counts = Object.fromEntries(statuses.map(s => [s, 0]));
@@ -236,10 +283,16 @@ export default function DashboardPage({ user, onSelectTicket, onNavigate, showTo
 
   if (!data) return null;
 
-  const { stats, funnel, my_active, sla_urgent, recent_open } = data;
+  const { stats, funnel, my_active, sla_urgent, recent_open, lead_stats = [], lead_pipeline = [], leads_follow_up = [] } = data;
   const allTickets = [...new Map([...my_active, ...sla_urgent, ...recent_open].map(t => [t.id, t])).values()];
 
   const nav = (label, quick) => onNavigate && onNavigate({ quick: quick ? { label, fn: quick } : null });
+  const leadStatNav = {
+    "Total Leads":  () => navigate("/leads"),
+    "Active Leads": () => navigate("/leads"),
+    "Won":          () => navigate("/leads"),
+    "Lost":         () => navigate("/leads"),
+  };
 
   // Map each stat card label to a navigation action
   const statNav = {
@@ -335,6 +388,32 @@ export default function DashboardPage({ user, onSelectTicket, onNavigate, showTo
           </div>
         )}
       </Section>
+
+      {/* Leads */}
+      {features?.leads !== false && lead_stats.length > 0 && (
+        <>
+          <div style={{ fontWeight: 800, fontSize: 16, color: brand.text, margin: "28px 0 12px" }}>Leads</div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
+            {lead_stats.map(s => <StatCard key={s.label} {...s} onClick={leadStatNav[s.label]} />)}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 12, padding: "16px 20px" }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: brand.text, marginBottom: 14 }}>Pipeline by Stage</div>
+              <LeadPipelineChart stages={lead_pipeline} />
+            </div>
+
+            <Section title={`Leads to Follow Up (${leads_follow_up.length})`} accent={brand.blue}
+              empty="No follow-ups scheduled."
+              onViewAll={() => navigate("/leads")}>
+              {leads_follow_up.length > 0 && leads_follow_up.map(l => (
+                <LeadFollowUpRow key={l.id} lead={l} onSelect={() => navigate("/leads")} />
+              ))}
+            </Section>
+          </div>
+        </>
+      )}
     </div>
   );
 }
