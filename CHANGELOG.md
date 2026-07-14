@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.48.4] — 2026-07-14
+
+### Fixed — `upgrade.sh`: real-world run against legacy `docker-compose` 1.29.2 surfaced 3 more bugs
+- User ran the script on their actual server (legacy `docker-compose==1.29.2`, the true EOL Python binary) and hit a chain of failures: a Docker-socket permission error (host issue — their user wasn't in the `docker` group, fixed by re-running with `sudo`), then `config --images` printing usage text instead of image names, then `git pull` failing under `sudo` with an SSH publickey error.
+- **`--images` unsupported by docker-compose 1.29.2**: confirmed from the pasted output — the flag isn't recognized on that build (prints `config`'s help text and falls through). Added a fallback: derive image names by normalizing the project directory name and probing both naming conventions Compose has used (`<project>-<service>` for v2, `<project>_<service>` for legacy v1) via `docker image inspect`, only used when `--images` returns nothing.
+- **`git pull` under `sudo`**: running the whole script with `sudo` (needed for Docker socket access) meant `git pull` ran as root, which has no access to the invoking user's SSH agent/keys — `git@github.com: Permission denied (publickey)`. Fixed by running `git pull` as `$SUDO_USER` via `sudo -u` when the script itself is under `sudo`, while Docker commands stay as root.
+- **buildx download failure not caught cleanly**: the pasted log showed `curl: (23) Failure writing output to destination` immediately followed by `Installed buildx v0.35.0.` — a stale binary from an earlier failed attempt likely masked the real failure. The `curl` download's exit status is now checked explicitly (`if ! curl ...`) with a clear error message (disk space / write-access hint) instead of only relying on `set -e` propagating through a multi-line pipe.
+- Also caught and fixed a real bug of my own while writing the project-name fallback: `tr -c 'a-z0-9' '-'` was converting the directory name's trailing newline (present mid-pipe before command substitution strips it) into a stray trailing `-`, corrupting every derived image name (`dispatch-` instead of `dispatch`). Fixed with a trailing `sed 's/-*$//'`; verified the exact fix against the real repo directory name before and after.
+
+### Tests
+- Shell script — verified via `bash -n`, and directly tested three of the riskiest pieces standalone against real values: the project-name normalization (confirmed the newline bug, confirmed the fix), the derived image-name construction for all three services, and the `--images` command as run against this sandbox's Compose v2 install (still works, confirming the fallback only activates when it's genuinely unavailable). The legacy-binary failure paths, the `sudo -u $SUDO_USER git pull` path, and the buildx-download-failure path were not exercised against a real legacy `docker-compose` host in this pass (none available in this environment) — this is now the third round of fixes surfaced by real runs on the affected server, so a final live verification there remains the important next step before treating this as fully done.
+
 ## [1.48.3] — 2026-07-14
 
 ### Fixed — `upgrade.sh`: works with the legacy `docker-compose` binary too

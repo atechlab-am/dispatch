@@ -44,8 +44,11 @@ if ! docker buildx version > /dev/null 2>&1; then
     exit 1
   fi
   mkdir -p "$HOME/.docker/cli-plugins"
-  curl -fsSL "https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-${BUILDX_ARCH}" \
-    -o "$HOME/.docker/cli-plugins/docker-buildx"
+  if ! curl -fsSL "https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-${BUILDX_ARCH}" \
+    -o "$HOME/.docker/cli-plugins/docker-buildx"; then
+    echo "ERROR: buildx download failed (check disk space / write access to $HOME/.docker/cli-plugins). Install it manually: https://github.com/docker/buildx#installing"
+    exit 1
+  fi
   chmod +x "$HOME/.docker/cli-plugins/docker-buildx"
   if ! docker buildx version > /dev/null 2>&1; then
     echo "ERROR: buildx install failed. Install it manually: https://github.com/docker/buildx#installing"
@@ -74,10 +77,39 @@ fi
 # lists transitive dependencies (postgres, pulled not built), so drop any
 # name that already carries its own tag — the locally built images here never
 # do (Compose reports them bare, tag-less, since :latest is implicit).
-mapfile -t IMAGES < <($DC config --images backend frontend frontend-portal | grep -v ':')
+#
+# `config --images` isn't supported by every docker-compose 1.x build (the
+# legacy Python binary on some hosts errors and prints its own usage text
+# instead) — fall back to constructing the name from the project directory,
+# trying both naming conventions Compose has used over the years (v2:
+# <project>-<service>, legacy v1: <project>_<service>).
+mapfile -t IMAGES < <($DC config --images backend frontend frontend-portal 2>/dev/null | grep -v ':')
+if [ "${#IMAGES[@]}" -eq 0 ]; then
+  PROJECT_NAME="$(basename "$REPO_DIR" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-' | sed 's/-*$//')"
+  IMAGES=()
+  for svc in backend frontend frontend-portal; do
+    if docker image inspect "${PROJECT_NAME}-${svc}:latest" > /dev/null 2>&1; then
+      IMAGES+=("${PROJECT_NAME}-${svc}")
+    elif docker image inspect "${PROJECT_NAME}_${svc}:latest" > /dev/null 2>&1; then
+      IMAGES+=("${PROJECT_NAME}_${svc}")
+    else
+      # No existing image yet (first-ever build) — assume v2 naming for the
+      # :previous tagging step below, which just no-ops if it doesn't exist.
+      IMAGES+=("${PROJECT_NAME}-${svc}")
+    fi
+  done
+fi
 
 echo "==> Pulling latest code..."
-git pull
+# If this script itself is running under sudo (root), git still needs to run
+# as the invoking user — root has no access to that user's SSH agent/keys,
+# so `git pull` over SSH would fail with a publickey error otherwise. Docker
+# commands below intentionally keep running as root/sudo.
+if [ -n "$SUDO_USER" ]; then
+  sudo -u "$SUDO_USER" git -C "$REPO_DIR" pull
+else
+  git pull
+fi
 
 echo "==> Backing up before upgrade (best-effort, requires BACKUP_NAS_HOST in .env)..."
 $DC exec -T backend python3 -c "from app.backup import run_backup; r = run_backup(); print('Backup:', 'OK' if r.success else f'skipped/failed: {r.error}')" || true
