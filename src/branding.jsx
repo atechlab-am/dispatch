@@ -41,9 +41,9 @@ export function applyThemeVars(mode) {
   const vars = mode === "office" ? OFFICE_THEME_VARS : MODERN_THEME_VARS;
   const root = document.documentElement.style;
   for (const [key, value] of Object.entries(vars)) root.setProperty(key, value);
-  // Drives theme.css's [data-theme="office"] border-radius override — inline
-  // styles can't be beaten by a normal stylesheet rule, so that file uses
-  // !important keyed off this attribute instead of the CSS vars above.
+  // Drives theme.css's [data-theme="office"] --dispatch-radius-* overrides —
+  // inline styles can't be beaten by a normal stylesheet rule, so that file
+  // uses !important keyed off this attribute instead of the CSS vars above.
   document.documentElement.setAttribute("data-theme", mode);
 }
 

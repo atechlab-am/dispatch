@@ -10,7 +10,7 @@ const brand = {
 
 const inp = {
   width: "100%", padding: "8px 11px", border: `1px solid ${brand.border}`,
-  borderRadius: 6, fontSize: 13, color: brand.text, background: "#fff",
+  borderRadius: "var(--dispatch-radius-md)", fontSize: 13, color: brand.text, background: "#fff",
   outline: "none", fontFamily: "inherit", boxSizing: "border-box",
 };
 
@@ -30,7 +30,7 @@ const Btn = ({ onClick, children, variant = "primary", small, disabled, type = "
   }[variant];
   return (
     <button type={type} onClick={onClick} disabled={disabled}
-      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: 6, fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1 }}>
+      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: "var(--dispatch-radius-md)", fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1 }}>
       {children}
     </button>
   );
@@ -64,7 +64,7 @@ function NewProjectModal({ onClose, onCreated, showToast }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <form onSubmit={handleSubmit} style={{ background: "#fff", borderRadius: 12, padding: 28, width: 420, boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}>
+      <form onSubmit={handleSubmit} style={{ background: "#fff", borderRadius: "var(--dispatch-radius-lg)", padding: 28, width: 420, boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div style={{ fontWeight: 700, fontSize: 16 }}>New Project</div>
           <button type="button" onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: brand.muted }}>×</button>
@@ -129,7 +129,7 @@ export default function ProjectsPage({ showToast }) {
       {loading ? (
         <div style={{ color: brand.muted, padding: "60px 0", textAlign: "center" }}>Loading…</div>
       ) : (
-        <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden", background: "#fff" }}>
+        <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden", background: "#fff" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: brand.bg }}>

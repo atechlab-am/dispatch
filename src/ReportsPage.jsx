@@ -18,7 +18,7 @@ const brand = {
 const inp = {
   padding: "7px 11px",
   border: `1px solid ${brand.border}`,
-  borderRadius: 6,
+  borderRadius: "var(--dispatch-radius-md)",
   fontSize: 13,
   color: brand.text,
   background: "#fff",
@@ -43,7 +43,7 @@ const Btn = ({ onClick, href, children, variant = "primary", small, disabled }) 
   const style = {
     ...s,
     padding: small ? "5px 12px" : "8px 18px",
-    borderRadius: 6,
+    borderRadius: "var(--dispatch-radius-md)",
     fontSize: small ? 12 : 13,
     fontWeight: 600,
     cursor: disabled ? "not-allowed" : "pointer",
@@ -119,7 +119,7 @@ function RevenueTab() {
               { label: "Total Paid",   value: `$${fmt(data.grand_total_paid)}`,   color: brand.success },
               { label: "Outstanding",  value: `$${fmt(data.grand_total_billed - data.grand_total_paid)}`, color: data.grand_total_billed - data.grand_total_paid > 0 ? brand.amber : brand.success },
             ].map(card => (
-              <div key={card.label} style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px" }}>
+              <div key={card.label} style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "18px 20px" }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>{card.label}</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: card.color }}>{card.value}</div>
               </div>
@@ -132,7 +132,7 @@ function RevenueTab() {
             {data.by_month.length === 0
               ? <div style={{ color: brand.muted, fontSize: 13 }}>No data for selected period.</div>
               : (
-                <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+                <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                       <tr>{["Month", "Billed", "Paid", "Outstanding"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr>
@@ -159,7 +159,7 @@ function RevenueTab() {
             {data.by_client.length === 0
               ? <div style={{ color: brand.muted, fontSize: 13 }}>No data for selected period.</div>
               : (
-                <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+                <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                       <tr>{["Client", "Invoices", "Total Billed"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr>
@@ -210,7 +210,7 @@ function TechnicianTab() {
         data.rows.length === 0
           ? <div style={{ color: brand.muted, fontSize: 13 }}>No resolved tickets for selected period.</div>
           : (
-            <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+            <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>{["Technician", "Tickets Resolved", "Total Hours", "Total Labour"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr>
@@ -244,7 +244,7 @@ function SLABar({ within, breached, noSla }) {
   const bPct = (breached / total) * 100;
   const nPct = (noSla / total) * 100;
   return (
-    <div style={{ display: "flex", height: 10, borderRadius: 5, overflow: "hidden", width: 120, background: brand.bg }}>
+    <div style={{ display: "flex", height: 10, borderRadius: "var(--dispatch-radius-sm)", overflow: "hidden", width: 120, background: brand.bg }}>
       {wPct > 0 && <div style={{ width: `${wPct}%`, background: brand.success }} title={`Within SLA: ${within}`} />}
       {bPct > 0 && <div style={{ width: `${bPct}%`, background: brand.danger }} title={`Breached: ${breached}`} />}
       {nPct > 0 && <div style={{ width: `${nPct}%`, background: brand.border }} title={`No SLA: ${noSla}`} />}
@@ -279,12 +279,12 @@ function SLATab() {
           ? <div style={{ color: brand.muted, fontSize: 13 }}>No resolved tickets for selected period.</div>
           : (
         <>
-          <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px", marginBottom: 24, display: "inline-block" }}>
+          <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "18px 20px", marginBottom: 24, display: "inline-block" }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>Overall Compliance</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: pctColor(data.overall_compliance_pct) }}>{data.overall_compliance_pct}%</div>
           </div>
 
-          <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+          <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>{["Priority", "Total Resolved", "Within SLA", "Breached", "No SLA Set", "Compliance", ""].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr>
@@ -310,9 +310,9 @@ function SLATab() {
           </div>
 
           <div style={{ marginTop: 14, fontSize: 12, color: brand.muted, display: "flex", gap: 16 }}>
-            <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: brand.success, marginRight: 4 }} />Within SLA</span>
-            <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: brand.danger, marginRight: 4 }} />Breached</span>
-            <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: brand.border, marginRight: 4 }} />No SLA Set</span>
+            <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "var(--dispatch-radius-sm)", background: brand.success, marginRight: 4 }} />Within SLA</span>
+            <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "var(--dispatch-radius-sm)", background: brand.danger, marginRight: 4 }} />Breached</span>
+            <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "var(--dispatch-radius-sm)", background: brand.border, marginRight: 4 }} />No SLA Set</span>
           </div>
         </>
           )
@@ -357,7 +357,7 @@ function ARAgingTab() {
 
       {!loading && data && (
         <>
-          <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px", marginBottom: 24, display: "inline-block" }}>
+          <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "18px 20px", marginBottom: 24, display: "inline-block" }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>Total Outstanding</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: data.grand_total_outstanding > 0 ? brand.amber : brand.success }}>${fmt(data.grand_total_outstanding)}</div>
           </div>
@@ -366,11 +366,11 @@ function ARAgingTab() {
             <div style={{ fontWeight: 700, fontSize: 14, color: brand.text, marginBottom: 10 }}>By Bucket</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
               {data.buckets.map(b => (
-                <div key={b.label} style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "14px 16px" }}>
+                <div key={b.label} style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "14px 16px" }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", marginBottom: 6 }}>{b.label}</div>
                   <div style={{ fontSize: 18, fontWeight: 800, color: AGING_COLORS[b.label] || brand.text, marginBottom: 8 }}>${fmt(b.total)}</div>
                   <div style={{ fontSize: 11, color: brand.muted, marginBottom: 6 }}>{b.count} invoice{b.count === 1 ? "" : "s"}</div>
-                  <div style={{ height: 8, borderRadius: 4, background: brand.bg, overflow: "hidden" }}>
+                  <div style={{ height: 8, borderRadius: "var(--dispatch-radius-sm)", background: brand.bg, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${(b.total / maxBucketTotal) * 100}%`, background: AGING_COLORS[b.label] || brand.muted }} />
                   </div>
                 </div>
@@ -383,7 +383,7 @@ function ARAgingTab() {
             {data.invoices.length === 0
               ? <div style={{ color: brand.muted, fontSize: 13 }}>No outstanding invoices.</div>
               : (
-                <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+                <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                       <tr>{["Invoice", "Client", "Due Date", "Days Overdue", "Balance", "Bucket"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr>
@@ -426,8 +426,8 @@ function QuoteConversionBar({ approved, ticketCreated, invoiceConverted }) {
       ].map(row => (
         <div key={row.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 130, fontSize: 11, color: brand.muted, textAlign: "right" }}>{row.label}</div>
-          <div style={{ flex: 1, height: 14, background: brand.bg, borderRadius: 3, overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${(row.value / max) * 100}%`, background: row.color, borderRadius: 3 }} />
+          <div style={{ flex: 1, height: 14, background: brand.bg, borderRadius: "var(--dispatch-radius-sm)", overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${(row.value / max) * 100}%`, background: row.color, borderRadius: "var(--dispatch-radius-sm)" }} />
           </div>
           <div style={{ width: 28, fontSize: 11, fontWeight: 700, color: brand.text }}>{row.value}</div>
         </div>
@@ -465,7 +465,7 @@ function QuoteConversionTab() {
               { label: "Invoices Converted", value: data.invoice_converted_count, color: brand.success },
               { label: "Approval → Invoice Rate", value: `${data.approval_to_invoice_rate}%`, color: brand.success },
             ].map(card => (
-              <div key={card.label} style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px" }}>
+              <div key={card.label} style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "18px 20px" }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>{card.label}</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: card.color }}>{card.value}</div>
               </div>
@@ -494,7 +494,7 @@ function QuoteConversionTab() {
             {data.by_status.length === 0
               ? <div style={{ color: brand.muted, fontSize: 13 }}>No data for selected period.</div>
               : (
-                <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+                <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                       <tr>{["Status", "Count", "Total Value"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr>

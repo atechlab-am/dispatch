@@ -12,7 +12,7 @@ const brand = {
 
 const inp = {
   width: "100%", padding: "8px 11px", border: `1px solid ${brand.border}`,
-  borderRadius: 6, fontSize: 13, color: brand.text, background: "#fff",
+  borderRadius: "var(--dispatch-radius-md)", fontSize: 13, color: brand.text, background: "#fff",
   outline: "none", fontFamily: "inherit", boxSizing: "border-box",
 };
 
@@ -32,7 +32,7 @@ const Btn = ({ onClick, children, variant = "primary", small, disabled, type = "
   }[variant];
   return (
     <button type={type} onClick={onClick} disabled={disabled}
-      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: 6, fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1, whiteSpace: "nowrap" }}>
+      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: "var(--dispatch-radius-md)", fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1, whiteSpace: "nowrap" }}>
       {children}
     </button>
   );
@@ -181,7 +181,7 @@ export default function LeadModal({ lead, existingLeads, showToast, onClose, onS
       onClick={onClose}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", padding: "40px 16px" }}
     >
-      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 12, width: "100%", maxWidth: 920, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", marginBottom: 40, display: "flex", overflow: "hidden" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: "var(--dispatch-radius-lg)", width: "100%", maxWidth: 920, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", marginBottom: 40, display: "flex", overflow: "hidden" }}>
         {/* Left pane — form */}
         <form onSubmit={handleSubmit} style={{ flex: "0 0 60%", padding: 28, borderRight: `1px solid ${brand.border}`, maxHeight: "90vh", overflowY: "auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
@@ -190,7 +190,7 @@ export default function LeadModal({ lead, existingLeads, showToast, onClose, onS
           </div>
 
           {duplicates.length > 0 && (
-            <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: "#92400e" }}>
+            <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "var(--dispatch-radius-md)", padding: "10px 14px", marginBottom: 16, fontSize: 12, color: "#92400e" }}>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>Possible duplicate{duplicates.length > 1 ? "s" : ""}:</div>
               <ul style={{ margin: 0, paddingLeft: 18 }}>
                 {duplicates.map(d => (
@@ -340,7 +340,7 @@ export default function LeadModal({ lead, existingLeads, showToast, onClose, onS
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {activities.map(a => (
-                    <div key={a.id} style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 8, padding: "10px 12px" }}>
+                    <div key={a.id} style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding: "10px 12px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                         <span style={{ fontSize: 11, fontWeight: 700, color: brand.blue, textTransform: "uppercase" }}>{ACTIVITY_LABEL[a.type]}</span>
                         <span style={{ fontSize: 11, color: brand.muted }}>{timeAgo(a.occurred_at)}</span>

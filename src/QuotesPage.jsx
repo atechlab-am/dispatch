@@ -17,7 +17,7 @@ const brand = {
 
 const inp = {
   width: "100%", padding: "8px 11px", border: `1px solid ${brand.border}`,
-  borderRadius: 6, fontSize: 13, color: brand.text, background: "#fff",
+  borderRadius: "var(--dispatch-radius-md)", fontSize: 13, color: brand.text, background: "#fff",
   outline: "none", fontFamily: "inherit", boxSizing: "border-box",
 };
 
@@ -38,7 +38,7 @@ const Btn = ({ onClick, children, variant = "primary", small, disabled, type = "
   }[variant];
   return (
     <button type={type} onClick={onClick} disabled={disabled}
-      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: 6, fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1 }}>
+      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: "var(--dispatch-radius-md)", fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1 }}>
       {children}
     </button>
   );
@@ -93,7 +93,7 @@ function SendEmailModal({ quote, showToast, onClose, onSent }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <form onSubmit={handleSend} style={{ background: "#fff", borderRadius: 12, padding: 28, width: 480, boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}>
+      <form onSubmit={handleSend} style={{ background: "#fff", borderRadius: "var(--dispatch-radius-lg)", padding: 28, width: 480, boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div style={{ fontWeight: 700, fontSize: 16 }}>Send Quote {quote.id}</div>
           <button type="button" onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: brand.muted }}>×</button>
@@ -308,7 +308,7 @@ export function QuoteEditor({ quote, clients = [], materials = [], onSave, onCan
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
-          <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px" }}>
+          <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "18px 20px" }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>Quote For</div>
             <div style={{ marginBottom: 10 }}>
               <FieldLabel>Search Client</FieldLabel>
@@ -320,7 +320,7 @@ export function QuoteEditor({ quote, clients = [], materials = [], onSave, onCan
                 placeholder="Type to search business or name…"
               />
               {canEdit && clientSearch.trim() && (
-                <div style={{ border: `1px solid ${brand.border}`, borderRadius: 6, marginTop: 4, maxHeight: 180, overflowY: "auto", background: "#fff", boxShadow: "0 4px 12px rgba(0,0,0,0.10)", zIndex: 10, position: "relative" }}>
+                <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", marginTop: 4, maxHeight: 180, overflowY: "auto", background: "#fff", boxShadow: "0 4px 12px rgba(0,0,0,0.10)", zIndex: 10, position: "relative" }}>
                   {filteredClients.length === 0 ? (
                     <div style={{ padding: "10px 12px", fontSize: 13, color: brand.muted }}>No matches</div>
                   ) : (
@@ -350,7 +350,7 @@ export function QuoteEditor({ quote, clients = [], materials = [], onSave, onCan
             </div>
           </div>
 
-          <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px" }}>
+          <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "18px 20px" }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>Quote Details</div>
             <div style={{ marginBottom: 10 }}>
               <FieldLabel>Project Name</FieldLabel>
@@ -379,7 +379,7 @@ export function QuoteEditor({ quote, clients = [], materials = [], onSave, onCan
           </div>
         </div>
 
-        <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px", marginBottom: 20 }}>
+        <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "18px 20px", marginBottom: 20 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>Line Items</div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
@@ -412,7 +412,7 @@ export function QuoteEditor({ quote, clients = [], materials = [], onSave, onCan
                       placeholder={isMaterial ? "Search materials or type a name…" : isService ? "Search services…" : "Description of service or product"}
                     />
                     {canEdit && isMaterial && openMaterialRow === i && l.description.trim() && (
-                      <div style={{ border: `1px solid ${brand.border}`, borderRadius: 6, marginTop: 4, maxHeight: 180, overflowY: "auto", background: "#fff", boxShadow: "0 4px 12px rgba(0,0,0,0.10)", zIndex: 10, position: "absolute", left: 10, right: 10 }}>
+                      <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", marginTop: 4, maxHeight: 180, overflowY: "auto", background: "#fff", boxShadow: "0 4px 12px rgba(0,0,0,0.10)", zIndex: 10, position: "absolute", left: 10, right: 10 }}>
                         {materialMatches.length === 0 ? (
                           <div style={{ padding: "9px 12px", fontSize: 13, color: brand.muted }}>No matches</div>
                         ) : (
@@ -428,7 +428,7 @@ export function QuoteEditor({ quote, clients = [], materials = [], onSave, onCan
                       </div>
                     )}
                     {canEdit && isService && openServiceRow === i && l.description.trim() && (
-                      <div style={{ border: `1px solid ${brand.border}`, borderRadius: 6, marginTop: 4, maxHeight: 180, overflowY: "auto", background: "#fff", boxShadow: "0 4px 12px rgba(0,0,0,0.10)", zIndex: 10, position: "absolute", left: 10, right: 10 }}>
+                      <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", marginTop: 4, maxHeight: 180, overflowY: "auto", background: "#fff", boxShadow: "0 4px 12px rgba(0,0,0,0.10)", zIndex: 10, position: "absolute", left: 10, right: 10 }}>
                         {serviceMatches.length === 0 ? (
                           <div style={{ padding: "9px 12px", fontSize: 13, color: brand.muted }}>No matches</div>
                         ) : (
@@ -477,7 +477,7 @@ export function QuoteEditor({ quote, clients = [], materials = [], onSave, onCan
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "16px 24px", minWidth: 280 }}>
+          <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "16px 24px", minWidth: 280 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 13 }}>
               <span style={{ color: brand.muted }}>Subtotal</span>
               <span>${fmt(subtotal)}</span>
@@ -601,7 +601,7 @@ export default function QuotesPage({ showToast }) {
       {loading ? (
         <div style={{ color: brand.muted, padding: "60px 0", textAlign: "center" }}>Loading…</div>
       ) : (
-        <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden", background: "#fff" }}>
+        <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden", background: "#fff" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: brand.bg }}>

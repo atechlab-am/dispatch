@@ -31,7 +31,7 @@ export function UploadButton({ accept, onDataUrl, label: btnLabel }) {
         type="button"
         onClick={() => ref.current.click()}
         disabled={loading}
-        style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#f8fafc", fontSize: 12, fontWeight: 600, color: "#334155", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0 }}>
+        style={{ padding: "8px 12px", borderRadius: "var(--dispatch-radius-md)", border: "1px solid #e2e8f0", background: "#f8fafc", fontSize: 12, fontWeight: 600, color: "#334155", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0 }}>
         {loading ? "…" : btnLabel}
       </button>
     </>

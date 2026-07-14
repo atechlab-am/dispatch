@@ -163,7 +163,7 @@ export default function SchedulePage({ users = [], showToast }) {
               draggable
               onDragStart={() => setDragging(t)}
               onDragEnd={() => setDragging(null)}
-              style={{ background: "#fff", border: `1px solid ${brand.border}`, borderLeft: `3px solid ${brand.blue}`, borderRadius: 8, padding: "8px 10px", cursor: "grab", fontSize: 12 }}>
+              style={{ background: "#fff", border: `1px solid ${brand.border}`, borderLeft: `3px solid ${brand.blue}`, borderRadius: "var(--dispatch-radius-md)", padding: "8px 10px", cursor: "grab", fontSize: 12 }}>
               <div style={{ fontWeight: 700, color: brand.text, marginBottom: 2 }}>{t.title || "(No title)"}</div>
               <div style={{ color: brand.muted, fontSize: 11 }}>{t.id}</div>
             </div>
@@ -178,7 +178,7 @@ export default function SchedulePage({ users = [], showToast }) {
               draggable
               onDragStart={() => setDragging({ id: l.id, isLead: true })}
               onDragEnd={() => setDragging(null)}
-              style={{ background: "#fff", border: `1px solid ${brand.border}`, borderLeft: `3px solid ${brand.lead}`, borderRadius: 8, padding: "8px 10px", cursor: "grab", fontSize: 12 }}>
+              style={{ background: "#fff", border: `1px solid ${brand.border}`, borderLeft: `3px solid ${brand.lead}`, borderRadius: "var(--dispatch-radius-md)", padding: "8px 10px", cursor: "grab", fontSize: 12 }}>
               <div style={{ fontWeight: 700, color: brand.text, marginBottom: 2 }}>{l.business_name}</div>
               <div style={{ color: brand.muted, fontSize: 11 }}>{l.follow_up_date ? `Follow up ${l.follow_up_date}` : "Lead"}</div>
             </div>
@@ -190,15 +190,15 @@ export default function SchedulePage({ users = [], showToast }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => shift(-1)} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${brand.border}`, background: "#fff", cursor: "pointer" }}>←</button>
-            <button onClick={() => setAnchor(new Date())} style={{ padding: "5px 12px", borderRadius: 6, border: `1px solid ${brand.border}`, background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Today</button>
-            <button onClick={() => shift(1)} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${brand.border}`, background: "#fff", cursor: "pointer" }}>→</button>
+            <button onClick={() => shift(-1)} style={{ padding: "5px 10px", borderRadius: "var(--dispatch-radius-md)", border: `1px solid ${brand.border}`, background: "#fff", cursor: "pointer" }}>←</button>
+            <button onClick={() => setAnchor(new Date())} style={{ padding: "5px 12px", borderRadius: "var(--dispatch-radius-md)", border: `1px solid ${brand.border}`, background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Today</button>
+            <button onClick={() => shift(1)} style={{ padding: "5px 10px", borderRadius: "var(--dispatch-radius-md)", border: `1px solid ${brand.border}`, background: "#fff", cursor: "pointer" }}>→</button>
             <span style={{ marginLeft: 10, fontWeight: 700, color: brand.text }}>{fmtDay(rangeStart)}{view === "week" ? ` – ${fmtDay(new Date(rangeEnd.getTime() - 86400000))}` : ""}</span>
           </div>
           <div style={{ display: "flex", gap: 4 }}>
             {["day", "week"].map(v => (
               <button key={v} onClick={() => setView(v)}
-                style={{ padding: "5px 14px", borderRadius: 6, border: `1.5px solid ${view === v ? brand.blue : brand.border}`, background: view === v ? brand.blue : "#fff", color: view === v ? "#fff" : brand.muted, fontSize: 12, fontWeight: 600, cursor: "pointer", textTransform: "capitalize" }}>
+                style={{ padding: "5px 14px", borderRadius: "var(--dispatch-radius-md)", border: `1.5px solid ${view === v ? brand.blue : brand.border}`, background: view === v ? brand.blue : "#fff", color: view === v ? "#fff" : brand.muted, fontSize: 12, fontWeight: 600, cursor: "pointer", textTransform: "capitalize" }}>
                 {v}
               </button>
             ))}
@@ -208,7 +208,7 @@ export default function SchedulePage({ users = [], showToast }) {
         {loading ? (
           <div style={{ color: brand.muted, padding: "60px 0", textAlign: "center" }}>Loading…</div>
         ) : (
-          <div style={{ overflowX: "auto", border: `1px solid ${brand.border}`, borderRadius: 8 }}>
+          <div style={{ overflowX: "auto", border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)" }}>
             {/* Header row (technician/day labels) — stays fixed above the scrollable hour rows */}
             <div style={{ display: "grid", gridTemplateColumns: `60px repeat(${columns.length}, minmax(160px, 1fr))` }}>
               <div style={{ background: brand.bg, borderBottom: `1px solid ${brand.border}` }} />
@@ -242,7 +242,7 @@ export default function SchedulePage({ users = [], showToast }) {
                               draggable
                               onDragStart={() => setDragging({ ...a, rescheduling: true })}
                               onDragEnd={() => setDragging(null)}
-                              style={{ background: a.lead_id ? brand.lead : brand.blue, color: "#fff", borderRadius: 6, padding: "4px 6px", fontSize: 11, marginBottom: 3, cursor: "grab" }}
+                              style={{ background: a.lead_id ? brand.lead : brand.blue, color: "#fff", borderRadius: "var(--dispatch-radius-md)", padding: "4px 6px", fontSize: 11, marginBottom: 3, cursor: "grab" }}
                               title={a.notes}>
                               <div style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.lead_id ? (a.lead_business_name || `Lead #${a.lead_id}`) : (a.ticket_title || a.ticket_id)}</div>
                               <button onClick={() => handleCancel(a.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 10, padding: 0, marginTop: 2 }}>Cancel</button>

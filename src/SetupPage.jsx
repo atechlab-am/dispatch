@@ -16,7 +16,7 @@ const inp = {
   width: "100%",
   padding: "10px 13px",
   border: `1px solid ${brand.border}`,
-  borderRadius: 7,
+  borderRadius: "var(--dispatch-radius-md)",
   fontSize: 14,
   color: brand.text,
   background: "#fff",
@@ -61,7 +61,7 @@ export default function SetupPage({ onComplete }) {
 
   return (
     <div style={{ minHeight: "100vh", background: brand.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Segoe UI', Arial, sans-serif", padding: 20 }}>
-      <div style={{ background: brand.surface, borderRadius: 14, border: `1px solid ${brand.border}`, padding: "40px 44px", width: "100%", maxWidth: 460, boxShadow: "0 4px 24px rgba(26,92,186,0.08)" }}>
+      <div style={{ background: brand.surface, borderRadius: "var(--dispatch-radius-lg)", border: `1px solid ${brand.border}`, padding: "40px 44px", width: "100%", maxWidth: 460, boxShadow: "0 4px 24px rgba(26,92,186,0.08)" }}>
 
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
@@ -135,7 +135,7 @@ export default function SetupPage({ onComplete }) {
           </div>
 
           {error && (
-            <div style={{ background: "#fef2f2", border: `1px solid ${brand.danger}`, borderRadius: 7, padding: "10px 14px", fontSize: 13, color: brand.danger, marginBottom: 18 }}>
+            <div style={{ background: "#fef2f2", border: `1px solid ${brand.danger}`, borderRadius: "var(--dispatch-radius-md)", padding: "10px 14px", fontSize: 13, color: brand.danger, marginBottom: 18 }}>
               {error}
             </div>
           )}
@@ -143,7 +143,7 @@ export default function SetupPage({ onComplete }) {
           <button
             type="submit"
             disabled={saving}
-            style={{ width: "100%", padding: "11px 0", background: saving ? brand.muted : brand.accent, color: "#fff", border: "none", borderRadius: 7, fontSize: 14, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit", transition: "background 0.15s" }}
+            style={{ width: "100%", padding: "11px 0", background: saving ? brand.muted : brand.accent, color: "#fff", border: "none", borderRadius: "var(--dispatch-radius-md)", fontSize: 14, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit", transition: "background 0.15s" }}
           >
             {saving ? "Creating account…" : "Create Admin Account →"}
           </button>

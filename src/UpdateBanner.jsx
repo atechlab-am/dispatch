@@ -90,7 +90,7 @@ export default function UpdateBanner({ user }) {
 
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <span style={{ opacity: 0.7, fontSize: 12 }}>
-          Run <code style={{ background: "rgba(255,255,255,0.15)", padding: "1px 6px", borderRadius: 4 }}>./upgrade.sh</code> on the server to update
+          Run <code style={{ background: "rgba(255,255,255,0.15)", padding: "1px 6px", borderRadius: "var(--dispatch-radius-sm)" }}>./upgrade.sh</code> on the server to update
         </span>
         <button
           onClick={() => setDismissed(true)}

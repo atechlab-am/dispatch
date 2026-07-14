@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.48.0] — 2026-07-14
+
+### Changed — Both themes are now centrally editable from one file (follow-up to v1.46.0/v1.47.0)
+- User request: "I don't want the themes to be baked in — I want them to be easy to modify without having to modify so many files." Previously only Office's corners were centrally overridable (via the `!important` trick from v1.47.0); Modern's corner radius was still ~330 hardcoded pixel numbers scattered across 26 files, so restyling Modern meant hunting through every page component.
+- **New mechanism**: every structural `borderRadius` in every page now references one of three shared CSS custom properties directly — `borderRadius: "var(--dispatch-radius-sm/md/lg)"` — instead of a literal pixel number. `src/theme.css` defines what those three sizes mean per theme (Modern: 6/8/12px; Office: 2/2/2px, i.e. flat). Changing either theme's corner feel going forward means editing the 6 numbers in `theme.css`, not touching any `.jsx` file. This mirrors the existing color mechanism (`--dispatch-bg/surface/border/primary/font` in `branding.jsx`), so both themes' entire look — color, font, and now radius — lives in the same two small, central places.
+- ~330 individual `borderRadius: N` sites across 26 files were bucketed by their original pixel value (2–5px → sm, 6–9px → md, 10–14px → lg) and rewritten to the matching var. Pills, badges, dots, and avatars (the ~67 sites marked `.dispatch-pill` in v1.47.0) are untouched — they keep their fixed round shape in both themes, since a status pill or avatar circle shouldn't flex with the corner-sharpness setting.
+- **`LoginPage.jsx` was deliberately excluded** and reverted back to its original fixed `borderRadius: 2` — it's a pre-authentication screen with its own permanently Office-styled `brand` object (predating the theme toggle, and conceptually shouldn't track a logged-in user's preference before any session exists), consistent with why it was already excluded from the earlier color-theming pass.
+- Also cleaned up 3 leftover `isOffice ? 2 : radius.sm` ternaries in `AppNew.jsx` (the app shell) left over from v1.47.0's initial implementation, simplifying them to the same `var(--dispatch-radius-sm)` reference — and removed the now-unused `isOffice` prop that was only ever threaded into `NavItem` for that ternary.
+
+### Tests
+- No new tests — pure CSS-variable/value substitution with no new logic branch. Verified via the full existing suite (588 backend + 222 frontend, unchanged pass count — zero regressions from ~330 value substitutions across 26 files) plus a clean production build.
+- Same caveat as v1.46.0/v1.47.0: not visually verified in a live browser in this pass (none available in this environment) — spot-checked the bucket assignment against a sample of stat cards, badges, buttons, and progress bars across multiple files and confirmed each landed in a sensible size bucket, but recommend a visual pass over both themes before relying on it.
+
 ## [1.47.0] — 2026-07-14
 
 ### Added — Office UI now sharpens corners app-wide (follow-up to v1.46.0)

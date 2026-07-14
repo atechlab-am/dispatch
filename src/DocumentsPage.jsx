@@ -18,7 +18,7 @@ const inp = {
   width: "100%",
   padding: "8px 11px",
   border: `1px solid ${brand.border}`,
-  borderRadius: 6,
+  borderRadius: "var(--dispatch-radius-md)",
   fontSize: 13,
   color: brand.text,
   background: "#fff",
@@ -45,7 +45,7 @@ const Btn = ({ onClick, children, variant = "primary", small, disabled, type = "
   }[variant];
   return (
     <button type={type} onClick={onClick} disabled={disabled}
-      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: 6, fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1 }}>
+      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: "var(--dispatch-radius-md)", fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1 }}>
       {children}
     </button>
   );
@@ -59,7 +59,7 @@ function TagInput({ value, onChange, placeholder }) {
     setInput("");
   };
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, border: `1px solid ${brand.border}`, borderRadius: 6, padding: "5px 8px", background: "#fff", minHeight: 36 }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding: "5px 8px", background: "#fff", minHeight: 36 }}>
       {value.map(t => (
         <span key={t} className="dispatch-pill" style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 20, padding: "2px 8px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
           {t}
@@ -170,7 +170,7 @@ function BulkUploadZone({ onUploaded, showToast }) {
         onClick={() => inputRef.current.click()}
         style={{
           border: `2px dashed ${dragOver ? brand.blue : brand.border}`,
-          borderRadius: 10,
+          borderRadius: "var(--dispatch-radius-lg)",
           background: dragOver ? "#eef4ff" : brand.bg,
           padding: "32px 20px",
           textAlign: "center",
@@ -193,7 +193,7 @@ function BulkUploadZone({ onUploaded, showToast }) {
 
       {/* Queued rows */}
       {rows.length > 0 && (
-        <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+        <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: brand.bg }}>
@@ -323,7 +323,7 @@ function UploadDocModal({ onClose, onUploaded, showToast }) {
   };
 
   const overlay = { position: "fixed", inset: 0, background: "rgba(13,27,42,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" };
-  const modal = { background: "#fff", borderRadius: 12, padding: "28px 32px", width: 540, maxWidth: "95vw", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" };
+  const modal = { background: "#fff", borderRadius: "var(--dispatch-radius-lg)", padding: "28px 32px", width: 540, maxWidth: "95vw", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" };
 
   return (
     <div style={overlay} onClick={e => e.target === e.currentTarget && onClose()}>
@@ -411,7 +411,7 @@ function EditDocModal({ doc, onClose, onUpdated, showToast }) {
   };
 
   const overlay = { position: "fixed", inset: 0, background: "rgba(13,27,42,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" };
-  const modal = { background: "#fff", borderRadius: 12, padding: "28px 32px", width: 540, maxWidth: "95vw", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" };
+  const modal = { background: "#fff", borderRadius: "var(--dispatch-radius-lg)", padding: "28px 32px", width: 540, maxWidth: "95vw", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" };
 
   return (
     <div style={overlay} onClick={e => e.target === e.currentTarget && onClose()}>
@@ -501,7 +501,7 @@ function BulkEditModal({ docs, onClose, onUpdated, showToast }) {
   };
 
   const overlay = { position: "fixed", inset: 0, background: "rgba(13,27,42,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" };
-  const modal = { background: "#fff", borderRadius: 12, padding: "28px 32px", width: 540, maxWidth: "95vw", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" };
+  const modal = { background: "#fff", borderRadius: "var(--dispatch-radius-lg)", padding: "28px 32px", width: 540, maxWidth: "95vw", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" };
 
   return (
     <div style={overlay} onClick={e => e.target === e.currentTarget && onClose()}>
@@ -575,7 +575,7 @@ const CATEGORY_OPTIONS = [
 
 function DocTable({ docs, isAdmin, selected, setSelected, setEditDoc, handleDelete, fmtSize }) {
   return (
-    <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+    <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden" }}>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ background: brand.bg }}>
@@ -613,7 +613,7 @@ function DocTable({ docs, isAdmin, selected, setSelected, setEditDoc, handleDele
               <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle", whiteSpace: "nowrap" }}>
                 <div style={{ display: "flex", gap: 6 }}>
                   <button onClick={() => downloadWithAuth(downloadUrl(doc.id), doc.original_name)}
-                    style={{ padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, background: "#fff", color: brand.blue, border: `1.5px solid ${brand.blue}`, cursor: "pointer", fontFamily: "inherit" }}>
+                    style={{ padding: "5px 12px", borderRadius: "var(--dispatch-radius-md)", fontSize: 12, fontWeight: 600, background: "#fff", color: brand.blue, border: `1.5px solid ${brand.blue}`, cursor: "pointer", fontFamily: "inherit" }}>
                     Download
                   </button>
                   <Btn onClick={() => setEditDoc(doc)} variant="secondary" small>Edit</Btn>
@@ -782,7 +782,7 @@ export default function DocumentsPage({ showToast, user }) {
                   onClick={() => toggleCollapse(key)}
                   style={{ display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: isOpen ? 12 : 0, width: "100%", textAlign: "left" }}
                 >
-                  <span style={{ background: "#fce7f3", color: "#9d174d", borderRadius: 6, padding: "3px 12px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  <span style={{ background: "#fce7f3", color: "#9d174d", borderRadius: "var(--dispatch-radius-md)", padding: "3px 12px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>
                     Documents Clients Need to Sign / Approve
                   </span>
                   <span style={{ fontSize: 12, color: brand.muted }}>{sigDocs.length} document{sigDocs.length !== 1 ? "s" : ""}</span>
@@ -814,7 +814,7 @@ export default function DocumentsPage({ showToast, user }) {
                   onClick={() => toggleCollapse(cat.key)}
                   style={{ display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: isOpen ? 12 : 0, width: "100%", textAlign: "left" }}
                 >
-                  <span style={{ background: cat.bg, color: cat.accent, borderRadius: 6, padding: "3px 12px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  <span style={{ background: cat.bg, color: cat.accent, borderRadius: "var(--dispatch-radius-md)", padding: "3px 12px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>
                     {cat.label}
                   </span>
                   <span style={{ fontSize: 12, color: brand.muted }}>{group.length} document{group.length !== 1 ? "s" : ""}</span>

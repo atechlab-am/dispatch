@@ -13,7 +13,7 @@ const brand = {
 
 const inp = {
   padding: "8px 11px", border: `1px solid ${brand.border}`,
-  borderRadius: 6, fontSize: 13, color: brand.text, background: "#fff",
+  borderRadius: "var(--dispatch-radius-md)", fontSize: 13, color: brand.text, background: "#fff",
   outline: "none", fontFamily: "inherit", boxSizing: "border-box",
 };
 
@@ -27,7 +27,7 @@ const Btn = ({ onClick, children, variant = "primary", small, disabled, type = "
   }[variant];
   return (
     <button type={type} onClick={onClick} disabled={disabled}
-      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: 6, fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1, whiteSpace: "nowrap" }}>
+      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: "var(--dispatch-radius-md)", fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1, whiteSpace: "nowrap" }}>
       {children}
     </button>
   );
@@ -289,7 +289,7 @@ export default function LeadsPage({ showToast }) {
       </div>
 
       {importResult && importResult.errors.length > 0 && (
-        <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: brand.danger }}>
+        <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "var(--dispatch-radius-md)", padding: "12px 16px", marginBottom: 16, fontSize: 13, color: brand.danger }}>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>Imported {importResult.created}, {importResult.errors.length} row(s) skipped:</div>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             {importResult.errors.map((e, i) => <li key={i}>Row {e.row}: {e.error}</li>)}
@@ -314,7 +314,7 @@ export default function LeadsPage({ showToast }) {
       </div>
 
       {selected.size > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#e8f0fd", border: `1px solid ${brand.blue}`, borderRadius: 8, padding: "8px 14px", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#e8f0fd", border: `1px solid ${brand.blue}`, borderRadius: "var(--dispatch-radius-md)", padding: "8px 14px", marginBottom: 12 }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: brand.blue }}>{selected.size} selected</span>
           <select style={{ ...inp, padding: "5px 10px" }} defaultValue="" onChange={e => { if (e.target.value) { handleBulkPriority(e.target.value); e.target.value = ""; } }}>
             <option value="" disabled>Set priority…</option>
@@ -330,11 +330,11 @@ export default function LeadsPage({ showToast }) {
       {loading ? (
         <div style={{ color: brand.muted, padding: "60px 0", textAlign: "center" }}>Loading…</div>
       ) : sorted.length === 0 ? (
-        <div style={{ color: brand.muted, padding: 40, textAlign: "center", background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10 }}>
+        <div style={{ color: brand.muted, padding: 40, textAlign: "center", background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)" }}>
           No leads in this view yet.
         </div>
       ) : (
-        <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflowX: "auto", overflowY: "hidden", background: brand.surface }}>
+        <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflowX: "auto", overflowY: "hidden", background: brand.surface }}>
           <table style={{ width: "max-content", minWidth: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
             <thead>
               <tr style={{ background: brand.bg }}>

@@ -51,12 +51,12 @@ export default function GlobalSearch({ navigate }) {
         onFocus={() => setOpen(true)}
         placeholder="Search tickets, clients, invoices…"
         style={{
-          width: "100%", padding: "7px 12px", borderRadius: 8, border: "1px solid #e2e8f0",
+          width: "100%", padding: "7px 12px", borderRadius: "var(--dispatch-radius-md)", border: "1px solid #e2e8f0",
           fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box",
         }}
       />
       {open && query.trim() && (
-        <div style={{ position: "absolute", left: 0, top: "calc(100% + 8px)", width: 360, maxHeight: 440, overflowY: "auto", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 100 }}>
+        <div style={{ position: "absolute", left: 0, top: "calc(100% + 8px)", width: 360, maxHeight: 440, overflowY: "auto", background: "#fff", border: "1px solid #e2e8f0", borderRadius: "var(--dispatch-radius-lg)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 100 }}>
           {results === null ? (
             <div style={{ padding: "16px 14px", fontSize: 13, color: "#64748b" }}>Searching…</div>
           ) : !hasAnyResults ? (

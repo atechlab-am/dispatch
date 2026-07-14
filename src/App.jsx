@@ -324,7 +324,7 @@ const SectionHeader = ({ children }) => (
   </div>
 );
 
-const inp = { width:"100%", padding:"9px 12px", border:`1px solid ${brand.border}`, borderRadius:6, fontSize:13, color:brand.text, background:"#fff", outline:"none", fontFamily:"inherit" };
+const inp = { width:"100%", padding:"9px 12px", border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", fontSize:13, color:brand.text, background:"#fff", outline:"none", fontFamily:"inherit" };
 
 const Input = ({ value, onChange, placeholder, type="text" }) => (
   <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={inp} />
@@ -349,7 +349,7 @@ const Btn = ({ onClick, children, variant="primary", small, disabled }) => {
     ghost:     { background:"transparent", color:brand.muted, border:`1px solid ${brand.border}` },
   }[variant];
   return (
-    <button onClick={onClick} disabled={disabled} style={{...s, padding:small?"6px 12px":"9px 18px", borderRadius:6, fontSize:small?12:13, fontWeight:600, cursor:disabled?"not-allowed":"pointer", fontFamily:"inherit", opacity:disabled?0.6:1}}>
+    <button onClick={onClick} disabled={disabled} style={{...s, padding:small?"6px 12px":"9px 18px", borderRadius: "var(--dispatch-radius-md)", fontSize:small?12:13, fontWeight:600, cursor:disabled?"not-allowed":"pointer", fontFamily:"inherit", opacity:disabled?0.6:1}}>
       {children}
     </button>
   );
@@ -384,7 +384,7 @@ function TicketListSkeleton() {
     <>
       <ShimmerStyle />
       {[...Array(8)].map((_, i) => (
-        <div key={i} style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "14px 18px", marginBottom: 10, borderLeft: `4px solid ${brand.border}` }}>
+        <div key={i} style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "14px 18px", marginBottom: 10, borderLeft: `4px solid ${brand.border}` }}>
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
             <Sk w={80} h={12} />
             <Sk w={60} h={12} />
@@ -425,7 +425,7 @@ const Spinner = () => (
 const Toast = ({ msg, type, onClose }) => {
   const bg = type === "err" ? brand.danger : type === "warn" ? brand.accent : brand.success;
   return (
-    <div style={{ position:"fixed", bottom:24, right:24, background:bg, color:"#fff", borderRadius:8, padding:"12px 18px", fontSize:13, fontWeight:600, zIndex:9999, maxWidth:340, display:"flex", gap:12, alignItems:"center", boxShadow:"0 4px 20px rgba(0,0,0,0.15)" }}>
+    <div style={{ position:"fixed", bottom:24, right:24, background:bg, color:"#fff", borderRadius: "var(--dispatch-radius-md)", padding:"12px 18px", fontSize:13, fontWeight:600, zIndex:9999, maxWidth:340, display:"flex", gap:12, alignItems:"center", boxShadow:"0 4px 20px rgba(0,0,0,0.15)" }}>
       <span style={{ flex:1 }}>{msg}</span>
       <button onClick={onClose} style={{ background:"none", border:"none", color:"#fff", cursor:"pointer", fontSize:18, lineHeight:1 }}>×</button>
     </div>
@@ -447,9 +447,9 @@ const ServiceRow = ({ svc, catalogue, open, onOpenChange, onChange, onRemove }) 
   const matches = svc.name && !svc.serviceId
     ? catalogue.filter(c => c.name.toLowerCase().includes(svc.name.trim().toLowerCase()))
     : [];
-  const cellStyle = { padding:"8px 10px", border:`1px solid ${brand.border}`, borderRadius:6, fontSize:12, color:brand.text, background:"#fff", width:"100%" };
+  const cellStyle = { padding:"8px 10px", border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", fontSize:12, color:brand.text, background:"#fff", width:"100%" };
   return (
-    <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
+    <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding:"12px 14px", marginBottom:10 }}>
       <div style={{ display:"flex", gap:8, alignItems:"flex-start" }}>
         <div style={{ flex:2, position:"relative" }}>
           <FieldLabel>Service</FieldLabel>
@@ -463,7 +463,7 @@ const ServiceRow = ({ svc, catalogue, open, onOpenChange, onChange, onRemove }) 
             style={cellStyle}
           />
           {open && svc.name?.trim() && !svc.serviceId && (
-            <div style={{ border:`1px solid ${brand.border}`, borderRadius:6, marginTop:4, maxHeight:180, overflowY:"auto", background:"#fff", boxShadow:"0 4px 12px rgba(0,0,0,0.10)", zIndex:10, position:"absolute", left:0, right:0 }}>
+            <div style={{ border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", marginTop:4, maxHeight:180, overflowY:"auto", background:"#fff", boxShadow:"0 4px 12px rgba(0,0,0,0.10)", zIndex:10, position:"absolute", left:0, right:0 }}>
               {matches.length === 0 ? (
                 <div style={{ padding:"9px 12px", fontSize:13, color:brand.muted }}>No matches</div>
               ) : (
@@ -510,10 +510,10 @@ const ServiceRow = ({ svc, catalogue, open, onOpenChange, onChange, onRemove }) 
 
 // ─── Hour log row ─────────────────────────────────────────────────────────────
 const HourRow = ({ log, defaultRate, onChange, onRemove }) => {
-  const cellStyle = { padding:"7px 8px", border:`1px solid ${brand.border}`, borderRadius:6, fontSize:12, color:brand.text, background:"#fff", width:"100%" };
+  const cellStyle = { padding:"7px 8px", border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", fontSize:12, color:brand.text, background:"#fff", width:"100%" };
   const sub = (parseFloat(log.hours)||0) * (parseFloat(log.rate)||defaultRate);
   return (
-    <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
+    <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding:"12px 14px", marginBottom:10 }}>
       <div style={{ display:"flex", gap:8, alignItems:"flex-start" }}>
         <div style={{ width:130 }}>
           <FieldLabel>Date</FieldLabel>
@@ -545,7 +545,7 @@ const HourRow = ({ log, defaultRate, onChange, onRemove }) => {
 
 // ─── Material used row ─────────────────────────────────────────────────────────
 const MaterialUsedRow = ({ item, materials, open, onOpenChange, onChange, onRemove }) => {
-  const cellStyle = { padding:"7px 8px", border:`1px solid ${brand.border}`, borderRadius:6, fontSize:12, color:brand.text, background:"#fff", width:"100%" };
+  const cellStyle = { padding:"7px 8px", border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", fontSize:12, color:brand.text, background:"#fff", width:"100%" };
   const sub = (parseFloat(item.qty)||0) * (parseFloat(item.unitPrice)||0);
   const matches = item.name.trim()
     ? materials.filter(m => m.name.toLowerCase().includes(item.name.trim().toLowerCase()))
@@ -557,7 +557,7 @@ const MaterialUsedRow = ({ item, materials, open, onOpenChange, onChange, onRemo
   };
 
   return (
-    <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
+    <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding:"12px 14px", marginBottom:10 }}>
       <div style={{ display:"flex", gap:8, alignItems:"flex-start" }}>
         <div style={{ flex:1, position:"relative" }}>
           <FieldLabel>Material</FieldLabel>
@@ -571,7 +571,7 @@ const MaterialUsedRow = ({ item, materials, open, onOpenChange, onChange, onRemo
             style={cellStyle}
           />
           {open && item.name.trim() && (
-            <div style={{ border:`1px solid ${brand.border}`, borderRadius:6, marginTop:4, maxHeight:180, overflowY:"auto", background:"#fff", boxShadow:"0 4px 12px rgba(0,0,0,0.10)", zIndex:10, position:"absolute", left:0, right:0 }}>
+            <div style={{ border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", marginTop:4, maxHeight:180, overflowY:"auto", background:"#fff", boxShadow:"0 4px 12px rgba(0,0,0,0.10)", zIndex:10, position:"absolute", left:0, right:0 }}>
               {matches.length === 0 ? (
                 <div style={{ padding:"9px 12px", fontSize:13, color:brand.muted }}>No matches</div>
               ) : (
@@ -611,7 +611,7 @@ const MaterialUsedRow = ({ item, materials, open, onOpenChange, onChange, onRemo
 const TimerHourRow = ({ log }) => {
   const sub = (parseFloat(log.hours)||0) * (parseFloat(log.rate)||0);
   return (
-    <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
+    <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding:"12px 14px", marginBottom:10 }}>
       <div style={{ display:"flex", gap:8, alignItems:"center" }}>
         <div style={{ width:130 }}>
           <FieldLabel>Date</FieldLabel>
@@ -790,7 +790,7 @@ export const NewTicketModal = ({ onCreate, onCancel, clients, templates, users }
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(13,27,42,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <div style={{ background:"#fff", borderRadius:12, padding:"28px 32px", width:480, maxHeight:"90vh", overflowY:"auto", boxShadow:"0 8px 40px rgba(0,0,0,0.18)" }}>
+      <div style={{ background:"#fff", borderRadius: "var(--dispatch-radius-lg)", padding:"28px 32px", width:480, maxHeight:"90vh", overflowY:"auto", boxShadow:"0 8px 40px rgba(0,0,0,0.18)" }}>
         <div style={{ fontWeight:800, fontSize:18, color:brand.text, marginBottom:20 }}>New Ticket</div>
 
         {templates?.length > 0 && (
@@ -812,7 +812,7 @@ export const NewTicketModal = ({ onCreate, onCancel, clients, templates, users }
           <div style={{ display:"flex", gap:8 }}>
             {TICKET_TYPE_OPTIONS.map(tt => (
               <button key={tt} onClick={() => setTicketType(tt)}
-                style={{ flex:1, padding:"10px 8px", borderRadius:8, fontWeight:700, fontSize:12, cursor:"pointer", border:`2px solid ${ticketType===tt?brand.blue:brand.border}`, background:ticketType===tt?brand.blue:"#fff", color:ticketType===tt?"#fff":brand.muted, textAlign:"center" }}>
+                style={{ flex:1, padding:"10px 8px", borderRadius: "var(--dispatch-radius-md)", fontWeight:700, fontSize:12, cursor:"pointer", border:`2px solid ${ticketType===tt?brand.blue:brand.border}`, background:ticketType===tt?brand.blue:"#fff", color:ticketType===tt?"#fff":brand.muted, textAlign:"center" }}>
                 <div style={{ fontSize:18, marginBottom:4 }}>{typeIcons[tt]}</div>
                 {tt}
               </button>
@@ -856,7 +856,7 @@ export const NewTicketModal = ({ onCreate, onCancel, clients, templates, users }
             </div>
           )}
           {selectedCompany && (
-            <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:7, padding:"10px 14px", fontSize:13 }}>
+            <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding:"10px 14px", fontSize:13 }}>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
                 <div><span style={{ fontWeight:600, color:brand.muted, fontSize:11, textTransform:"uppercase" }}>Name </span><br/>{(selectedContact?.name || selectedCompany.company || selectedCompany.name) || "—"}</div>
                 <div><span style={{ fontWeight:600, color:brand.muted, fontSize:11, textTransform:"uppercase" }}>Phone </span><br/>{selectedContact?.phone || selectedCompany.phone || "—"}</div>
@@ -881,12 +881,12 @@ export const NewTicketModal = ({ onCreate, onCancel, clients, templates, users }
           </div>
         </div>
 
-        <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:8, padding:"12px 14px", marginBottom:24 }}>
+        <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding:"12px 14px", marginBottom:24 }}>
           <FieldLabel>Scheduling</FieldLabel>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
             {[{ id:"on_site", label:"On-Site" }, { id:"remote", label:"Remote" }].map(wl => (
               <button key={wl.id} onClick={() => handleWorkLocationChange(wl.id)}
-                style={{ padding:"8px 10px", borderRadius:7, fontWeight:600, fontSize:12, cursor:"pointer", border:`2px solid ${workLocation===wl.id?brand.blue:brand.border}`, background:workLocation===wl.id?"#fff":"#fff", color:workLocation===wl.id?brand.blue:brand.muted, textAlign:"left" }}>
+                style={{ padding:"8px 10px", borderRadius: "var(--dispatch-radius-md)", fontWeight:600, fontSize:12, cursor:"pointer", border:`2px solid ${workLocation===wl.id?brand.blue:brand.border}`, background:workLocation===wl.id?"#fff":"#fff", color:workLocation===wl.id?brand.blue:brand.muted, textAlign:"left" }}>
                 {wl.label}
               </button>
             ))}
@@ -935,7 +935,7 @@ const ExportModal = ({ clients, onClose, onExport }) => {
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(13,27,42,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <div style={{ background:"#fff", borderRadius:12, padding:"28px 32px", width:480, boxShadow:"0 8px 40px rgba(0,0,0,0.18)" }}>
+      <div style={{ background:"#fff", borderRadius: "var(--dispatch-radius-lg)", padding:"28px 32px", width:480, boxShadow:"0 8px 40px rgba(0,0,0,0.18)" }}>
         <div style={{ fontWeight:800, fontSize:18, color:brand.text, marginBottom:20 }}>Export Tickets</div>
 
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:16 }}>
@@ -965,7 +965,7 @@ const ExportModal = ({ clients, onClose, onExport }) => {
           </div>
         </div>
 
-        <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:8, padding:"10px 14px", marginBottom:20, fontSize:12, color:brand.muted }}>
+        <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding:"10px 14px", marginBottom:20, fontSize:12, color:brand.muted }}>
           Exports as CSV — includes ticket details, service totals, labour totals, and SLA deadlines.
         </div>
 
@@ -1039,7 +1039,7 @@ const BoardView = ({ tickets, onSelect, onStatusChange, users }) => {
               flex: "0 0 240px", minWidth: 240,
               background: isOver ? col.light : "#f8fafc",
               border: `2px solid ${isOver ? col.color : "#e2e8f0"}`,
-              borderRadius: 12,
+              borderRadius: "var(--dispatch-radius-lg)",
               transition: "border-color 0.15s, background 0.15s",
               display: "flex", flexDirection: "column",
             }}>
@@ -1065,7 +1065,7 @@ const BoardView = ({ tickets, onSelect, onStatusChange, users }) => {
                     style={{
                       background: "#fff",
                       border: `1px solid ${isDraggingThis ? col.color : "#e2e8f0"}`,
-                      borderRadius: 9,
+                      borderRadius: "var(--dispatch-radius-md)",
                       padding: "10px 12px",
                       cursor: "grab",
                       opacity: isDraggingThis ? 0.4 : 1,
@@ -1080,7 +1080,7 @@ const BoardView = ({ tickets, onSelect, onStatusChange, users }) => {
                     {/* Ticket ID + type */}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                       <span style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", fontFamily: "monospace" }}>{t.id}</span>
-                      <span style={{ fontSize: 10, background: "#f1f5f9", color: "#64748b", borderRadius: 4, padding: "1px 6px", fontWeight: 600 }}>{t.ticket_type}</span>
+                      <span style={{ fontSize: 10, background: "#f1f5f9", color: "#64748b", borderRadius: "var(--dispatch-radius-sm)", padding: "1px 6px", fontWeight: 600 }}>{t.ticket_type}</span>
                     </div>
 
                     {/* Title */}
@@ -1099,7 +1099,7 @@ const BoardView = ({ tickets, onSelect, onStatusChange, users }) => {
                     {t.billing_status && t.billing_status !== "unbilled" && (
                       <div style={{ marginBottom: 8 }}>
                         <span style={{
-                          fontSize: 10, fontWeight: 700, borderRadius: 4, padding: "1px 6px",
+                          fontSize: 10, fontWeight: 700, borderRadius: "var(--dispatch-radius-sm)", padding: "1px 6px",
                           ...(t.billing_status === "paid"
                             ? { background: "#d1fae5", color: "#065f46" }
                             : { background: "#dbeafe", color: "#1d4ed8" }),
@@ -1117,7 +1117,7 @@ const BoardView = ({ tickets, onSelect, onStatusChange, users }) => {
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         {sla && !["Resolved","Closed"].includes(t.status) && (
-                          <span style={{ fontSize: 10, fontWeight: 700, color: sla.breached ? "#ef4444" : sla.color, background: sla.breached ? "#fef2f2" : "#f0fdf4", borderRadius: 4, padding: "1px 5px" }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: sla.breached ? "#ef4444" : sla.color, background: sla.breached ? "#fef2f2" : "#f0fdf4", borderRadius: "var(--dispatch-radius-sm)", padding: "1px 5px" }}>
                             {sla.breached ? "⚠ SLA" : sla.label}
                           </span>
                         )}
@@ -1133,7 +1133,7 @@ const BoardView = ({ tickets, onSelect, onStatusChange, users }) => {
               })}
               {/* Drop target hint when column is empty and being dragged over */}
               {cards.length === 0 && isOver && (
-                <div style={{ border: `2px dashed ${col.color}`, borderRadius: 9, padding: "20px 0", textAlign: "center", color: col.color, fontSize: 12, fontWeight: 600 }}>
+                <div style={{ border: `2px dashed ${col.color}`, borderRadius: "var(--dispatch-radius-md)", padding: "20px 0", textAlign: "center", color: col.color, fontSize: 12, fontWeight: 600 }}>
                   Drop here
                 </div>
               )}
@@ -1187,7 +1187,7 @@ export const TicketList = ({ tickets, total, loading, onSelect, onNew, search, o
             { label:"In Progress",   value:stats.inProgress,    color:"#7c3aed" },
             { label:"Total Revenue", value:fmt(stats.revenue),  color:brand.success },
           ].map(s => (
-            <div key={s.label} style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"14px 16px" }}>
+            <div key={s.label} style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding:"14px 16px" }}>
               <div style={{ fontSize:11, fontWeight:700, color:brand.muted, textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:6 }}>{s.label}</div>
               <div style={{ fontSize:22, fontWeight:800, color:s.color }}>{s.value}</div>
             </div>
@@ -1196,7 +1196,7 @@ export const TicketList = ({ tickets, total, loading, onSelect, onNew, search, o
       )}
 
       {quickFilter && (
-        <div style={{ display:"flex", alignItems:"center", gap:10, background:"#dbeafe", border:"1px solid #93c5fd", borderRadius:8, padding:"8px 14px", marginBottom:12 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, background:"#dbeafe", border:"1px solid #93c5fd", borderRadius: "var(--dispatch-radius-md)", padding:"8px 14px", marginBottom:12 }}>
           <span style={{ fontSize:13, fontWeight:600, color:brand.blue }}>Filtered: {quickFilter.label}</span>
           <button onClick={onClearQuickFilter} style={{ background:"none", border:"none", color:brand.blue, cursor:"pointer", fontSize:16, lineHeight:1, padding:"0 2px", marginLeft:4 }}>×</button>
         </div>
@@ -1224,7 +1224,7 @@ export const TicketList = ({ tickets, total, loading, onSelect, onNew, search, o
         )}
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
           {/* View toggle */}
-          <div style={{ display:"flex", border:`1px solid ${brand.border}`, borderRadius:8, overflow:"hidden" }}>
+          <div style={{ display:"flex", border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", overflow:"hidden" }}>
             {[
               { id:"list",  icon:"☰", title:"List view"  },
               { id:"board", icon:"⬜", title:"Board view" },
@@ -1269,7 +1269,7 @@ export const TicketList = ({ tickets, total, loading, onSelect, onNew, search, o
         );
         return visible.map(t => (
         <div key={t.id} onClick={()=>onSelect(t.id)}
-          style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"14px 18px", marginBottom:10, cursor:"pointer", borderLeft:`4px solid ${t.client_type==="business"?brand.blue:brand.accent}`, transition:"box-shadow 0.15s" }}
+          style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding:"14px 18px", marginBottom:10, cursor:"pointer", borderLeft:`4px solid ${t.client_type==="business"?brand.blue:brand.accent}`, transition:"box-shadow 0.15s" }}
           onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 12px rgba(26,92,186,0.12)"}
           onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}
         >
@@ -1380,7 +1380,7 @@ const PlaybookSection = ({ ticketType, ticketId }) => {
     const td = tdMap[doc.id];
     const isAttached = !!td;
     return (
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "9px 12px", background: isAttached ? "#f0f4ff" : brand.bg, border: `1px solid ${isAttached ? brand.blue : brand.border}`, borderRadius: 7, marginBottom: 6 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "9px 12px", background: isAttached ? "#f0f4ff" : brand.bg, border: `1px solid ${isAttached ? brand.blue : brand.border}`, borderRadius: "var(--dispatch-radius-md)", marginBottom: 6 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontWeight: 600, fontSize: 13, color: brand.text, marginBottom: 4 }}>
             <input type="checkbox" checked={isAttached} onChange={e => handleAttachToggle(doc, e.target.checked)} />
@@ -1413,7 +1413,7 @@ const PlaybookSection = ({ ticketType, ticketId }) => {
           )}
         </div>
         <button onClick={() => downloadWithAuth(docDownloadUrl(doc.id), doc.original_name)}
-          style={{ padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, background: "#fff", color: brand.blue, border: `1.5px solid ${brand.blue}`, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, fontFamily: "inherit" }}>
+          style={{ padding: "5px 12px", borderRadius: "var(--dispatch-radius-md)", fontSize: 12, fontWeight: 600, background: "#fff", color: brand.blue, border: `1.5px solid ${brand.blue}`, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, fontFamily: "inherit" }}>
           Download
         </button>
       </div>
@@ -1421,12 +1421,12 @@ const PlaybookSection = ({ ticketType, ticketId }) => {
   };
 
   return (
-    <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "16px 18px", marginTop: 20 }}>
+    <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "16px 18px", marginTop: 20 }}>
       <SectionHeader>Playbook & Documents</SectionHeader>
 
       {/* Case documents summary */}
       {ticketDocs.length > 0 && (
-        <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
+        <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: "var(--dispatch-radius-md)", padding: "10px 14px", marginBottom: 14 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#15803d", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>Case Documents</div>
           {ticketDocs.map(td => (
             <div key={td.document_id} style={{ fontSize: 12, color: brand.text, display: "flex", gap: 10, marginBottom: 3, alignItems: "center" }}>
@@ -1513,13 +1513,13 @@ const CommentsSection = ({ ticketId, currentUser, features }) => {
   };
 
   return (
-    <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "16px 18px", marginTop: 20 }}>
+    <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "16px 18px", marginTop: 20 }}>
       <SectionHeader>Comments</SectionHeader>
       {comments.length === 0 && (
         <div style={{ color: brand.muted, fontSize: 13, marginBottom: 14 }}>No comments yet.</div>
       )}
       {comments.map(c => (
-        <div key={c.id} style={{ background: c.is_internal ? "#fffbf0" : brand.bg, border: `1px solid ${c.is_internal ? brand.accent + "55" : brand.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 10 }}>
+        <div key={c.id} style={{ background: c.is_internal ? "#fffbf0" : brand.bg, border: `1px solid ${c.is_internal ? brand.accent + "55" : brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding: "10px 14px", marginBottom: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <span style={{ fontWeight: 700, fontSize: 13, color: brand.text }}>{c.author_name}</span>
@@ -1577,7 +1577,7 @@ const AuditSection = ({ ticketId }) => {
   if (entries.length === 0) return null;
 
   return (
-    <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "16px 18px", marginTop: 20 }}>
+    <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "16px 18px", marginTop: 20 }}>
       <SectionHeader>Activity</SectionHeader>
       {entries.map(a => (
         <div key={a.id} style={{ display: "flex", gap: 8, alignItems: "baseline", fontSize: 13, color: brand.text, padding: "6px 0", borderBottom: `1px solid ${brand.border}` }}>
@@ -1629,12 +1629,12 @@ const AttachmentsSection = ({ ticketId, currentUser }) => {
   };
 
   return (
-    <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "16px 18px", marginTop: 20 }}>
+    <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "16px 18px", marginTop: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <SectionHeader style={{ marginBottom: 0 }}>Attachments</SectionHeader>
         <label style={{ cursor: "pointer" }}>
           <input type="file" accept={ALLOWED_EXTS} style={{ display: "none" }} onChange={handleUpload} disabled={uploading} />
-          <span style={{ background: brand.blue, color: "#fff", borderRadius: 6, padding: "5px 12px", fontSize: 12, fontWeight: 600, opacity: uploading ? 0.6 : 1 }}>
+          <span style={{ background: brand.blue, color: "#fff", borderRadius: "var(--dispatch-radius-md)", padding: "5px 12px", fontSize: 12, fontWeight: 600, opacity: uploading ? 0.6 : 1 }}>
             {uploading ? "Uploading…" : "+ Attach File"}
           </span>
         </label>
@@ -1643,7 +1643,7 @@ const AttachmentsSection = ({ ticketId, currentUser }) => {
         <div style={{ color: brand.muted, fontSize: 13 }}>No attachments yet.</div>
       )}
       {attachments.map(a => (
-        <div key={a.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 7, padding: "8px 12px", marginBottom: 8 }}>
+        <div key={a.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding: "8px 12px", marginBottom: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
             <span style={{ fontSize: 18 }}>📎</span>
             <div style={{ overflow: "hidden" }}>
@@ -1955,7 +1955,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
     <div>
       {holdModal && (
         <div style={{ position:"fixed", inset:0, background:"rgba(13,27,42,0.45)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <div style={{ background:"#fff", borderRadius:12, padding:"28px 32px", width:480, maxWidth:"95vw", boxShadow:"0 8px 32px rgba(0,0,0,0.18)" }}>
+          <div style={{ background:"#fff", borderRadius: "var(--dispatch-radius-lg)", padding:"28px 32px", width:480, maxWidth:"95vw", boxShadow:"0 8px 32px rgba(0,0,0,0.18)" }}>
             <div style={{ fontWeight:800, fontSize:17, color:brand.text, marginBottom:6 }}>Place Ticket On Hold</div>
             <div style={{ fontSize:13, color:brand.muted, marginBottom:16 }}>Provide a justification — this will be recorded as an internal comment and the SLA clock will be paused.</div>
             <textarea
@@ -1963,7 +1963,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
               value={holdJustification}
               onChange={e => setHoldJustification(e.target.value)}
               placeholder="e.g. Waiting for vendor part, escalated to third party, internal approval required…"
-              style={{ width:"100%", height:100, padding:"8px 11px", border:`1px solid ${brand.border}`, borderRadius:6, fontSize:13, fontFamily:"inherit", resize:"vertical", outline:"none", boxSizing:"border-box" }}
+              style={{ width:"100%", height:100, padding:"8px 11px", border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", fontSize:13, fontFamily:"inherit", resize:"vertical", outline:"none", boxSizing:"border-box" }}
             />
             <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:16 }}>
               <Btn onClick={() => setHoldModal(false)} variant="ghost">Cancel</Btn>
@@ -1976,7 +1976,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
       )}
       {convertPrompt && (
         <div style={{ position:"fixed", inset:0, background:"rgba(13,27,42,0.45)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <div style={{ background:"#fff", borderRadius:12, padding:"28px 32px", width:480, maxWidth:"95vw", boxShadow:"0 8px 32px rgba(0,0,0,0.18)" }}>
+          <div style={{ background:"#fff", borderRadius: "var(--dispatch-radius-lg)", padding:"28px 32px", width:480, maxWidth:"95vw", boxShadow:"0 8px 32px rgba(0,0,0,0.18)" }}>
             <div style={{ fontWeight:800, fontSize:17, color:brand.text, marginBottom:6 }}>Convert Quote to Invoice?</div>
             <div style={{ fontSize:13, color:brand.muted, marginBottom:16 }}>
               This ticket originated from quote <strong>{convertPrompt.id}</strong> (total ${Number(convertPrompt.total).toFixed(2)}).
@@ -1993,7 +1993,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
       )}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20, gap:12 }}>
         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-          <button onClick={onBack} style={{ background:"none", border:`1px solid ${brand.border}`, color:brand.blue, cursor:"pointer", fontSize:18, borderRadius:6, width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center" }}>←</button>
+          <button onClick={onBack} style={{ background:"none", border:`1px solid ${brand.border}`, color:brand.blue, cursor:"pointer", fontSize:18, borderRadius: "var(--dispatch-radius-md)", width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center" }}>←</button>
           <div>
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <div style={{ fontWeight:800, fontSize:18, color:brand.text, fontFamily:"monospace" }}>{t.id}</div>
@@ -2014,7 +2014,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
         </div>
       </div>
 
-      <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"14px 18px", marginBottom:20, display:"grid", gridTemplateColumns:"auto auto 1fr 1fr 1fr", gap:16, alignItems:"center" }}>
+      <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding:"14px 18px", marginBottom:20, display:"grid", gridTemplateColumns:"auto auto 1fr 1fr 1fr", gap:16, alignItems:"center" }}>
         <div>
           <FieldLabel>Type</FieldLabel>
           <Select value={t.ticketType} onChange={v=>up("ticketType",v)} options={TICKET_TYPE_OPTIONS} />
@@ -2024,7 +2024,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
           <div style={{ display:"flex", gap:8 }}>
             {["business","residential"].map(ct => (
               <button key={ct} onClick={()=>changeType(ct)}
-                style={{ padding:"7px 16px", borderRadius:6, fontWeight:700, fontSize:12, cursor:"pointer", border:`2px solid ${t.clientType===ct?brand.blue:brand.border}`, background:t.clientType===ct?brand.blue:"#fff", color:t.clientType===ct?"#fff":brand.muted }}>
+                style={{ padding:"7px 16px", borderRadius: "var(--dispatch-radius-md)", fontWeight:700, fontSize:12, cursor:"pointer", border:`2px solid ${t.clientType===ct?brand.blue:brand.border}`, background:t.clientType===ct?brand.blue:"#fff", color:t.clientType===ct?"#fff":brand.muted }}>
                 {ct==="business"?"🏢":"🏠"}
               </button>
             ))}
@@ -2052,7 +2052,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
         <div>
-          <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
+          <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding:"16px 18px", marginBottom:16 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
               <SectionHeader style={{ margin:0 }}>Client Information</SectionHeader>
               {autoSaveStatus === "pending" && <span style={{ fontSize:11, color:"#b45309" }}>Unsaved changes…</span>}
@@ -2081,7 +2081,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
                 </div>
               )}
               {pickerCompanyId && !editingClientId && (
-                <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:7, padding:"10px 14px", fontSize:13 }}>
+                <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding:"10px 14px", fontSize:13 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:6 }}>
                     <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, flex:1 }}>
                       <div><span style={{ fontWeight:600, color:brand.muted, fontSize:11, textTransform:"uppercase" }}>Name </span><br/>{t.clientName || "—"}</div>
@@ -2089,12 +2089,12 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
                       <div><span style={{ fontWeight:600, color:brand.muted, fontSize:11, textTransform:"uppercase" }}>Email </span><br/>{t.clientEmail || "—"}</div>
                       <div><span style={{ fontWeight:600, color:brand.muted, fontSize:11, textTransform:"uppercase" }}>Address </span><br/>{t.clientAddress || "—"}</div>
                     </div>
-                    <button onClick={openClientEdit} style={{ marginLeft:10, flexShrink:0, background:"none", border:`1px solid ${brand.border}`, borderRadius:5, padding:"3px 10px", fontSize:12, fontWeight:600, color:brand.muted, cursor:"pointer" }}>Edit</button>
+                    <button onClick={openClientEdit} style={{ marginLeft:10, flexShrink:0, background:"none", border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-sm)", padding:"3px 10px", fontSize:12, fontWeight:600, color:brand.muted, cursor:"pointer" }}>Edit</button>
                   </div>
                 </div>
               )}
               {editingClientId && (
-                <div style={{ background:brand.bg, border:`1.5px solid ${brand.blue}`, borderRadius:7, padding:"14px 16px" }}>
+                <div style={{ background:brand.bg, border:`1.5px solid ${brand.blue}`, borderRadius: "var(--dispatch-radius-md)", padding:"14px 16px" }}>
                   <div style={{ fontSize:11, fontWeight:700, color:brand.blue, textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:10 }}>
                     Edit {pickerContactId ? "Contact" : "Company"}
                   </div>
@@ -2113,7 +2113,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
               )}
             </div>
           </div>
-          <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px" }}>
+          <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding:"16px 18px" }}>
             <SectionHeader>Issue Details</SectionHeader>
             <div style={{ marginBottom:12 }}>
               <FieldLabel>Title</FieldLabel>
@@ -2131,7 +2131,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
         </div>
 
         <div>
-          <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
+          <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding:"16px 18px", marginBottom:16 }}>
             <SectionHeader>Services</SectionHeader>
             {t.services.map((sv,i) => (
               <ServiceRow
@@ -2147,7 +2147,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
             <Btn onClick={addSvc} variant="secondary" small>+ Add Service</Btn>
           </div>
 
-          <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
+          <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding:"16px 18px", marginBottom:16 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <SectionHeader>Hours Log</SectionHeader>
               {totalHours > 0 && <span style={{ fontSize:12, color:brand.muted, fontWeight:600 }}>{totalHours.toFixed(2)} hrs total</span>}
@@ -2166,7 +2166,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
           </div>
 
           {features?.materials !== false && (
-            <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
+            <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding:"16px 18px", marginBottom:16 }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <SectionHeader>Materials Used</SectionHeader>
                 {materialsTotal > 0 && <span style={{ fontSize:12, color:brand.muted, fontWeight:600 }}>{fmt(materialsTotal)} total</span>}
@@ -2186,12 +2186,12 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
             </div>
           )}
 
-          <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
+          <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding:"16px 18px", marginBottom:16 }}>
             <SectionHeader>Travel Fee</SectionHeader>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
               {TRAVEL_FEES.map(tf => (
                 <button key={tf.id} onClick={()=>up("travelFee",tf.id)}
-                  style={{ padding:"10px 12px", borderRadius:8, fontWeight:600, fontSize:12, cursor:"pointer", border:`2px solid ${t.travelFee===tf.id?brand.blue:brand.border}`, background:t.travelFee===tf.id?brand.bg:"#fff", color:t.travelFee===tf.id?brand.blue:brand.muted, textAlign:"left" }}>
+                  style={{ padding:"10px 12px", borderRadius: "var(--dispatch-radius-md)", fontWeight:600, fontSize:12, cursor:"pointer", border:`2px solid ${t.travelFee===tf.id?brand.blue:brand.border}`, background:t.travelFee===tf.id?brand.bg:"#fff", color:t.travelFee===tf.id?brand.blue:brand.muted, textAlign:"left" }}>
                   <div>{tf.label}</div>
                   <div style={{ fontSize:14, fontWeight:800, color:t.travelFee===tf.id?brand.blue:brand.text, marginTop:2 }}>{tf.fee>0?fmt(tf.fee):"—"}</div>
                 </button>
@@ -2199,12 +2199,12 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
             </div>
           </div>
 
-          <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
+          <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding:"16px 18px", marginBottom:16 }}>
             <SectionHeader>Scheduling</SectionHeader>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:12 }}>
               {[{ id:"on_site", label:"On-Site" }, { id:"remote", label:"Remote" }].map(wl => (
                 <button key={wl.id} onClick={()=>setWorkLocation(wl.id)}
-                  style={{ padding:"10px 12px", borderRadius:8, fontWeight:600, fontSize:12, cursor:"pointer", border:`2px solid ${t.workLocation===wl.id?brand.blue:brand.border}`, background:t.workLocation===wl.id?brand.bg:"#fff", color:t.workLocation===wl.id?brand.blue:brand.muted, textAlign:"left" }}>
+                  style={{ padding:"10px 12px", borderRadius: "var(--dispatch-radius-md)", fontWeight:600, fontSize:12, cursor:"pointer", border:`2px solid ${t.workLocation===wl.id?brand.blue:brand.border}`, background:t.workLocation===wl.id?brand.bg:"#fff", color:t.workLocation===wl.id?brand.blue:brand.muted, textAlign:"left" }}>
                   {wl.label}
                 </button>
               ))}
@@ -2227,7 +2227,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
             const isPaused = t.status === "Awaiting Client" || t.status === "On Hold";
             const pausedSince = isPaused && t.slaPausedAt ? new Date(t.slaPausedAt).toLocaleString() : null;
             return (
-              <div style={{ background: isClosed ? "#f0fdf4" : isPaused ? "#fffbeb" : (reso?.breached ? "#fee2e2" : "#fff"), border:`1.5px solid ${isClosed ? "#86efac" : isPaused ? "#fcd34d" : reso?.breached ? "#fca5a5" : brand.border}`, borderRadius:10, padding:"14px 16px", marginBottom:16 }}>
+              <div style={{ background: isClosed ? "#f0fdf4" : isPaused ? "#fffbeb" : (reso?.breached ? "#fee2e2" : "#fff"), border:`1.5px solid ${isClosed ? "#86efac" : isPaused ? "#fcd34d" : reso?.breached ? "#fca5a5" : brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding:"14px 16px", marginBottom:16 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
                   <div style={{ fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.5px", color:brand.muted }}>SLA</div>
                   {isPaused && <span className="dispatch-pill" style={{ fontSize:11, fontWeight:700, color:"#b45309", background:"#fef3c7", borderRadius:20, padding:"2px 10px" }}>⏸ Paused — {t.status}</span>}
@@ -2247,8 +2247,8 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
                               {responseCompleted && !isPaused ? "Responded" : isPaused ? "Paused" : s.breached ? "BREACHED" : s.label + " left"}
                             </span>
                           </div>
-                          <div style={{ height:5, background:"#e5e7eb", borderRadius:3, overflow:"hidden" }}>
-                            <div style={{ height:"100%", width: responseCompleted && !isPaused ? "100%" : `${Math.max(0, Math.min(100, s.pct*100))}%`, background: isPaused ? "#fcd34d" : responseCompleted ? "#16a34a" : s.color, borderRadius:3, transition:"width 0.3s" }} />
+                          <div style={{ height:5, background:"#e5e7eb", borderRadius: "var(--dispatch-radius-sm)", overflow:"hidden" }}>
+                            <div style={{ height:"100%", width: responseCompleted && !isPaused ? "100%" : `${Math.max(0, Math.min(100, s.pct*100))}%`, background: isPaused ? "#fcd34d" : responseCompleted ? "#16a34a" : s.color, borderRadius: "var(--dispatch-radius-sm)", transition:"width 0.3s" }} />
                           </div>
                           <div style={{ fontSize:10, color:brand.muted, marginTop:2 }}>
                             {isPaused && pausedSince ? `Paused since ${pausedSince} — clock resumes when status changes` :
@@ -2264,7 +2264,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
             );
           })()}
 
-          <div style={{ background:brand.blueDark, borderRadius:10, padding:"18px 20px", color:"#fff" }}>
+          <div style={{ background:brand.blueDark, borderRadius: "var(--dispatch-radius-lg)", padding:"18px 20px", color:"#fff" }}>
             <div style={{ fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.5px", color:"rgba(255,255,255,0.5)", marginBottom:14 }}>Invoice Summary</div>
             {svcTotal > 0 && (
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8, fontSize:13 }}>
@@ -2400,7 +2400,7 @@ const RecurringPage = ({ showToast, clients = [] }) => {
           <Btn onClick={() => setEditing(null)} variant="ghost" small>← Back</Btn>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: brand.text }}>{editing.id ? "Edit Recurring Schedule" : "New Recurring Schedule"}</h2>
         </div>
-        <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 12, padding: 24, maxWidth: 640 }}>
+        <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: 24, maxWidth: 640 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
             <div style={{ gridColumn: "1/-1" }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: brand.muted, display: "block", marginBottom: 4 }}>Schedule Name *</label>
@@ -2459,7 +2459,7 @@ const RecurringPage = ({ showToast, clients = [] }) => {
               </>
             )}
             {editing.client_id && (
-              <div style={{ gridColumn: "1/-1", background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 7, padding: "10px 14px", fontSize: 13, color: brand.muted }}>
+              <div style={{ gridColumn: "1/-1", background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding: "10px 14px", fontSize: 13, color: brand.muted }}>
                 {editing.client_name}{editing.client_email ? ` · ${editing.client_email}` : ""}{editing.client_phone ? ` · ${editing.client_phone}` : ""}
               </div>
             )}
@@ -2483,12 +2483,12 @@ const RecurringPage = ({ showToast, clients = [] }) => {
       </div>
       {loading && <div style={{ color: brand.muted, fontSize: 14 }}>Loading…</div>}
       {!loading && items.length === 0 && (
-        <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 12, padding: 40, textAlign: "center", color: brand.muted, fontSize: 14 }}>
+        <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: 40, textAlign: "center", color: brand.muted, fontSize: 14 }}>
           No recurring schedules yet. Create one to auto-generate tickets on a fixed interval.
         </div>
       )}
       {items.map(r => (
-        <div key={r.id} style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "14px 18px", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div key={r.id} style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "14px 18px", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
               <span style={{ fontWeight: 700, fontSize: 14, color: brand.text }}>{r.name}</span>

@@ -15,7 +15,7 @@ const brand = {
 
 const inp = {
   width: "100%", padding: "8px 11px", border: `1px solid ${brand.border}`,
-  borderRadius: 6, fontSize: 13, color: brand.text, background: "#fff",
+  borderRadius: "var(--dispatch-radius-md)", fontSize: 13, color: brand.text, background: "#fff",
   outline: "none", fontFamily: "inherit", boxSizing: "border-box",
 };
 
@@ -35,7 +35,7 @@ const Btn = ({ onClick, children, variant = "primary", small, disabled, type = "
   }[variant];
   return (
     <button type={type} onClick={onClick} disabled={disabled}
-      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: 6, fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1 }}>
+      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: "var(--dispatch-radius-md)", fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1 }}>
       {children}
     </button>
   );
@@ -57,7 +57,7 @@ function mkField() {
 
 function FieldRow({ field, index, total, onChange, onRemove, onMove }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto auto auto", gap: 8, alignItems: "center", background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto auto auto", gap: 8, alignItems: "center", background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding: "10px 12px", marginBottom: 8 }}>
       <div>
         <FieldLabel>Label</FieldLabel>
         <input style={inp} value={field.label} onChange={e => onChange({ ...field, label: e.target.value })} placeholder="e.g. Scope of Work" />
@@ -76,9 +76,9 @@ function FieldRow({ field, index, total, onChange, onRemove, onMove }) {
       </div>
       <div style={{ paddingTop: 18, display: "flex", gap: 4 }}>
         <button type="button" onClick={() => onMove(index, -1)} disabled={index === 0}
-          style={{ background: "none", border: `1px solid ${brand.border}`, borderRadius: 4, cursor: index === 0 ? "not-allowed" : "pointer", padding: "3px 7px", fontSize: 12, opacity: index === 0 ? 0.4 : 1 }}>▲</button>
+          style={{ background: "none", border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-sm)", cursor: index === 0 ? "not-allowed" : "pointer", padding: "3px 7px", fontSize: 12, opacity: index === 0 ? 0.4 : 1 }}>▲</button>
         <button type="button" onClick={() => onMove(index, 1)} disabled={index === total - 1}
-          style={{ background: "none", border: `1px solid ${brand.border}`, borderRadius: 4, cursor: index === total - 1 ? "not-allowed" : "pointer", padding: "3px 7px", fontSize: 12, opacity: index === total - 1 ? 0.4 : 1 }}>▼</button>
+          style={{ background: "none", border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-sm)", cursor: index === total - 1 ? "not-allowed" : "pointer", padding: "3px 7px", fontSize: 12, opacity: index === total - 1 ? 0.4 : 1 }}>▼</button>
       </div>
       <div style={{ paddingTop: 18 }}>
         <button type="button" onClick={onRemove}
@@ -140,7 +140,7 @@ function TemplateModal({ existing, onClose, onSaved, showToast }) {
   };
 
   const overlay = { position: "fixed", inset: 0, background: "rgba(13,27,42,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" };
-  const modal  = { background: "#fff", borderRadius: 12, padding: "28px 32px", width: 680, maxWidth: "95vw", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" };
+  const modal  = { background: "#fff", borderRadius: "var(--dispatch-radius-lg)", padding: "28px 32px", width: 680, maxWidth: "95vw", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" };
 
   return (
     <div style={overlay} onClick={e => e.target === e.currentTarget && onClose()}>
@@ -275,7 +275,7 @@ export default function FormTemplatesTab({ showToast, isAdmin }) {
           : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {visible.map(tmpl => (
-                <div key={tmpl.id} style={{ border: `1px solid ${brand.border}`, borderRadius: 10, padding: "16px 18px", background: brand.surface }}>
+                <div key={tmpl.id} style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "16px 18px", background: brand.surface }}>
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 14, color: brand.text, marginBottom: 4 }}>{tmpl.name}</div>

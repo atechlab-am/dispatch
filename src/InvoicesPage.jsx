@@ -20,7 +20,7 @@ const brand = {
 
 const inp = {
   width: "100%", padding: "8px 11px", border: `1px solid ${brand.border}`,
-  borderRadius: 6, fontSize: 13, color: brand.text, background: "#fff",
+  borderRadius: "var(--dispatch-radius-md)", fontSize: 13, color: brand.text, background: "#fff",
   outline: "none", fontFamily: "inherit", boxSizing: "border-box",
 };
 
@@ -41,7 +41,7 @@ const Btn = ({ onClick, children, variant = "primary", small, disabled, type = "
   }[variant];
   return (
     <button type={type} onClick={onClick} disabled={disabled}
-      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: 6, fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1 }}>
+      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: "var(--dispatch-radius-md)", fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1 }}>
       {children}
     </button>
   );
@@ -121,7 +121,7 @@ function PaymentsPanel({ invoice, showToast, onRefresh }) {
   const balance = Number(invoice.total) - paid;
 
   return (
-    <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px", marginTop: 20 }}>
+    <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "18px 20px", marginTop: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px" }}>Payments</div>
         {!showForm && invoice.status !== "Void" && (
@@ -147,7 +147,7 @@ function PaymentsPanel({ invoice, showToast, onRefresh }) {
 
       {/* Payment form */}
       {showForm && (
-        <form onSubmit={handleRecord} style={{ background: brand.bg, borderRadius: 8, padding: "14px 16px", marginBottom: 14, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 2fr auto auto", gap: 10, alignItems: "flex-end" }}>
+        <form onSubmit={handleRecord} style={{ background: brand.bg, borderRadius: "var(--dispatch-radius-md)", padding: "14px 16px", marginBottom: 14, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 2fr auto auto", gap: 10, alignItems: "flex-end" }}>
           <div>
             <FieldLabel>Amount ($)</FieldLabel>
             <input style={inp} type="number" min="0.01" step="0.01" required value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} placeholder="0.00" />
@@ -228,7 +228,7 @@ function SendEmailModal({ invoice, showToast, onClose }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <form onSubmit={handleSend} style={{ background: "#fff", borderRadius: 12, padding: 28, width: 480, boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}>
+      <form onSubmit={handleSend} style={{ background: "#fff", borderRadius: "var(--dispatch-radius-lg)", padding: 28, width: 480, boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div style={{ fontWeight: 700, fontSize: 16 }}>Send Invoice {invoice.id}</div>
           <button type="button" onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: brand.muted }}>×</button>
@@ -316,7 +316,7 @@ function TicketPickerPanel({ invoice, showToast, onInvoiceUpdated }) {
   const rowStyle = { padding: "8px 12px", borderBottom: `1px solid ${brand.border}`, fontSize: 13 };
 
   return (
-    <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px", marginTop: 20 }}>
+    <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "18px 20px", marginTop: 20 }}>
       <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>
         Linked Tickets
       </div>
@@ -421,7 +421,7 @@ function NewInvoiceTicketPicker({ clientId, clientName, selected, onToggle }) {
   const rowStyle = { padding: "8px 12px", borderBottom: `1px solid ${brand.border}`, fontSize: 13 };
 
   return (
-    <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px", marginTop: 20 }}>
+    <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "18px 20px", marginTop: 20 }}>
       <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
         Attach Resolved Tickets
       </div>
@@ -612,7 +612,7 @@ export function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, sho
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
           {/* Client */}
-          <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px" }}>
+          <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "18px 20px" }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>Bill To</div>
             <div style={{ marginBottom: 10 }}>
               <FieldLabel>Search Client</FieldLabel>
@@ -623,7 +623,7 @@ export function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, sho
                 placeholder="Type to search business or name…"
               />
               {clientSearch.trim() && (
-                <div style={{ border: `1px solid ${brand.border}`, borderRadius: 6, marginTop: 4, maxHeight: 180, overflowY: "auto", background: "#fff", boxShadow: "0 4px 12px rgba(0,0,0,0.10)", zIndex: 10, position: "relative" }}>
+                <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", marginTop: 4, maxHeight: 180, overflowY: "auto", background: "#fff", boxShadow: "0 4px 12px rgba(0,0,0,0.10)", zIndex: 10, position: "relative" }}>
                   {filteredClients.length === 0 ? (
                     <div style={{ padding: "10px 12px", fontSize: 13, color: brand.muted }}>No matches</div>
                   ) : (
@@ -660,7 +660,7 @@ export function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, sho
           </div>
 
           {/* Invoice details */}
-          <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px" }}>
+          <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "18px 20px" }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>Invoice Details</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
               <div>
@@ -692,7 +692,7 @@ export function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, sho
         </div>
 
         {/* Line items */}
-        <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "18px 20px", marginBottom: 20 }}>
+        <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "18px 20px", marginBottom: 20 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>Line Items</div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
@@ -734,7 +734,7 @@ export function InvoiceEditor({ invoice, prefill, clients, onSave, onCancel, sho
 
         {/* Totals */}
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 10, padding: "16px 24px", minWidth: 280 }}>
+          <div style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "16px 24px", minWidth: 280 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 13 }}>
               <span style={{ color: brand.muted }}>Subtotal</span>
               <span>${fmt(subtotal)}</span>
@@ -896,7 +896,7 @@ function InvoiceListTab({ showToast }) {
       {loading ? (
         <div style={{ color: brand.muted, padding: "60px 0", textAlign: "center" }}>Loading…</div>
       ) : (
-        <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden", background: "#fff" }}>
+        <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden", background: "#fff" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: brand.bg }}>
@@ -1031,7 +1031,7 @@ function RecurringInvoicesTab({ showToast, clients = [] }) {
           <Btn onClick={() => setEditing(null)} variant="ghost" small>← Back</Btn>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: brand.text }}>{editing.id ? "Edit Recurring Invoice" : "New Recurring Invoice"}</h2>
         </div>
-        <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 12, padding: 24, maxWidth: 720 }}>
+        <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: 24, maxWidth: 720 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
             <div style={{ gridColumn: "1/-1" }}>
               <FieldLabel>Schedule Name *</FieldLabel>
@@ -1108,7 +1108,7 @@ function RecurringInvoicesTab({ showToast, clients = [] }) {
       ) : items.length === 0 ? (
         <div style={{ color: brand.muted, padding: "60px 0", textAlign: "center" }}>No recurring invoice schedules yet.</div>
       ) : (
-        <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden", background: "#fff" }}>
+        <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden", background: "#fff" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: brand.bg }}>

@@ -1,16 +1,30 @@
 /*
- * Office UI corner-sharpening overrides.
+ * Central theme control for corner radius.
  *
- * Every page in this app uses inline styles (style={{...}}), which always
- * beat a normal stylesheet rule — so this file relies on !important, the one
- * mechanism that legitimately outranks an inline style. It only targets
- * border-radius, and only while [data-theme="office"] is set on <html> (see
- * applyThemeVars() in branding.jsx).
+ * Colors and font are handled the same way, as CSS custom properties applied
+ * by applyThemeVars() in branding.jsx (--dispatch-bg/surface/border/primary/
+ * font) and read directly by every page's `brand` object.
  *
- * Pills, badges, dots, and avatars (border-radius: 50% or a large pill value
- * like 20px) must stay round in both themes — they're marked with the
- * .dispatch-pill class specifically so this blanket rule can exempt them.
+ * Corner radius follows the identical pattern: every structural element's
+ * `borderRadius` in the .jsx files below references one of the three size
+ * vars below directly (e.g. `borderRadius: "var(--dispatch-radius-md)"`)
+ * instead of a hardcoded pixel number. To restyle either theme's corners,
+ * edit the six values here — no .jsx file changes needed.
+ *
+ * Pills, badges, dots, and avatars (border-radius: 50% or a fixed pill value
+ * like 20px) are deliberately NOT wired to these vars — they keep their
+ * literal radius in both themes, since a status pill or an avatar circle
+ * should always be fully round regardless of theme.
  */
-[data-theme="office"] :not(.dispatch-pill) {
-  border-radius: 2px !important;
+
+:root {
+  --dispatch-radius-sm: 6px;
+  --dispatch-radius-md: 8px;
+  --dispatch-radius-lg: 12px;
+}
+
+:root[data-theme="office"] {
+  --dispatch-radius-sm: 2px;
+  --dispatch-radius-md: 2px;
+  --dispatch-radius-lg: 2px;
 }

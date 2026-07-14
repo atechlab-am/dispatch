@@ -18,7 +18,7 @@ const brand = {
 const inp = {
   padding: "7px 10px",
   border: `1px solid ${brand.border}`,
-  borderRadius: 6,
+  borderRadius: "var(--dispatch-radius-md)",
   fontSize: 13,
   color: brand.text,
   background: "#fff",
@@ -39,7 +39,7 @@ const Btn = ({ onClick, children, variant = "primary", small, disabled }) => {
     <button type="button" onClick={onClick} disabled={disabled} style={{
       ...s,
       padding: small ? "4px 10px" : "7px 16px",
-      borderRadius: 6, fontSize: small ? 12 : 13, fontWeight: 600,
+      borderRadius: "var(--dispatch-radius-md)", fontSize: small ? 12 : 13, fontWeight: 600,
       cursor: disabled ? "not-allowed" : "pointer",
       fontFamily: "inherit", opacity: disabled ? 0.6 : 1,
       whiteSpace: "nowrap",
@@ -101,7 +101,7 @@ function SlugEditor({ slugClient, onUpdated, showToast }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
       {slugClient.slug ? (
-        <code style={{ background: "#e8f0fd", color: brand.blue, padding: "3px 10px", borderRadius: 6, fontSize: 13, fontWeight: 600 }}>
+        <code style={{ background: "#e8f0fd", color: brand.blue, padding: "3px 10px", borderRadius: "var(--dispatch-radius-md)", fontSize: 13, fontWeight: 600 }}>
           /p/{slugClient.slug}
         </code>
       ) : (
@@ -324,7 +324,7 @@ function PortalCard({ label, subtitle, badge, slugClient, contacts, portalClient
   const hasPortal = !!slugClient?.slug;
 
   return (
-    <div style={{ background: brand.surface, borderRadius: 12, border: `1px solid ${brand.border}`, overflow: "hidden", marginBottom: 12 }}>
+    <div style={{ background: brand.surface, borderRadius: "var(--dispatch-radius-lg)", border: `1px solid ${brand.border}`, overflow: "hidden", marginBottom: 12 }}>
       {/* Header */}
       <div
         onClick={() => setExpanded(e => !e)}
@@ -344,7 +344,7 @@ function PortalCard({ label, subtitle, badge, slugClient, contacts, portalClient
             </span>
           )}
           {hasPortal ? (
-            <code style={{ background: "#e8f0fd", color: brand.blue, padding: "2px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600 }}>
+            <code style={{ background: "#e8f0fd", color: brand.blue, padding: "2px 8px", borderRadius: "var(--dispatch-radius-md)", fontSize: 12, fontWeight: 600 }}>
               /p/{slugClient.slug}
             </code>
           ) : (
@@ -385,7 +385,7 @@ function PortalCard({ label, subtitle, badge, slugClient, contacts, portalClient
                 {contacts.map(c => (
                   <div key={c.id} style={{
                     background: brand.bg, border: `1px solid ${brand.border}`,
-                    borderRadius: 8, padding: "6px 14px", fontSize: 13,
+                    borderRadius: "var(--dispatch-radius-md)", padding: "6px 14px", fontSize: 13,
                   }}>
                     <span style={{ fontWeight: 600, color: brand.text }}>{c.name}</span>
                     {c.email && <span style={{ color: brand.muted, marginLeft: 8 }}>{c.email}</span>}
@@ -396,7 +396,7 @@ function PortalCard({ label, subtitle, badge, slugClient, contacts, portalClient
           )}
 
           {/* Portal users table */}
-          <div style={{ border: `1px solid ${brand.border}`, borderRadius: 8, overflow: "hidden" }}>
+          <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: brand.bg }}>
@@ -568,7 +568,7 @@ export default function PortalPage({ showToast }) {
       </div>
 
       {totalShown === 0 && (
-        <div style={{ background: brand.surface, borderRadius: 12, padding: 48, textAlign: "center", color: brand.muted, fontSize: 14, border: `1px solid ${brand.border}` }}>
+        <div style={{ background: brand.surface, borderRadius: "var(--dispatch-radius-lg)", padding: 48, textAlign: "center", color: brand.muted, fontSize: 14, border: `1px solid ${brand.border}` }}>
           {search ? "No clients match your search." : 'No portals configured yet. Enable "Show all" to set one up.'}
         </div>
       )}

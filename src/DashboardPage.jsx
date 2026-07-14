@@ -54,7 +54,7 @@ function StatCard({ label, value, color, onClick }) {
 
   return (
     <div onClick={onClick}
-      style={{ background: colors.bg, border: `1.5px solid ${colors.border}`, borderRadius: 12, padding: "18px 20px", display: "flex", flexDirection: "column", gap: 4, cursor: onClick ? "pointer" : "default", transition: "filter 0.12s" }}
+      style={{ background: colors.bg, border: `1.5px solid ${colors.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "18px 20px", display: "flex", flexDirection: "column", gap: 4, cursor: onClick ? "pointer" : "default", transition: "filter 0.12s" }}
       onMouseEnter={e => { if (onClick) e.currentTarget.style.filter = "brightness(0.95)"; }}
       onMouseLeave={e => { e.currentTarget.style.filter = "none"; }}
     >
@@ -104,8 +104,8 @@ function TicketRow({ ticket, onSelect }) {
               {sla.breached ? "BREACHED" : sla.label}
             </span>
           </div>
-          <div style={{ width: 80, height: 3, background: "#e5e7eb", borderRadius: 2, overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${Math.max(0, Math.min(100, sla.pct * 100))}%`, background: sla.color, borderRadius: 2 }} />
+          <div style={{ width: 80, height: 3, background: "#e5e7eb", borderRadius: "var(--dispatch-radius-sm)", overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${Math.max(0, Math.min(100, sla.pct * 100))}%`, background: sla.color, borderRadius: "var(--dispatch-radius-sm)" }} />
           </div>
         </div>
       )}
@@ -115,10 +115,10 @@ function TicketRow({ ticket, onSelect }) {
 
 function Section({ title, accent, children, empty, onViewAll }) {
   return (
-    <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 12, overflow: "hidden" }}>
+    <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden" }}>
       <div style={{ padding: "13px 16px", borderBottom: `1px solid ${brand.border}`, background: brand.bg, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {accent && <div style={{ width: 4, height: 18, borderRadius: 2, background: accent }} />}
+          {accent && <div style={{ width: 4, height: 18, borderRadius: "var(--dispatch-radius-sm)", background: accent }} />}
           <div style={{ fontWeight: 700, fontSize: 13, color: brand.text }}>{title}</div>
         </div>
         {onViewAll && (
@@ -144,7 +144,7 @@ function PriorityChart({ tickets }) {
       {Object.entries(counts).map(([p, n]) => (
         <div key={p} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: PRIORITY_COLOR[p] }}>{n}</div>
-          <div style={{ width: "100%", background: PRIORITY_BG[p], borderRadius: 4, height: `${Math.max(4, (n / max) * 56)}px`, border: `1px solid ${PRIORITY_COLOR[p]}44` }} />
+          <div style={{ width: "100%", background: PRIORITY_BG[p], borderRadius: "var(--dispatch-radius-sm)", height: `${Math.max(4, (n / max) * 56)}px`, border: `1px solid ${PRIORITY_COLOR[p]}44` }} />
           <div style={{ fontSize: 10, color: brand.muted, fontWeight: 600 }}>{p.slice(0, 3)}</div>
         </div>
       ))}
@@ -156,10 +156,10 @@ function PriorityChart({ tickets }) {
 function FunnelWidget({ stages, onNewProject }) {
   const max = Math.max(...stages.map(s => s.count), 1);
   return (
-    <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 12, padding: "16px 20px", marginBottom: 24 }}>
+    <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "16px 20px", marginBottom: 24 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <div style={{ fontWeight: 700, fontSize: 13, color: brand.text }}>Quote → Ticket → Invoice</div>
-        <button onClick={onNewProject} style={{ background: brand.blue, color: "#fff", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+        <button onClick={onNewProject} style={{ background: brand.blue, color: "#fff", border: "none", borderRadius: "var(--dispatch-radius-md)", padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
           + New Project
         </button>
       </div>
@@ -197,7 +197,7 @@ function LeadPipelineChart({ stages }) {
       {stages.map(s => (
         <div key={s.stage} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: PIPELINE_COLOR[s.stage] || brand.muted }}>{s.count}</div>
-          <div style={{ width: "100%", background: `${PIPELINE_COLOR[s.stage] || brand.muted}22`, borderRadius: 4, height: `${Math.max(4, (s.count / max) * 56)}px`, border: `1px solid ${PIPELINE_COLOR[s.stage] || brand.muted}44` }} />
+          <div style={{ width: "100%", background: `${PIPELINE_COLOR[s.stage] || brand.muted}22`, borderRadius: "var(--dispatch-radius-sm)", height: `${Math.max(4, (s.count / max) * 56)}px`, border: `1px solid ${PIPELINE_COLOR[s.stage] || brand.muted}44` }} />
           <div style={{ fontSize: 10, color: brand.muted, fontWeight: 600, whiteSpace: "nowrap" }}>{s.label}</div>
         </div>
       ))}
@@ -241,8 +241,8 @@ function StatusChart({ tickets }) {
       {statuses.filter(s => counts[s] > 0).map(s => (
         <div key={s} style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 80, fontSize: 11, color: brand.muted, textAlign: "right" }}>{s}</div>
-          <div style={{ flex: 1, height: 14, background: "#f3f4f6", borderRadius: 3, overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${(counts[s] / total) * 100}%`, background: STATUS_COLOR[s] || brand.muted, borderRadius: 3 }} />
+          <div style={{ flex: 1, height: 14, background: "#f3f4f6", borderRadius: "var(--dispatch-radius-sm)", overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${(counts[s] / total) * 100}%`, background: STATUS_COLOR[s] || brand.muted, borderRadius: "var(--dispatch-radius-sm)" }} />
           </div>
           <div style={{ width: 24, fontSize: 11, fontWeight: 700, color: brand.text }}>{counts[s]}</div>
         </div>
@@ -323,7 +323,7 @@ export default function DashboardPage({ user, onSelectTicket, onNavigate, showTo
             {new Date().toLocaleDateString("en-CA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
           </div>
         </div>
-        <button onClick={load} style={{ background: "none", border: `1px solid ${brand.border}`, borderRadius: 6, padding: "6px 14px", fontSize: 12, color: brand.muted, cursor: "pointer", fontFamily: "inherit" }}>
+        <button onClick={load} style={{ background: "none", border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding: "6px 14px", fontSize: 12, color: brand.muted, cursor: "pointer", fontFamily: "inherit" }}>
           Refresh
         </button>
       </div>
@@ -338,11 +338,11 @@ export default function DashboardPage({ user, onSelectTicket, onNavigate, showTo
 
       {/* Charts row */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
-        <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 12, padding: "16px 20px" }}>
+        <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "16px 20px" }}>
           <div style={{ fontWeight: 700, fontSize: 13, color: brand.text, marginBottom: 14 }}>Active Tickets by Priority</div>
           <PriorityChart tickets={my_active.concat(recent_open)} />
         </div>
-        <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 12, padding: "16px 20px" }}>
+        <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "16px 20px" }}>
           <div style={{ fontWeight: 700, fontSize: 13, color: brand.text, marginBottom: 14 }}>Status Breakdown (All)</div>
           <StatusChart tickets={allTickets} />
         </div>
@@ -399,7 +399,7 @@ export default function DashboardPage({ user, onSelectTicket, onNavigate, showTo
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 12, padding: "16px 20px" }}>
+            <div style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "16px 20px" }}>
               <div style={{ fontWeight: 700, fontSize: 13, color: brand.text, marginBottom: 14 }}>Pipeline by Stage</div>
               <LeadPipelineChart stages={lead_pipeline} />
             </div>

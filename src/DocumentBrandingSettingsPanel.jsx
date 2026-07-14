@@ -8,7 +8,7 @@ import { UploadButton, PRESET_PALETTES } from "./brandingUpload.jsx";
 const radius = 10;
 const inp = {
   width: "100%", padding: "8px 12px", border: "1px solid #e2e8f0",
-  borderRadius: 8, fontSize: 13, fontFamily: "inherit",
+  borderRadius: "var(--dispatch-radius-md)", fontSize: 13, fontFamily: "inherit",
   background: "#fff", color: "#0f172a", outline: "none", boxSizing: "border-box",
 };
 const label = (text) => (
@@ -75,7 +75,7 @@ function TemplateEditor({ docType, label: sectionLabel, useCustom, onToggle, tem
   };
 
   return (
-    <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 16, marginBottom: 14 }}>
+    <div style={{ border: "1px solid #e2e8f0", borderRadius: "var(--dispatch-radius-md)", padding: 16, marginBottom: 14 }}>
       <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700, color: "#0f172a", cursor: "pointer", marginBottom: useCustom ? 12 : 0 }}>
         <input type="checkbox" checked={useCustom} onChange={e => onToggle(e.target.checked)} style={{ cursor: "pointer" }} />
         Use a custom {sectionLabel} template
@@ -83,7 +83,7 @@ function TemplateEditor({ docType, label: sectionLabel, useCustom, onToggle, tem
       {useCustom && (
         <>
           <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 10px" }}>
-            Raw HTML with <code style={{ background: "#f1f5f9", padding: "1px 5px", borderRadius: 4 }}>{"{{placeholder}}"}</code> substitution.
+            Raw HTML with <code style={{ background: "#f1f5f9", padding: "1px 5px", borderRadius: "var(--dispatch-radius-sm)" }}>{"{{placeholder}}"}</code> substitution.
             This completely replaces the built-in layout for {sectionLabel}s. See available placeholders below.
           </p>
           <textarea
@@ -98,12 +98,12 @@ function TemplateEditor({ docType, label: sectionLabel, useCustom, onToggle, tem
               <summary style={{ cursor: "pointer", fontWeight: 600 }}>Available placeholders ({placeholders.length})</summary>
               <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {placeholders.map(p => (
-                  <code key={p} style={{ background: "#f1f5f9", padding: "2px 6px", borderRadius: 4, fontSize: 11 }}>{`{{${p}}}`}</code>
+                  <code key={p} style={{ background: "#f1f5f9", padding: "2px 6px", borderRadius: "var(--dispatch-radius-sm)", fontSize: 11 }}>{`{{${p}}}`}</code>
                 ))}
               </div>
             </details>
             <button type="button" onClick={handlePreview} disabled={previewing || !template}
-              style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", fontSize: 12, fontWeight: 600, cursor: previewing || !template ? "not-allowed" : "pointer", fontFamily: "inherit", color: "#334155", flexShrink: 0 }}>
+              style={{ padding: "6px 14px", borderRadius: "var(--dispatch-radius-md)", border: "1px solid #e2e8f0", background: "#fff", fontSize: 12, fontWeight: 600, cursor: previewing || !template ? "not-allowed" : "pointer", fontFamily: "inherit", color: "#334155", flexShrink: 0 }}>
               {previewing ? "Rendering…" : "👁 Preview"}
             </button>
           </div>
@@ -190,10 +190,10 @@ export default function DocumentBrandingSettingsPanel({ onClose, showToast }) {
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input style={inp} value={form.logo_url} onChange={e => up("logo_url", e.target.value)} placeholder="https://…/logo.png or upload →" />
               <UploadButton accept="image/*" onDataUrl={v => up("logo_url", v)} label="📁 Upload" />
-              {form.logo_url && <button type="button" onClick={() => up("logo_url", "")} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #fecaca", background: "#fef2f2", fontSize: 12, color: "#ef4444", cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>✕</button>}
+              {form.logo_url && <button type="button" onClick={() => up("logo_url", "")} style={{ padding: "8px 10px", borderRadius: "var(--dispatch-radius-md)", border: "1px solid #fecaca", background: "#fef2f2", fontSize: 12, color: "#ef4444", cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>✕</button>}
             </div>
             {form.logo_url && (
-              <div style={{ marginTop: 10, padding: "10px 14px", background: "#f8fafc", borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 12, border: "1px solid #e2e8f0" }}>
+              <div style={{ marginTop: 10, padding: "10px 14px", background: "#f8fafc", borderRadius: "var(--dispatch-radius-md)", display: "inline-flex", alignItems: "center", gap: 12, border: "1px solid #e2e8f0" }}>
                 <img src={form.logo_url} alt="Logo preview" style={{ maxHeight: 40, maxWidth: 180, objectFit: "contain" }} onError={e => e.target.style.display = "none"} />
                 <span style={{ fontSize: 11, color: "#94a3b8" }}>preview</span>
               </div>
@@ -231,7 +231,7 @@ export default function DocumentBrandingSettingsPanel({ onClose, showToast }) {
             {label("Primary Color (PDF header background)")}
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input type="color" value={form.primary_color} onChange={e => up("primary_color", e.target.value)}
-                style={{ width: 40, height: 36, border: "1px solid #e2e8f0", borderRadius: 6, cursor: "pointer", padding: 2, background: "#fff" }} />
+                style={{ width: 40, height: 36, border: "1px solid #e2e8f0", borderRadius: "var(--dispatch-radius-md)", cursor: "pointer", padding: 2, background: "#fff" }} />
               <input style={{ ...inp }} value={form.primary_color} onChange={e => up("primary_color", e.target.value)} placeholder="#1A5CBA" />
             </div>
           </div>
@@ -239,7 +239,7 @@ export default function DocumentBrandingSettingsPanel({ onClose, showToast }) {
             {label("Accent Color (wordmark highlight)")}
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input type="color" value={form.accent_color} onChange={e => up("accent_color", e.target.value)}
-                style={{ width: 40, height: 36, border: "1px solid #e2e8f0", borderRadius: 6, cursor: "pointer", padding: 2, background: "#fff" }} />
+                style={{ width: 40, height: 36, border: "1px solid #e2e8f0", borderRadius: "var(--dispatch-radius-md)", cursor: "pointer", padding: 2, background: "#fff" }} />
               <input style={{ ...inp }} value={form.accent_color} onChange={e => up("accent_color", e.target.value)} placeholder="#E8A020" />
             </div>
           </div>
@@ -253,7 +253,7 @@ export default function DocumentBrandingSettingsPanel({ onClose, showToast }) {
             {label("Body Text")}
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input type="color" value={form.text_color} onChange={e => up("text_color", e.target.value)}
-                style={{ width: 40, height: 36, border: "1px solid #e2e8f0", borderRadius: 6, cursor: "pointer", padding: 2, background: "#fff" }} />
+                style={{ width: 40, height: 36, border: "1px solid #e2e8f0", borderRadius: "var(--dispatch-radius-md)", cursor: "pointer", padding: 2, background: "#fff" }} />
               <input style={{ ...inp }} value={form.text_color} onChange={e => up("text_color", e.target.value)} placeholder="#0F172A" />
             </div>
           </div>
@@ -261,7 +261,7 @@ export default function DocumentBrandingSettingsPanel({ onClose, showToast }) {
             {label("Muted Text")}
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input type="color" value={form.muted_color} onChange={e => up("muted_color", e.target.value)}
-                style={{ width: 40, height: 36, border: "1px solid #e2e8f0", borderRadius: 6, cursor: "pointer", padding: 2, background: "#fff" }} />
+                style={{ width: 40, height: 36, border: "1px solid #e2e8f0", borderRadius: "var(--dispatch-radius-md)", cursor: "pointer", padding: 2, background: "#fff" }} />
               <input style={{ ...inp }} value={form.muted_color} onChange={e => up("muted_color", e.target.value)} placeholder="#64748B" />
             </div>
           </div>
@@ -269,7 +269,7 @@ export default function DocumentBrandingSettingsPanel({ onClose, showToast }) {
             {label("Text on Header")}
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input type="color" value={form.on_color_text} onChange={e => up("on_color_text", e.target.value)}
-                style={{ width: 40, height: 36, border: "1px solid #e2e8f0", borderRadius: 6, cursor: "pointer", padding: 2, background: "#fff" }} />
+                style={{ width: 40, height: 36, border: "1px solid #e2e8f0", borderRadius: "var(--dispatch-radius-md)", cursor: "pointer", padding: 2, background: "#fff" }} />
               <input style={{ ...inp }} value={form.on_color_text} onChange={e => up("on_color_text", e.target.value)} placeholder="#FFFFFF" />
             </div>
           </div>
@@ -312,10 +312,10 @@ export default function DocumentBrandingSettingsPanel({ onClose, showToast }) {
       </section>
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-        <button onClick={onClose} style={{ padding: "9px 20px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", color: "#64748b" }}>
+        <button onClick={onClose} style={{ padding: "9px 20px", borderRadius: "var(--dispatch-radius-md)", border: "1px solid #e2e8f0", background: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", color: "#64748b" }}>
           Close
         </button>
-        <button onClick={handleSave} disabled={saving} style={{ padding: "9px 24px", borderRadius: 8, border: "none", background: "#1A5CBA", color: "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit", boxShadow: "0 2px 8px #1A5CBA44", opacity: saving ? 0.7 : 1 }}>
+        <button onClick={handleSave} disabled={saving} style={{ padding: "9px 24px", borderRadius: "var(--dispatch-radius-md)", border: "none", background: "#1A5CBA", color: "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit", boxShadow: "0 2px 8px #1A5CBA44", opacity: saving ? 0.7 : 1 }}>
           {saving ? "Saving…" : saved ? "✓ Saved!" : "Save Changes"}
         </button>
       </div>

@@ -65,7 +65,7 @@ function card(extra = {}) {
 }
 
 // ─── Sidebar nav item ─────────────────────────────────────────────────────────
-function NavItem({ path, label, icon, active, onClick, primary, collapsed, dark, isOffice }) {
+function NavItem({ path, label, icon, active, onClick, primary, collapsed, dark }) {
   const [hov, setHov] = useState(false);
   const fgBase  = dark ? "rgba(255,255,255,0.72)" : "rgba(15,23,42,0.65)";
   const hovBg   = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)";
@@ -81,7 +81,7 @@ function NavItem({ path, label, icon, active, onClick, primary, collapsed, dark,
         display: "flex", alignItems: "center", gap: 10,
         width: "100%", padding: collapsed ? "10px 0" : "10px 14px",
         justifyContent: collapsed ? "center" : "flex-start",
-        background: bg, border: "none", borderRadius: isOffice ? 2 : radius.sm,
+        background: bg, border: "none", borderRadius: "var(--dispatch-radius-sm)",
         color: fg, cursor: "pointer", fontSize: 13, fontWeight: active ? 700 : 500,
         fontFamily: "inherit", transition: "all 0.15s",
         borderLeft: active ? `3px solid ${primary}` : "3px solid transparent",
@@ -226,7 +226,7 @@ export default function AppNew({
               }
             </div>
           )}
-          <button onClick={() => setCollapsed(c => !c)} style={{ background: collapseBtn.bg, border: "none", color: collapseBtn.fg, cursor: "pointer", borderRadius: 6, padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0 }}>
+          <button onClick={() => setCollapsed(c => !c)} style={{ background: collapseBtn.bg, border: "none", color: collapseBtn.fg, cursor: "pointer", borderRadius: "var(--dispatch-radius-md)", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0 }}>
             <Icon d={collapsed ? "M9 18l6-6-6-6" : "M15 18l-6-6 6-6"} size={14} />
           </button>
         </div>
@@ -234,14 +234,14 @@ export default function AppNew({
         {/* Main nav */}
         <nav style={{ flex: 1, padding: "10px 8px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
           {NAV.map(n => (
-            <NavItem key={n.path} {...n} active={isActive(n.path)} onClick={(p) => navigate(p)} primary={accent} collapsed={collapsed} dark={dark} isOffice={isOffice} />
+            <NavItem key={n.path} {...n} active={isActive(n.path)} onClick={(p) => navigate(p)} primary={accent} collapsed={collapsed} dark={dark} />
           ))}
         </nav>
 
         {/* Bottom nav */}
         <div style={{ padding: "8px 8px 6px", borderTop: `1px solid ${sidebarBorder}`, display: "flex", flexDirection: "column", gap: 2 }}>
           {BOTTOM_NAV.map(n => (
-            <NavItem key={n.path} {...n} active={isActive(n.path)} onClick={(p) => navigate(p)} primary={accent} collapsed={collapsed} dark={dark} isOffice={isOffice} />
+            <NavItem key={n.path} {...n} active={isActive(n.path)} onClick={(p) => navigate(p)} primary={accent} collapsed={collapsed} dark={dark} />
           ))}
           {/* User info + logout */}
           {user && (
@@ -275,14 +275,14 @@ export default function AppNew({
               onClick={toggleThemeMode}
               title={isOffice ? "Switch to Modern UI" : "Switch to Office UI"}
               aria-label={isOffice ? "Switch to Modern UI" : "Switch to Office UI"}
-              style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "1px solid var(--dispatch-border)", borderRadius: isOffice ? 2 : radius.sm, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", color: "var(--dispatch-muted)" }}>
+              style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "1px solid var(--dispatch-border)", borderRadius: "var(--dispatch-radius-sm)", padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", color: "var(--dispatch-muted)" }}>
               <Icon d={ICONS.newUI} size={14} />
               {isOffice ? "Office UI" : "Modern UI"}
             </button>
             {location.pathname === "/tickets" && (
               <button
                 onClick={handleNew}
-                style={{ background: primary, color: "#fff", border: "none", borderRadius: isOffice ? 2 : radius.sm, padding: "8px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: isOffice ? "none" : `0 2px 8px ${primary}44` }}>
+                style={{ background: primary, color: "#fff", border: "none", borderRadius: "var(--dispatch-radius-sm)", padding: "8px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: isOffice ? "none" : `0 2px 8px ${primary}44` }}>
                 + New Ticket
               </button>
             )}

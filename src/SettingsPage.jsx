@@ -26,7 +26,7 @@ const inp = {
   width: "100%",
   padding: "8px 11px",
   border: `1px solid ${brand.border}`,
-  borderRadius: 6,
+  borderRadius: "var(--dispatch-radius-md)",
   fontSize: 13,
   color: brand.text,
   background: "#fff",
@@ -51,7 +51,7 @@ const Btn = ({ onClick, children, variant = "primary", small, disabled, type = "
   }[variant];
   return (
     <button type={type} onClick={onClick} disabled={disabled}
-      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: 6, fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1 }}>
+      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: "var(--dispatch-radius-md)", fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1 }}>
       {children}
     </button>
   );
@@ -83,7 +83,7 @@ function AddUserForm({ onAdded, showToast }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <div style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "16px 18px", marginTop: 24 }}>
+      <div style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "16px 18px", marginTop: 24 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>
           Add User
         </div>
@@ -249,7 +249,7 @@ function UsersTab({ currentUserId, showToast }) {
         Manage who can access Dispatch. Admins can manage users and settings. Technicians can create and edit tickets.
       </div>
 
-      <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+      <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: brand.bg }}>
@@ -415,7 +415,7 @@ function PortalAccountsTab({ showToast }) {
         Create login accounts for clients to access their portal at <strong>/p/[client-slug]</strong>. Set a slug on the client record first, then create a portal account. Each account is scoped to that client's tickets and invoices only.
       </div>
 
-      <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+      <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: brand.bg }}>
@@ -461,7 +461,7 @@ function PortalAccountsTab({ showToast }) {
               <tr key={a.id} style={{ background: a.active ? brand.surface : "#f9fafb" }}>
                 <td style={{ ...cellStyle, fontWeight: 600, color: brand.text }}>{clientName(a.client_id)}</td>
                 <td style={{ ...cellStyle, fontSize: 12, color: slug ? brand.blue : brand.muted }}>
-                  {slug ? <code style={{ background: "#f0f6ff", padding: "2px 6px", borderRadius: 4 }}>/p/{slug}</code> : <span style={{ color: "#e67e22" }}>no slug set</span>}
+                  {slug ? <code style={{ background: "#f0f6ff", padding: "2px 6px", borderRadius: "var(--dispatch-radius-sm)" }}>/p/{slug}</code> : <span style={{ color: "#e67e22" }}>no slug set</span>}
                 </td>
                 <td style={{ ...cellStyle, color: brand.text }}>{a.name}</td>
                 <td style={{ ...cellStyle, color: brand.muted, fontSize: 13 }}>{a.email}</td>
@@ -489,7 +489,7 @@ function PortalAccountsTab({ showToast }) {
       </div>
 
       <form onSubmit={handleAdd}>
-        <div style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 10, padding: "16px 18px", marginTop: 24 }}>
+        <div style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "16px 18px", marginTop: 24 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>
             Add Portal Account
           </div>
@@ -598,7 +598,7 @@ function CannedResponsesTab({ showToast }) {
       ) : items.length === 0 ? (
         <div style={{ color: brand.muted, padding: "40px 0", textAlign: "center" }}>No canned responses yet.</div>
       ) : (
-        <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+        <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: brand.bg }}>
@@ -833,7 +833,7 @@ function MaterialsTab({ showToast }) {
         </div>
       </div>
       {importResult && importResult.errors.length > 0 && (
-        <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "12px 16px", marginBottom: 14, fontSize: 13 }}>
+        <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "var(--dispatch-radius-md)", padding: "12px 16px", marginBottom: 14, fontSize: 13 }}>
           <div style={{ fontWeight: 700, color: "#991b1b", marginBottom: 6 }}>
             Imported {importResult.created}, {importResult.errors.length} row{importResult.errors.length === 1 ? "" : "s"} skipped:
           </div>
@@ -849,7 +849,7 @@ function MaterialsTab({ showToast }) {
       )}
 
       {selectedIds.size > 0 && (
-        <div style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding: "10px 14px", marginBottom: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: brand.text }}>{selectedIds.size} selected</span>
           {bulkAction === null && (
             <div style={{ display: "flex", gap: 8 }}>
@@ -891,7 +891,7 @@ function MaterialsTab({ showToast }) {
           No materials yet. Add one, or import a CSV with <code>name</code>, <code>category</code>, <code>description</code>, <code>unit_price</code> columns.
         </div>
       ) : (
-        <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+        <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: brand.bg }}>
@@ -1015,7 +1015,7 @@ function BackupTab({ showToast }) {
     <div style={{ maxWidth: 720 }}>
       {restoreTarget && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(13,27,42,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "#fff", borderRadius: 12, padding: "28px 32px", width: 480, maxWidth: "95vw", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}>
+          <div style={{ background: "#fff", borderRadius: "var(--dispatch-radius-lg)", padding: "28px 32px", width: 480, maxWidth: "95vw", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}>
             <div style={{ fontWeight: 800, fontSize: 17, color: brand.text, marginBottom: 6 }}>Restore from Backup?</div>
             <div style={{ fontSize: 13, color: brand.muted, marginBottom: 16 }}>
               This will overwrite <strong>all current data</strong> (database and uploaded files) with the backup from{" "}
@@ -1047,7 +1047,7 @@ function BackupTab({ showToast }) {
       ) : runs.length === 0 ? (
         <div style={{ color: brand.muted, padding: "20px 0", textAlign: "center" }}>No backups yet.</div>
       ) : (
-        <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 28 }}>
+        <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden", marginBottom: 28 }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: brand.bg }}>
@@ -1084,7 +1084,7 @@ function BackupTab({ showToast }) {
         available.length === 0 ? (
           <div style={{ color: brand.muted, padding: "20px 0", textAlign: "center" }}>No backups found on the NAS share.</div>
         ) : (
-          <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden" }}>
+          <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: brand.bg }}>
@@ -1177,7 +1177,7 @@ function SecurityTab({ showToast }) {
         <div style={{ fontSize: 13, color: brand.muted, marginBottom: 16 }}>
           Each code can be used once instead of your authenticator app if you lose access to it. Store them somewhere safe — they will not be shown again.
         </div>
-        <div style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 8, padding: "16px 20px", fontFamily: "monospace", fontSize: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+        <div style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding: "16px 20px", fontFamily: "monospace", fontSize: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
           {backupCodes.map(c => <div key={c}>{c}</div>)}
         </div>
         <Btn onClick={() => setBackupCodes(null)}>Done</Btn>
@@ -1195,7 +1195,7 @@ function SecurityTab({ showToast }) {
         {!showDisableForm ? (
           <Btn variant="danger" small onClick={() => setShowDisableForm(true)}>Disable Two-Factor Auth</Btn>
         ) : (
-          <form onSubmit={handleDisable} style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 8, padding: "16px 18px" }}>
+          <form onSubmit={handleDisable} style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding: "16px 18px" }}>
             <FieldLabel>Confirm your password to disable</FieldLabel>
             <input type="password" style={inp} value={disablePassword} onChange={e => setDisablePassword(e.target.value)} required autoFocus />
             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
@@ -1215,9 +1215,9 @@ function SecurityTab({ showToast }) {
         <div style={{ fontSize: 13, color: brand.muted, marginBottom: 16 }}>
           Use an authenticator app (Google Authenticator, Authy, 1Password, etc.) to scan the code below, or enter the secret manually.
         </div>
-        <img src={setupData.qr_code} alt="2FA QR code" style={{ display: "block", marginBottom: 12, border: `1px solid ${brand.border}`, borderRadius: 8 }} />
+        <img src={setupData.qr_code} alt="2FA QR code" style={{ display: "block", marginBottom: 12, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)" }} />
         <div style={{ fontSize: 12, color: brand.muted, marginBottom: 20 }}>
-          Secret: <code style={{ background: brand.bg, padding: "2px 6px", borderRadius: 4 }}>{setupData.secret}</code>
+          Secret: <code style={{ background: brand.bg, padding: "2px 6px", borderRadius: "var(--dispatch-radius-sm)" }}>{setupData.secret}</code>
         </div>
         <form onSubmit={handleEnable}>
           <FieldLabel>Enter the 6-digit code to confirm</FieldLabel>

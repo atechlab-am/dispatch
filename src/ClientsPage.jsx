@@ -11,7 +11,7 @@ const brand = {
 
 const inp = {
   width: "100%", padding: "8px 11px", border: `1px solid ${brand.border}`,
-  borderRadius: 6, fontSize: 13, color: brand.text, background: "#fff",
+  borderRadius: "var(--dispatch-radius-md)", fontSize: 13, color: brand.text, background: "#fff",
   outline: "none", fontFamily: "inherit", boxSizing: "border-box",
 };
 
@@ -31,7 +31,7 @@ const Btn = ({ onClick, children, variant = "primary", small, disabled, type = "
   }[variant];
   return (
     <button type={type} onClick={onClick} disabled={disabled}
-      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: 6, fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1, whiteSpace: "nowrap" }}>
+      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: "var(--dispatch-radius-md)", fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1, whiteSpace: "nowrap" }}>
       {children}
     </button>
   );
@@ -64,7 +64,7 @@ function StatementModal({ client, showToast, onClose }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", padding: "40px 16px" }}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 28, width: "100%", maxWidth: 720, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", marginBottom: 40 }}>
+      <div style={{ background: "#fff", borderRadius: "var(--dispatch-radius-lg)", padding: 28, width: "100%", maxWidth: 720, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", marginBottom: 40 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
           <div>
             <div style={{ fontWeight: 800, fontSize: 20, color: brand.text }}>Client Statement</div>
@@ -82,7 +82,7 @@ function StatementModal({ client, showToast, onClose }) {
                 { label: "Total Paid",   value: `$${fmt(data.total_paid)}`,   color: brand.success },
                 { label: "Outstanding",  value: `$${fmt(data.outstanding)}`,  color: data.outstanding > 0 ? brand.danger : brand.success },
               ].map(({ label, value, color }) => (
-                <div key={label} style={{ background: brand.bg, borderRadius: 8, padding: "14px 18px", border: `1px solid ${brand.border}` }}>
+                <div key={label} style={{ background: brand.bg, borderRadius: "var(--dispatch-radius-md)", padding: "14px 18px", border: `1px solid ${brand.border}` }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>{label}</div>
                   <div style={{ fontSize: 20, fontWeight: 800, color }}>{value}</div>
                 </div>
@@ -91,7 +91,7 @@ function StatementModal({ client, showToast, onClose }) {
             {data.invoices.length === 0 ? (
               <div style={{ color: brand.muted, textAlign: "center", padding: "20px 0" }}>No invoices for this client.</div>
             ) : (
-              <div style={{ border: `1px solid ${brand.border}`, borderRadius: 8, overflow: "hidden" }}>
+              <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", overflow: "hidden" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: brand.bg }}>
@@ -158,7 +158,7 @@ function AddBusinessForm({ onAdd, onCancel }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <div style={{ background: "#fff", border: `1.5px solid ${brand.blue}`, borderRadius: 10, padding: "20px 22px", marginBottom: 20 }}>
+      <div style={{ background: "#fff", border: `1.5px solid ${brand.blue}`, borderRadius: "var(--dispatch-radius-lg)", padding: "20px 22px", marginBottom: 20 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 16 }}>New Business</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
           <div><FieldLabel>Company Name *</FieldLabel><input style={inp} value={form.company} onChange={e => up("company", e.target.value)} placeholder="Acme Corp" required autoFocus /></div>
@@ -225,7 +225,7 @@ function EditBusinessForm({ primary, onSaved, onCancel, showToast, showSlaTiers 
 
   return (
     <form onSubmit={handleSubmit}>
-      <div style={{ background: "#f0f6ff", border: `1.5px solid ${brand.blue}`, borderRadius: 8, padding: "16px 18px", margin: "12px 16px 0" }}>
+      <div style={{ background: "#f0f6ff", border: `1.5px solid ${brand.blue}`, borderRadius: "var(--dispatch-radius-md)", padding: "16px 18px", margin: "12px 16px 0" }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 }}>Edit Business</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
           <div><FieldLabel>Company Name *</FieldLabel><input style={inp} value={form.company} onChange={e => up("company", e.target.value)} required autoFocus /></div>
@@ -288,7 +288,7 @@ function AddContactForm({ companies, preselectedCompany, onAdd, onCancel }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <div style={{ background: "#fff", border: `1.5px solid ${brand.blue}`, borderRadius: 10, padding: "20px 22px", marginBottom: 20 }}>
+      <div style={{ background: "#fff", border: `1.5px solid ${brand.blue}`, borderRadius: "var(--dispatch-radius-lg)", padding: "20px 22px", marginBottom: 20 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 16 }}>New Contact</div>
 
         {!preselectedCompany && (
@@ -476,7 +476,7 @@ function ResidentialRow({ c, onUpdated, onDeleted, onStatement, showToast, compa
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                 <div><FieldLabel>Address</FieldLabel><div style={{ fontSize: 13 }}>{c.address || "—"}</div></div>
                 <div><FieldLabel>Notes</FieldLabel><div style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>{c.notes || "—"}</div></div>
-                <div><FieldLabel>Portal URL</FieldLabel><div style={{ fontSize: 13 }}>{c.slug ? <code style={{ background: "#f0f6ff", padding: "2px 6px", borderRadius: 4, color: brand.blue }}>/p/{c.slug}</code> : <span style={{ color: brand.muted }}>—</span>}</div></div>
+                <div><FieldLabel>Portal URL</FieldLabel><div style={{ fontSize: 13 }}>{c.slug ? <code style={{ background: "#f0f6ff", padding: "2px 6px", borderRadius: "var(--dispatch-radius-sm)", color: brand.blue }}>/p/{c.slug}</code> : <span style={{ color: brand.muted }}>—</span>}</div></div>
               </div>
             )}
           </td>
@@ -508,7 +508,7 @@ function CompanyGroup({ primary, contacts, company, showToast, onPrimaryUpdated,
   }
 
   return (
-    <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 12, background: brand.surface }}>
+    <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden", marginBottom: 12, background: brand.surface }}>
       {/* Company header */}
       <div
         onClick={() => { if (!editingBusiness) setExpanded(p => !p); }}
@@ -527,7 +527,7 @@ function CompanyGroup({ primary, contacts, company, showToast, onPrimaryUpdated,
             {contacts.length} {contacts.length === 1 ? "contact" : "contacts"}
           </span>
           {slug && (
-            <code style={{ background: "#e8f0fd", color: brand.blue, padding: "2px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600 }}>
+            <code style={{ background: "#e8f0fd", color: brand.blue, padding: "2px 8px", borderRadius: "var(--dispatch-radius-md)", fontSize: 12, fontWeight: 600 }}>
               /p/{slug}
             </code>
           )}
@@ -781,7 +781,7 @@ export default function ClientsPage({ showToast, features, isAdmin }) {
           {filteredResidential.length > 0 && (
             <>
               <SectionHeader label="Residential" count={filteredResidential.length} />
-              <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "hidden", background: brand.surface }}>
+              <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden", background: brand.surface }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ background: brand.bg }}>
@@ -810,7 +810,7 @@ export default function ClientsPage({ showToast, features, isAdmin }) {
           )}
 
           {filteredBusinessGroups.length === 0 && filteredResidential.length === 0 && (
-            <div style={{ color: brand.muted, padding: 40, textAlign: "center", background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 10 }}>
+            <div style={{ color: brand.muted, padding: 40, textAlign: "center", background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)" }}>
               {search ? "No clients match your search." : "No clients yet — use the buttons above to add a business or contact."}
             </div>
           )}

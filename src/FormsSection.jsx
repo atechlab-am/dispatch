@@ -17,7 +17,7 @@ const brand = {
 
 const inp = {
   width: "100%", padding: "8px 11px", border: `1px solid ${brand.border}`,
-  borderRadius: 6, fontSize: 13, color: brand.text, background: "#fff",
+  borderRadius: "var(--dispatch-radius-md)", fontSize: 13, color: brand.text, background: "#fff",
   outline: "none", fontFamily: "inherit", boxSizing: "border-box",
 };
 
@@ -31,7 +31,7 @@ const Btn = ({ onClick, children, variant = "primary", small, disabled, type = "
   }[variant];
   return (
     <button type={type} onClick={onClick} disabled={disabled}
-      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: 6, fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1 }}>
+      style={{ ...s, padding: small ? "5px 12px" : "8px 18px", borderRadius: "var(--dispatch-radius-md)", fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1 }}>
       {children}
     </button>
   );
@@ -128,7 +128,7 @@ function FillModal({ template, existing, ticket, onClose, onSaved, showToast }) 
   };
 
   const overlay = { position: "fixed", inset: 0, background: "rgba(13,27,42,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" };
-  const modal  = { background: "#fff", borderRadius: 12, padding: "28px 32px", width: 620, maxWidth: "95vw", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" };
+  const modal  = { background: "#fff", borderRadius: "var(--dispatch-radius-lg)", padding: "28px 32px", width: 620, maxWidth: "95vw", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" };
 
   return (
     <div style={overlay} onClick={e => e.target === e.currentTarget && onClose()}>
@@ -235,7 +235,7 @@ export default function FormsSection({ ticket, showToast }) {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {templates.filter(t => !filledIds.has(t.id)).map(tmpl => (
               <button key={tmpl.id} type="button" onClick={() => setFillTarget({ template: tmpl })}
-                style={{ background: brand.bg, border: `1.5px solid ${brand.border}`, borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 600, color: brand.text, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+                style={{ background: brand.bg, border: `1.5px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding: "8px 14px", fontSize: 13, fontWeight: 600, color: brand.text, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
                 📋 {tmpl.name}
               </button>
             ))}
@@ -251,7 +251,7 @@ export default function FormsSection({ ticket, showToast }) {
             {instances.map(inst => {
               const tmpl = templates.find(t => t.id === inst.template_id);
               return (
-                <div key={inst.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: 8, padding: "10px 14px" }}>
+                <div key={inst.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-md)", padding: "10px 14px" }}>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 13, color: brand.text }}>{inst.template_name}</div>
                     <div style={{ fontSize: 11, color: brand.muted, marginTop: 2 }}>
