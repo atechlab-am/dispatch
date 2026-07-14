@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { listClients, createClient, updateClient, deleteClient, getCompanySummary } from "./api/clients.js";
+import { useNavigate, useParams } from "react-router-dom";
+import { listClients, getClient, createClient, updateClient, deleteClient, getCompanySummary } from "./api/clients.js";
 import { clientStatement } from "./api/invoices.js";
 
 const brand = {
@@ -409,236 +409,56 @@ function ContactRow({ c, onUpdated, onDeleted, onStatement, showToast }) {
   );
 }
 
-// ─── Residential contact row (with address/notes expand) ──────────────────────
+// ─── Residential contact row (list row — click navigates to the detail page) ──
 
-function ResidentialRow({ c, onUpdated, onDeleted, onStatement, showToast, companies, isAdmin }) {
-  const [expanded, setExpanded] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ name: c.name, email: c.email, phone: c.phone, address: c.address, notes: c.notes });
-  const [saving, setSaving] = useState(false);
+function ResidentialRow({ c }) {
   const navigate = useNavigate();
-  const up = (k, v) => setForm(p => ({ ...p, [k]: v }));
-  const cell = { padding: "11px 14px", borderBottom: expanded ? "none" : `1px solid ${brand.border}`, verticalAlign: "middle" };
-
-  async function handleSave() {
-    setSaving(true);
-    try {
-      const updated = await updateClient(c.id, { ...c, ...form });
-      onUpdated(updated);
-      setEditing(false);
-      setExpanded(false);
-      showToast("Contact updated.", "ok");
-    } catch { showToast("Failed to update.", "err"); }
-    finally { setSaving(false); }
-  }
+  const cell = { padding: "11px 14px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle" };
 
   return (
-    <>
-      <tr style={{ cursor: "pointer", background: expanded ? "#f0f6ff" : brand.surface }} onClick={() => { if (!editing) setExpanded(p => !p); }}>
-        <td style={cell}>
-          <div style={{ fontWeight: 600, color: brand.text }}>{c.name}</div>
-          {c.email && <div style={{ fontSize: 12, color: brand.muted }}>{c.email}</div>}
-        </td>
-        <td style={{ ...cell, color: brand.muted, fontSize: 13 }}>{c.phone || "—"}</td>
-        <td style={{ ...cell, textAlign: "right", whiteSpace: "nowrap" }} onClick={e => e.stopPropagation()}>
-          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-            <Btn small variant="ghost" onClick={() => onStatement(c)}>Statement</Btn>
-            {isAdmin && (
-              <Btn small variant="secondary" onClick={() => navigate(`/portal?search=${encodeURIComponent(c.name)}`)}>
-                Portal Access
-              </Btn>
-            )}
-            <Btn small variant="secondary" onClick={() => { setEditing(true); setExpanded(true); }}>Edit</Btn>
-            <Btn small variant="danger" onClick={() => onDeleted(c.id, c.name)}>Delete</Btn>
-          </div>
-        </td>
-      </tr>
-      {expanded && (
-        <tr style={{ background: "#f8faff" }}>
-          <td colSpan={3} style={{ padding: "14px 18px", borderBottom: `1px solid ${brand.border}` }}>
-            {editing ? (
-              <div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
-                  <div><FieldLabel>Name *</FieldLabel><input style={inp} value={form.name} onChange={e => up("name", e.target.value)} /></div>
-                  <div><FieldLabel>Email</FieldLabel><input style={inp} autoComplete="off" value={form.email} onChange={e => up("email", e.target.value)} /></div>
-                  <div><FieldLabel>Phone</FieldLabel><input style={inp} value={form.phone} onChange={e => up("phone", e.target.value)} /></div>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-                  <div><FieldLabel>Address</FieldLabel><input style={inp} value={form.address} onChange={e => up("address", e.target.value)} /></div>
-                  <div><FieldLabel>Notes</FieldLabel><textarea style={{ ...inp, minHeight: 54, resize: "vertical" }} value={form.notes} onChange={e => up("notes", e.target.value)} /></div>
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <Btn variant="accent" onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save"}</Btn>
-                  <Btn variant="ghost" onClick={() => { setEditing(false); setForm({ name: c.name, email: c.email, phone: c.phone, address: c.address, notes: c.notes }); }}>Cancel</Btn>
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-                <div><FieldLabel>Address</FieldLabel><div style={{ fontSize: 13 }}>{c.address || "—"}</div></div>
-                <div><FieldLabel>Notes</FieldLabel><div style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>{c.notes || "—"}</div></div>
-                <div><FieldLabel>Portal URL</FieldLabel><div style={{ fontSize: 13 }}>{c.slug ? <code style={{ background: "#f0f6ff", padding: "2px 6px", borderRadius: "var(--dispatch-radius-sm)", color: brand.blue }}>/p/{c.slug}</code> : <span style={{ color: brand.muted }}>—</span>}</div></div>
-              </div>
-            )}
-          </td>
-        </tr>
-      )}
-    </>
+    <tr style={{ cursor: "pointer" }} onClick={() => navigate(`/clients/${c.id}`)}>
+      <td style={cell}>
+        <div style={{ fontWeight: 600, color: brand.text }}>{c.name}</div>
+        {c.email && <div style={{ fontSize: 12, color: brand.muted }}>{c.email}</div>}
+      </td>
+      <td style={{ ...cell, color: brand.muted, fontSize: 13 }}>{c.phone || "—"}</td>
+      <td style={{ ...cell, textAlign: "right", color: brand.muted, fontSize: 13 }}>→</td>
+    </tr>
   );
 }
 
-// ─── Business company group ───────────────────────────────────────────────────
+// ─── Business company group (list row — click navigates to the detail page) ──
 
-function CompanyGroup({ primary, contacts, company, showToast, onPrimaryUpdated, onContactUpdated, onContactDeleted, onContactAdded, onBusinessDeleted, companies, showSlaTiers, isAdmin }) {
-  const [expanded, setExpanded] = useState(false);
-  const [editingBusiness, setEditingBusiness] = useState(false);
-  const [showAddContact, setShowAddContact] = useState(false);
-  const [summary, setSummary] = useState(null);
+function CompanyGroup({ primary, contacts, company }) {
   const navigate = useNavigate();
-
   const slug = primary.slug;
 
-  useEffect(() => {
-    if (!expanded || summary) return;
-    getCompanySummary(company).then(setSummary).catch(() => {});
-  }, [expanded, company, summary]);
-
-  function handleCancelEdit() {
-    setEditingBusiness(false);
-    setShowAddContact(false);
-  }
-
   return (
-    <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden", marginBottom: 12, background: brand.surface }}>
-      {/* Company header */}
-      <div
-        onClick={() => { if (!editingBusiness) setExpanded(p => !p); }}
-        style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "12px 16px", cursor: "pointer",
-          background: expanded ? "#fafcff" : brand.surface,
-          borderBottom: expanded ? `1px solid ${brand.border}` : "none",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: brand.text }}>{company}</span>
-          {primary.phone && <span style={{ fontSize: 12, color: brand.muted }}>{primary.phone}</span>}
-          {primary.email && <span style={{ fontSize: 12, color: brand.muted }}>{primary.email}</span>}
-          <span className="dispatch-pill" style={{ background: "#e8f0fd", color: brand.blue, borderRadius: 20, padding: "2px 9px", fontSize: 11, fontWeight: 700 }}>
-            {contacts.length} {contacts.length === 1 ? "contact" : "contacts"}
-          </span>
-          {slug && (
-            <code style={{ background: "#e8f0fd", color: brand.blue, padding: "2px 8px", borderRadius: "var(--dispatch-radius-md)", fontSize: 12, fontWeight: 600 }}>
-              /p/{slug}
-            </code>
-          )}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }} onClick={e => e.stopPropagation()}>
-          {isAdmin && (
-            <Btn small variant="secondary" onClick={() => navigate(`/portal?search=${encodeURIComponent(company)}`)}>
-              Portal Access
-            </Btn>
-          )}
-          <Btn small variant="secondary" onClick={() => { setEditingBusiness(p => !p); setShowAddContact(false); setExpanded(true); }}>
-            {editingBusiness ? "Cancel" : "Edit Business"}
-          </Btn>
-          <Btn small variant="danger" onClick={() => onBusinessDeleted(primary.id, company)}>
-            Delete
-          </Btn>
-          <span style={{ color: brand.muted, fontSize: 14, cursor: "pointer" }} onClick={() => setExpanded(p => !p)}>
-            {expanded ? "▲" : "▼"}
-          </span>
-        </div>
+    <div
+      onClick={() => navigate(`/clients/${primary.id}`)}
+      style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "14px 16px", cursor: "pointer",
+        border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)",
+        marginBottom: 10, background: brand.surface, transition: "background 0.12s",
+      }}
+      onMouseEnter={e => e.currentTarget.style.background = "#fafcff"}
+      onMouseLeave={e => e.currentTarget.style.background = brand.surface}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
+        <span style={{ fontSize: 15, fontWeight: 700, color: brand.text }}>{company}</span>
+        {primary.phone && <span style={{ fontSize: 12, color: brand.muted }}>{primary.phone}</span>}
+        {primary.email && <span style={{ fontSize: 12, color: brand.muted }}>{primary.email}</span>}
+        <span className="dispatch-pill" style={{ background: "#e8f0fd", color: brand.blue, borderRadius: 20, padding: "2px 9px", fontSize: 11, fontWeight: 700 }}>
+          {contacts.length} {contacts.length === 1 ? "contact" : "contacts"}
+        </span>
+        {slug && (
+          <code style={{ background: "#e8f0fd", color: brand.blue, padding: "2px 8px", borderRadius: "var(--dispatch-radius-md)", fontSize: 12, fontWeight: 600 }}>
+            /p/{slug}
+          </code>
+        )}
       </div>
-
-      {/* Business edit form — only shown when editingBusiness, not when adding contact */}
-      {editingBusiness && (
-        <EditBusinessForm
-          primary={primary}
-          onSaved={updated => { onPrimaryUpdated(updated); setEditingBusiness(false); }}
-          onCancel={handleCancelEdit}
-          showToast={showToast}
-          showSlaTiers={showSlaTiers}
-        />
-      )}
-
-      {/* Ticket/invoice summary across every contact in this company */}
-      {expanded && !editingBusiness && summary && (
-        <div style={{ padding: "10px 18px", background: "#fafcff", borderBottom: `1px solid ${brand.border}`, display: "flex", gap: 20, flexWrap: "wrap" }}>
-          <div>
-            <FieldLabel>Tickets</FieldLabel>
-            <div style={{ fontSize: 13 }}>
-              {summary.ticket_count} total{summary.open_ticket_count > 0 ? `, ${summary.open_ticket_count} open` : ""}
-            </div>
-          </div>
-          <div>
-            <FieldLabel>Invoices</FieldLabel>
-            <div style={{ fontSize: 13 }}>
-              {summary.invoice_count} total — ${fmt(summary.total_billed)} billed
-              {summary.outstanding > 0 && <span style={{ color: brand.danger, fontWeight: 700 }}> (${fmt(summary.outstanding)} outstanding)</span>}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Business detail (read-only, when expanded and not editing) */}
-      {expanded && !editingBusiness && (primary.address || primary.notes || (showSlaTiers && primary.sla_tier)) && (
-        <div style={{ padding: "10px 18px", background: "#fafcff", borderBottom: `1px solid ${brand.border}`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          {primary.address && <div><FieldLabel>Address</FieldLabel><div style={{ fontSize: 13 }}>{primary.address}</div></div>}
-          {primary.notes && <div><FieldLabel>Notes</FieldLabel><div style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>{primary.notes}</div></div>}
-          {showSlaTiers && primary.sla_tier && (
-            <div><FieldLabel>SLA Tier</FieldLabel><div style={{ fontSize: 13, textTransform: "capitalize" }}>{primary.sla_tier}</div></div>
-          )}
-        </div>
-      )}
-
-      {/* Contacts — only shown when expanded and NOT editing the business */}
-      {expanded && !editingBusiness && (
-        <>
-          {showAddContact ? (
-            <div style={{ padding: "14px 16px 0" }}>
-              <AddContactForm
-                companies={companies}
-                preselectedCompany={company}
-                onAdd={c => { onContactAdded(c); setShowAddContact(false); }}
-                onCancel={() => setShowAddContact(false)}
-              />
-            </div>
-          ) : (
-            <div style={{ padding: "10px 16px", borderBottom: `1px solid ${brand.border}`, background: "#fafcff" }}>
-              <Btn small variant="secondary" onClick={e => { e.stopPropagation(); setShowAddContact(true); }}>
-                + Add Contact
-              </Btn>
-            </div>
-          )}
-
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: brand.bg }}>
-                {["Contact", "Phone", ""].map((h, i) => (
-                  <th key={i} style={{ padding: "8px 14px", textAlign: i === 2 ? "right" : "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {contacts.length === 0 && (
-                <tr><td colSpan={3} style={{ padding: "16px 14px", color: brand.muted, fontSize: 13, textAlign: "center", borderBottom: `1px solid ${brand.border}` }}>
-                  No contacts yet — add one above.
-                </td></tr>
-              )}
-              {contacts.map(c => (
-                <ContactRow
-                  key={c.id}
-                  c={c}
-                  onUpdated={onContactUpdated}
-                  onDeleted={onContactDeleted}
-                  onStatement={() => {}}
-                  showToast={showToast}
-                />
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
+      <span style={{ color: brand.muted, fontSize: 13 }}>→</span>
     </div>
   );
 }
@@ -651,6 +471,213 @@ function SectionHeader({ label, count }) {
       <span style={{ fontSize: 13, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.8px" }}>{label}</span>
       <span className="dispatch-pill" style={{ fontSize: 12, color: brand.muted, background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 20, padding: "1px 9px" }}>{count}</span>
       <div style={{ flex: 1, height: 1, background: brand.border }} />
+    </div>
+  );
+}
+
+// ─── Residential detail form (full edit, used on the detail page) ────────────
+
+function ResidentialDetailForm({ c, onSaved, showToast }) {
+  const [form, setForm] = useState({ name: c.name, email: c.email, phone: c.phone, address: c.address, notes: c.notes });
+  const [saving, setSaving] = useState(false);
+  const up = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  async function handleSave(e) {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try {
+      const updated = await updateClient(c.id, { ...c, ...form });
+      onSaved(updated);
+      showToast("Contact updated.", "ok");
+    } catch { showToast("Failed to update.", "err"); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <form onSubmit={handleSave} style={{ background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", padding: "20px 22px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
+        <div><FieldLabel>Name *</FieldLabel><input style={inp} value={form.name} onChange={e => up("name", e.target.value)} required /></div>
+        <div><FieldLabel>Email</FieldLabel><input style={inp} type="email" autoComplete="off" value={form.email} onChange={e => up("email", e.target.value)} /></div>
+        <div><FieldLabel>Phone</FieldLabel><input style={inp} value={form.phone} onChange={e => up("phone", e.target.value)} /></div>
+      </div>
+      <div style={{ marginBottom: 14 }}><FieldLabel>Address</FieldLabel><input style={inp} value={form.address} onChange={e => up("address", e.target.value)} /></div>
+      <div style={{ marginBottom: 16 }}><FieldLabel>Notes</FieldLabel><textarea style={{ ...inp, minHeight: 70, resize: "vertical" }} value={form.notes} onChange={e => up("notes", e.target.value)} /></div>
+      <div><Btn type="submit" variant="accent" disabled={saving}>{saving ? "Saving…" : "Save"}</Btn></div>
+    </form>
+  );
+}
+
+// ─── Client detail page ────────────────────────────────────────────────────────
+// Reached by clicking a business (company) or residential row on the list page.
+// A business primary contact's id opens the company view (business info, a
+// ticket/invoice summary, and its contacts table); any other client id opens a
+// single-record view.
+
+export function ClientDetailPage({ showToast, features, isAdmin }) {
+  const { clientId } = useParams();
+  const navigate = useNavigate();
+  const showSlaTiers = features?.sla_tiers !== false;
+
+  const [client, setClient] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [contacts, setContacts] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [showAddContact, setShowAddContact] = useState(false);
+  const [statement, setStatement] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getClient(clientId);
+      setClient(data);
+      if (data.client_type === "business" && data.company) {
+        const [all, s] = await Promise.all([listClients(), getCompanySummary(data.company)]);
+        const siblings = all.filter(c => c.client_type === "business" && c.company === data.company && c.id !== data.id);
+        setContacts(siblings.sort((a, b) => a.id - b.id));
+        setSummary(s);
+      } else {
+        setContacts([]);
+        setSummary(null);
+      }
+    } catch {
+      showToast?.("Failed to load client.", "err");
+      navigate("/clients", { replace: true });
+    } finally {
+      setLoading(false);
+    }
+  }, [clientId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleDelete() {
+    if (!client) return;
+    const label = client.client_type === "business" ? (client.company || client.name) : client.name;
+    if (!window.confirm(`Delete "${label}"? This cannot be undone.`)) return;
+    try {
+      await deleteClient(client.id);
+      showToast?.("Deleted.", "ok");
+      navigate("/clients");
+    } catch { showToast?.("Failed to delete.", "err"); }
+  }
+
+  if (loading) {
+    return <div style={{ color: brand.muted, padding: "60px 0", textAlign: "center" }}>Loading…</div>;
+  }
+  if (!client) return null;
+
+  const isBusiness = client.client_type === "business";
+  const companyLabel = client.company || client.name;
+
+  return (
+    <div>
+      {statement && <StatementModal client={statement} showToast={showToast} onClose={() => setStatement(null)} />}
+
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button onClick={() => navigate("/clients")} style={{ background: "none", border: `1px solid ${brand.border}`, color: brand.blue, cursor: "pointer", fontSize: 18, borderRadius: "var(--dispatch-radius-md)", width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" }}>←</button>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 20, color: brand.text }}>{isBusiness ? companyLabel : client.name}</div>
+            <div style={{ fontSize: 12, color: brand.muted }}>{isBusiness ? "Business" : "Residential"}</div>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Btn small variant="ghost" onClick={() => setStatement(client)}>Statement</Btn>
+          {isAdmin && (
+            <Btn small variant="secondary" onClick={() => navigate(`/portal?search=${encodeURIComponent(isBusiness ? companyLabel : client.name)}`)}>
+              Portal Access
+            </Btn>
+          )}
+          <Btn small variant="danger" onClick={handleDelete}>Delete</Btn>
+        </div>
+      </div>
+
+      {isBusiness ? (
+        <>
+          <EditBusinessForm
+            primary={client}
+            onSaved={updated => { setClient(updated); showToast?.("Business updated.", "ok"); }}
+            onCancel={() => {}}
+            showToast={showToast}
+            showSlaTiers={showSlaTiers}
+          />
+
+          {summary && (
+            <div style={{ marginTop: 16, padding: "14px 18px", background: brand.surface, border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", display: "flex", gap: 28, flexWrap: "wrap" }}>
+              <div>
+                <FieldLabel>Tickets</FieldLabel>
+                <div style={{ fontSize: 13 }}>
+                  {summary.ticket_count} total{summary.open_ticket_count > 0 ? `, ${summary.open_ticket_count} open` : ""}
+                </div>
+              </div>
+              <div>
+                <FieldLabel>Invoices</FieldLabel>
+                <div style={{ fontSize: 13 }}>
+                  {summary.invoice_count} total — ${fmt(summary.total_billed)} billed
+                  {summary.outstanding > 0 && <span style={{ color: brand.danger, fontWeight: 700 }}> (${fmt(summary.outstanding)} outstanding)</span>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div style={{ marginTop: 24, marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: brand.text }}>Contacts ({contacts.length})</div>
+            <Btn small variant="secondary" onClick={() => setShowAddContact(p => !p)}>
+              {showAddContact ? "Cancel" : "+ Add Contact"}
+            </Btn>
+          </div>
+
+          {showAddContact && (
+            <div style={{ marginBottom: 14 }}>
+              <AddContactForm
+                companies={[companyLabel]}
+                preselectedCompany={companyLabel}
+                onAdd={c => { setContacts(p => [...p, c].sort((a, b) => a.id - b.id)); setShowAddContact(false); showToast?.("Contact added.", "ok"); }}
+                onCancel={() => setShowAddContact(false)}
+              />
+            </div>
+          )}
+
+          <div style={{ border: `1px solid ${brand.border}`, borderRadius: "var(--dispatch-radius-lg)", overflow: "hidden", background: brand.surface }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: brand.bg }}>
+                  {["Contact", "Phone", ""].map((h, i) => (
+                    <th key={i} style={{ padding: "8px 14px", textAlign: i === 2 ? "right" : "left", fontSize: 11, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: `1px solid ${brand.border}` }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {contacts.length === 0 && (
+                  <tr><td colSpan={3} style={{ padding: "16px 14px", color: brand.muted, fontSize: 13, textAlign: "center", borderBottom: `1px solid ${brand.border}` }}>
+                    No other contacts yet — add one above.
+                  </td></tr>
+                )}
+                {contacts.map(c => (
+                  <ContactRow
+                    key={c.id}
+                    c={c}
+                    onUpdated={updated => setContacts(p => p.map(x => x.id === updated.id ? updated : x))}
+                    onDeleted={async (id, name) => {
+                      if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+                      try {
+                        await deleteClient(id);
+                        setContacts(p => p.filter(x => x.id !== id));
+                        showToast?.("Deleted.", "ok");
+                      } catch { showToast?.("Failed to delete.", "err"); }
+                    }}
+                    onStatement={setStatement}
+                    showToast={showToast}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : (
+        <ResidentialDetailForm c={client} onSaved={updated => { setClient(updated); }} showToast={showToast} />
+      )}
     </div>
   );
 }
@@ -764,15 +791,6 @@ export default function ClientsPage({ showToast, features, isAdmin }) {
                   primary={g.primary}
                   contacts={g.contacts}
                   company={g.company}
-                  showToast={showToast}
-                  companies={companies}
-                  onPrimaryUpdated={updateOne}
-                  onContactUpdated={updateOne}
-                  onContactDeleted={(id, name) => handleDelete(id, name)}
-                  onContactAdded={c => { setClients(p => [...p, c]); showToast("Contact added.", "ok"); }}
-                  onBusinessDeleted={(id, name) => handleDelete(id, name)}
-                  showSlaTiers={showSlaTiers}
-                  isAdmin={isAdmin}
                 />
               ))}
             </>
@@ -792,16 +810,7 @@ export default function ClientsPage({ showToast, features, isAdmin }) {
                   </thead>
                   <tbody>
                     {filteredResidential.map(c => (
-                      <ResidentialRow
-                        key={c.id}
-                        c={c}
-                        onUpdated={updateOne}
-                        onDeleted={(id, name) => handleDelete(id, name)}
-                        onStatement={setStatement}
-                        showToast={showToast}
-                        companies={companies}
-                        isAdmin={isAdmin}
-                      />
+                      <ResidentialRow key={c.id} c={c} />
                     ))}
                   </tbody>
                 </table>

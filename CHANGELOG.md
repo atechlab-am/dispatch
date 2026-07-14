@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.49.0] — 2026-07-14
+
+### Added — Client detail pages
+- User request: clicking a client on the Clients tab should open a dedicated page with all its information, like a ticket does — not expand inline in the table.
+- New route `/clients/:clientId` (`ClientDetailPage`, exported from `ClientsPage.jsx` alongside the list page) — clicking a business (company) row or a residential row now navigates there instead of toggling an inline accordion. Confirmed via AskUserQuestion that both business and residential rows should get this treatment, and that a business's contacts stay as an inline-editable table on the company's own page rather than becoming their own separate pages.
+- Business detail page: company info (`EditBusinessForm`, always in edit mode — no separate read-only view needed on a dedicated page), the ticket/invoice summary previously only visible on inline-expand (`GET /clients/company-summary`), and a contacts table (add/edit/delete) scoped to that company.
+- Residential detail page: a single editable record (name, email, phone, address, notes).
+- Both pages get a Statement button, a Portal Access deep-link (admin only), and a Delete button with the header/back-button layout matching the ticket detail page's own header.
+- New `GET /clients/{id}` API wrapper (`getClient`) — the backend endpoint already existed; only the frontend wrapper was missing. Fetches by ID on mount (same pattern as `TicketEditorRoute`), so the page works correctly on a direct link or hard refresh, not just when navigated to from an already-loaded list.
+- The Clients list page's rows are now simple clickable links — all the inline expand/edit state (business header accordion, residential row accordion) was removed from `CompanyGroup`/`ResidentialRow` and consolidated into the new detail page instead.
+- Both themes verified: no new hardcoded colors or corner-radius values were introduced — everything routes through the existing `brand`/`var(--dispatch-*)` tokens and the `.dispatch-pill` class, consistent with the rest of the app.
+
+### Tests
+- Rewrote `ClientsPage.test.jsx` for the new navigation-based flow: list rows navigate (not expand), the detail page's business/residential branches, SLA tier show/hide/edit, company-summary aggregation, Portal Access admin-gating, and delete-then-navigate-back-to-list. 12 tests (up from 7), all passing. Full suite: 588 backend (pytest) + 227 frontend (Vitest) passing.
+- Not visually verified in a live browser in this pass (none available in this environment) — verified via the full test suite, a clean production build, and manual review of every touched file against the established color/radius/pill token conventions; recommend a quick visual check of both themes before relying on it.
+
 ## [1.48.4] — 2026-07-14
 
 ### Fixed — `upgrade.sh`: real-world run against legacy `docker-compose` 1.29.2 surfaced 3 more bugs

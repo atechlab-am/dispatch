@@ -7,7 +7,7 @@ import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { useBranding } from "./branding.jsx";
 import DashboardPage from "./DashboardPage.jsx";
 import LeadsPage from "./LeadsPage.jsx";
-import ClientsPage from "./ClientsPage.jsx";
+import ClientsPage, { ClientDetailPage } from "./ClientsPage.jsx";
 import InvoicesPage, { InvoiceEditorRoute } from "./InvoicesPage.jsx";
 import QuotesPage, { QuoteEditorRoute } from "./QuotesPage.jsx";
 import ProjectsPage from "./ProjectsPage.jsx";
@@ -174,6 +174,7 @@ export default function AppNew({
     if (location.pathname.startsWith("/tickets/")) return "Ticket";
     if (location.pathname === "/tickets") return "Tickets";
     if (location.pathname === "/leads") return "Leads";
+    if (location.pathname.startsWith("/clients/")) return "Client";
     if (location.pathname === "/clients") return "Clients";
     if (location.pathname.startsWith("/invoices/")) return "Invoice";
     if (location.pathname === "/invoices") return "Invoices";
@@ -325,6 +326,7 @@ export default function AppNew({
             } />
             {features?.leads !== false && <Route path="/leads" element={<LeadsPage showToast={showToast} />} />}
             <Route path="/clients"   element={<ClientsPage showToast={showToast} features={features} isAdmin={isAdmin} />} />
+            <Route path="/clients/:clientId" element={<ClientDetailPage showToast={showToast} features={features} isAdmin={isAdmin} />} />
             <Route path="/invoices"      element={<InvoicesPage showToast={showToast} features={features} />} />
             <Route path="/invoices/new"  element={<InvoiceEditorRoute showToast={showToast} prefill={invoiceDraft} onDraftConsumed={() => setInvoiceDraft(null)} />} />
             <Route path="/invoices/:invoiceId" element={<InvoiceEditorRoute showToast={showToast} />} />

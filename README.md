@@ -148,9 +148,9 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Business and residential client directory with add, edit, delete, and search
 - Business model: a company is a group of client records sharing the same company name; the primary record (lowest ID) holds company-level info; additional records are contacts
 - New Ticket modal picks company first, then contact within that company
+- **Client detail pages** — clicking a business or residential row on the Clients list opens a dedicated page (own URL, `/clients/:id`) instead of expanding inline, matching how Tickets work. A business's page shows its company info, a ticket/invoice summary aggregated across every contact in the company, and an editable contacts table; a residential client's page shows a single editable record
 - **Per-client SLA tiers** — optionally assign a business Gold/Silver/Bronze tier that tightens or relaxes its tickets' SLA deadlines relative to the global per-priority table (no tier = global default)
-- Expanding a business shows a ticket/invoice summary (ticket count + open count, invoice count + total billed/outstanding) aggregated across every contact in the company
-- **Portal Access** button on both business and residential clients deep-links straight to the Portal admin page, pre-filtered and expanded to that client, for provisioning portal access without leaving the Clients tab
+- **Portal Access** button on both business and residential client detail pages deep-links straight to the Portal admin page, pre-filtered and expanded to that client, for provisioning portal access without leaving the Clients tab
 
 ### Invoices
 - Create invoices manually or directly from a ticket
