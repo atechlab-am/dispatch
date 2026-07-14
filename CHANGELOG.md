@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.45.1] — 2026-07-13
+
+### Fixed — Cleared a stray build warning
+- User report: docker build/upgrade logs showed a `whatwg-encoding@3.1.1` deprecation warning.
+- Root cause: a transitive dependency of `jsdom` (test-only, never bundled into the app that ships to users). Bumped `jsdom` 25.0.1 → 29.1.1 in `package.json`/`package-lock.json`, which drops `whatwg-encoding` entirely. Verified full frontend suite (217 tests) and production build output are unaffected before committing.
+- Reviewed the other three warnings in the same log (`pip install` as root during the Docker build, `npm` install-script allowlist notice for `esbuild`, `npm` version notice) and confirmed none indicate an actual problem: the production image switches to a non-root user before running, and the other two are informational only — left as-is.
+
 ## [1.45.0] — 2026-07-13
 
 ### Added — Dashboard now shows Leads stats
