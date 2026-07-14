@@ -715,13 +715,25 @@ const TimerControl = ({ ticketId, onStopped }) => {
 };
 
 // ─── New ticket modal ─────────────────────────────────────────────────────────
-const NewTicketModal = ({ onCreate, onCancel, clients, templates }) => {
+export const NewTicketModal = ({ onCreate, onCancel, clients, templates, users }) => {
   const [ticketType, setTicketType] = useState("Incident");
   const [title,      setTitle]      = useState("");
+  const [description,setDescription]= useState("");
   const [priority,   setPriority]   = useState("Medium");
   const [companyId,  setCompanyId]  = useState(null);
   const [contactId,  setContactId]  = useState(null);
+  const [assignedTo, setAssignedTo] = useState(null);
+  const [workLocation, setWorkLocation] = useState("on_site");
+  const [needsScheduling, setNeedsScheduling] = useState(true);
   const [saving,     setSaving]     = useState(false);
+
+  // Picking Remote auto-defaults Needs Scheduling to No — same one-time
+  // default rule as the full ticket editor (only applies at creation, so
+  // there's no "existing ticket" edge case to guard against here).
+  const handleWorkLocationChange = (loc) => {
+    setWorkLocation(loc);
+    if (loc === "remote") setNeedsScheduling(false);
+  };
 
   const typeIcons = { Incident:"🔥", Request:"📋", "Change Request":"🔄" };
 
@@ -768,7 +780,11 @@ const NewTicketModal = ({ onCreate, onCancel, clients, templates }) => {
     setSaving(true);
     const effectiveClientId = selectedContact ? selectedContact.id : (selectedCompany ? selectedCompany.id : null);
     const clientType = selectedCompany?.client_type || "business";
-    await onCreate({ ticketType, clientType, title: title.trim(), priority, clientId: effectiveClientId, selectedCompany, selectedContact });
+    await onCreate({
+      ticketType, clientType, title: title.trim(), description: description.trim(), priority,
+      clientId: effectiveClientId, selectedCompany, selectedContact,
+      assignedTo, workLocation, needsScheduling,
+    });
     setSaving(false);
   };
 
@@ -811,6 +827,13 @@ const NewTicketModal = ({ onCreate, onCancel, clients, templates }) => {
             placeholder="Brief description of the issue…" style={inp} />
         </div>
 
+        <div style={{ marginBottom:16 }}>
+          <FieldLabel>Description</FieldLabel>
+          <textarea value={description} onChange={e => setDescription(e.target.value)}
+            placeholder="Optional — more detail than the title allows…" rows={3}
+            style={{ ...inp, resize:"vertical", fontFamily:"inherit" }} />
+        </div>
+
         <div style={{ display:"grid", gap:10, marginBottom:16 }}>
           <div>
             <FieldLabel>Company / Client</FieldLabel>
@@ -844,9 +867,34 @@ const NewTicketModal = ({ onCreate, onCancel, clients, templates }) => {
           )}
         </div>
 
-        <div style={{ marginBottom:24 }}>
-          <FieldLabel>Priority</FieldLabel>
-          <Select value={priority} onChange={setPriority} options={PRIORITY_OPTIONS} />
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16 }}>
+          <div>
+            <FieldLabel>Priority</FieldLabel>
+            <Select value={priority} onChange={setPriority} options={PRIORITY_OPTIONS} />
+          </div>
+          <div>
+            <FieldLabel>Assigned To</FieldLabel>
+            <select value={assignedTo ?? ""} onChange={e => setAssignedTo(e.target.value ? parseInt(e.target.value) : null)} style={inp}>
+              <option value="">— Unassigned —</option>
+              {(users || []).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div style={{ background:brand.bg, border:`1px solid ${brand.border}`, borderRadius:8, padding:"12px 14px", marginBottom:24 }}>
+          <FieldLabel>Scheduling</FieldLabel>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+            {[{ id:"on_site", label:"On-Site" }, { id:"remote", label:"Remote" }].map(wl => (
+              <button key={wl.id} onClick={() => handleWorkLocationChange(wl.id)}
+                style={{ padding:"8px 10px", borderRadius:7, fontWeight:600, fontSize:12, cursor:"pointer", border:`2px solid ${workLocation===wl.id?brand.blue:brand.border}`, background:workLocation===wl.id?"#fff":"#fff", color:workLocation===wl.id?brand.blue:brand.muted, textAlign:"left" }}>
+                {wl.label}
+              </button>
+            ))}
+          </div>
+          <label style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, fontWeight:600, color:brand.text, cursor:"pointer" }}>
+            <input type="checkbox" checked={needsScheduling} onChange={e => setNeedsScheduling(e.target.checked)} style={{ cursor:"pointer" }} />
+            Needs scheduling
+          </label>
         </div>
 
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
@@ -2635,7 +2683,7 @@ export default function App() {
 
   const handleNew = () => setNewModal(true);
 
-  const handleCreate = async ({ ticketType, clientType, title, priority, clientId, selectedCompany, selectedContact }) => {
+  const handleCreate = async ({ ticketType, clientType, title, description, priority, clientId, selectedCompany, selectedContact, assignedTo, workLocation, needsScheduling }) => {
     try {
       const rec = clients.find(c => c.id === clientId);
       // Build display name: "Company — Contact" when a contact is selected, else company or name
@@ -2654,7 +2702,10 @@ export default function App() {
         client_phone:  phone,
         client_address:address,
         title,
-        description: "", internal_notes: "",
+        description: description || "", internal_notes: "",
+        assigned_to: assignedTo ?? null,
+        work_location: workLocation ?? "on_site",
+        needs_scheduling: needsScheduling ?? true,
         travel_fee: "travel_none", service_lines: [], hour_logs: [], materials_used: [],
       });
       setNewModal(false);

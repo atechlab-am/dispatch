@@ -357,7 +357,7 @@ export default function AppNew({
       {newModal && (
         <NewTicketModal
           onCreate={handleCreate} onCancel={() => setNewModal(false)}
-          clients={clients} onClientCreated={loadClients} templates={templates}
+          clients={clients} onClientCreated={loadClients} templates={templates} users={users}
         />
       )}
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => showToast(null)} />}

@@ -106,6 +106,7 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 
 ### Tickets
 - Create, edit, delete tickets with status, priority, client, and technician assignment
+- **New Ticket modal** collects Description, Assigned Technician, and Work Location/Needs Scheduling up front (in addition to Type, Title, Client/Contact, Priority) — no need to open the full editor just to fill these in right after creating
 - Search and filter by status, priority, assigned technician — defaults to an **Active** view (Open, In Progress, Awaiting Client), one click away from "All"
 - **Services** — type-to-search the business/residential service catalogue to add a line (flat-fee, per-unit, or hourly pricing), same search-as-you-type UX as Materials
 - PDF export per ticket; CSV bulk export (admin only)

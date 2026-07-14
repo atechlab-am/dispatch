@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.44.0] — 2026-07-13
+
+### Added — New Ticket modal collects more up front
+- User report: the quick "+ New Ticket" modal only asked for Type, Title, Client/Contact, and Priority — everything else (description, assignee, and the new Work Location/Needs Scheduling fields from v1.43.0) had to be filled in after creation by opening the full ticket editor.
+- The modal now also collects **Description** (optional multi-line text), **Assigned Technician** (same dropdown as the full editor), and **Work Location / Needs Scheduling** (same Scheduling section and Remote-auto-defaults-Needs-Scheduling-to-No-on-creation behavior as the full editor). No backend changes — `POST /api/tickets` already accepted `description`, `assigned_to`, `work_location`, and `needs_scheduling`, they just weren't being sent from this entry point.
+- `NewTicketModal` is now an exported component (`src/App.jsx`), following the same pattern as `TicketList`/`TicketEditor`, enabling direct component testing without booting the full app/auth flow.
+
+### Tests
+- 4 new frontend tests (`NewTicketModal.test.jsx`): description/assignee/scheduling fields reach `onCreate`, Remote auto-unchecks Needs Scheduling, manual re-check after Remote still works, Create Ticket stays disabled until a title is entered. Full suite: 583 backend (pytest) + 210 frontend (Vitest) passing.
+
 ## [1.43.0] — 2026-07-13
 
 ### Added — Scheduling controls for remote tickets and lead follow-ups
