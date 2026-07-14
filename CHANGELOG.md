@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.45.2] — 2026-07-13
+
+### Fixed — Bare-metal Linux installer still pinned Node.js to v20
+- The Docker builds and CI (`Dockerfile`, `ci.yml`) were already on Node 24, but `scripts/linux/install-bare-metal.sh`'s NodeSource fallback (used when the distro's default `nodejs` package is too old for Vite 6+) was still installing/accepting Node 20 — the only remaining place in the repo pinned to the older version. The Windows bare-metal script already tracks current LTS automatically via `winget`'s `OpenJS.NodeJS.LTS` package, so it needed no change.
+- Bumped both the apt and dnf NodeSource setup URLs (`setup_20.x` → `setup_24.x`) and the version-check gate (`>= 20` → `>= 24`) so a fresh bare-metal install matches the same Node version used everywhere else in the stack.
+
 ## [1.45.1] — 2026-07-13
 
 ### Fixed — Cleared a stray build warning

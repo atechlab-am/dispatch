@@ -83,11 +83,11 @@ if [ "$PKG_FAMILY" = "apt" ]; then
   NODE_OK=0
   if command -v node > /dev/null 2>&1; then
     NODE_MAJOR=$(node -v | sed -E 's/^v([0-9]+).*/\1/')
-    if [ "$NODE_MAJOR" -ge 20 ] 2>/dev/null; then NODE_OK=1; fi
+    if [ "$NODE_MAJOR" -ge 24 ] 2>/dev/null; then NODE_OK=1; fi
   fi
   if [ "$NODE_OK" -eq 0 ]; then
-    echo "    System Node.js is missing or too old (need >= 20) — installing via NodeSource..."
-    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    echo "    System Node.js is missing or too old (need >= 24) — installing via NodeSource..."
+    curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
     sudo apt-get install -y nodejs
   fi
 else
@@ -97,11 +97,11 @@ else
   NODE_OK=0
   if command -v node > /dev/null 2>&1; then
     NODE_MAJOR=$(node -v | sed -E 's/^v([0-9]+).*/\1/')
-    if [ "$NODE_MAJOR" -ge 20 ] 2>/dev/null; then NODE_OK=1; fi
+    if [ "$NODE_MAJOR" -ge 24 ] 2>/dev/null; then NODE_OK=1; fi
   fi
   if [ "$NODE_OK" -eq 0 ]; then
-    echo "    System Node.js is missing or too old (need >= 20) — installing via NodeSource..."
-    curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo -E bash -
+    echo "    System Node.js is missing or too old (need >= 24) — installing via NodeSource..."
+    curl -fsSL https://rpm.nodesource.com/setup_24.x | sudo -E bash -
     sudo dnf install -y nodejs
   fi
 
