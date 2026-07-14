@@ -100,3 +100,48 @@ test("clicking + New Lead opens the create modal", async () => {
   fireEvent.click(screen.getByText("+ New Lead"));
   expect(await screen.findByText("New Lead")).toBeInTheDocument();
 });
+
+test("the table wrapper allows horizontal scrolling instead of squeezing columns to fit", async () => {
+  listLeads.mockResolvedValue([LEAD_ONE]);
+  render(<LeadsPage showToast={() => {}} />);
+  await screen.findByText("Acme Plumbing");
+
+  const table = document.querySelector("table");
+  const wrapper = table.parentElement;
+  expect(wrapper.style.overflowX).toBe("auto");
+  // The table must be allowed to exceed the wrapper's width (not width:100%)
+  // for the horizontal scrollbar to ever actually appear.
+  expect(table.style.width).not.toBe("100%");
+});
+
+test("dragging a column's resize handle changes its width", async () => {
+  listLeads.mockResolvedValue([LEAD_ONE]);
+  render(<LeadsPage showToast={() => {}} />);
+  await screen.findByText("Acme Plumbing");
+
+  const businessNameHeader = screen.getByText("Business Name").closest("th");
+  const initialWidth = businessNameHeader.style.width;
+  const handle = businessNameHeader.querySelector("span");
+
+  fireEvent.mouseDown(handle, { clientX: 100 });
+  fireEvent.mouseMove(document, { clientX: 220 });
+  fireEvent.mouseUp(document);
+
+  expect(businessNameHeader.style.width).not.toBe(initialWidth);
+  expect(parseInt(businessNameHeader.style.width, 10)).toBeGreaterThan(parseInt(initialWidth, 10));
+});
+
+test("resize handle does not trigger a column sort", async () => {
+  listLeads.mockResolvedValue([LEAD_ONE]);
+  render(<LeadsPage showToast={() => {}} />);
+  await screen.findByText("Acme Plumbing");
+
+  const businessNameHeader = screen.getByText("Business Name").closest("th");
+  const handle = businessNameHeader.querySelector("span");
+
+  fireEvent.mouseDown(handle, { clientX: 100 });
+  fireEvent.mouseUp(document);
+  fireEvent.click(handle);
+
+  expect(screen.queryByText(/Business Name.*[▲▼]/)).not.toBeInTheDocument();
+});

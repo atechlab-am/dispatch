@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.44.1] — 2026-07-13
+
+### Fixed — Leads table columns couldn't be resized and the horizontal scrollbar never appeared
+- User report: with 14 columns (Priority through Notes) plus checkbox/actions, the Leads table always squeezed every column to fit the viewport width instead of letting the user scroll sideways or resize a column that needed more room (e.g. Notes, Email).
+- Root cause: the `<table>` was `width: "100%"` with no per-column widths, so the browser always shrank columns to fit rather than ever growing past the wrapper and triggering `overflow: auto`'s scrollbar.
+- `LeadsPage.jsx`: each column now has an explicit pixel width held in state (`colWidths`), initialized from a per-column default; the table uses `table-layout: fixed` and `width: max-content` (not `100%`) so it can exceed the wrapper's width. Each header gained a drag handle on its right edge (`onMouseDown` → tracks `mousemove`/`mouseup` on `document`) that resizes just that column, clamped to a 60px minimum; dragging the handle no longer also triggers the column's sort-on-click. Cells got `title=` tooltips and ellipsis truncation so a narrowed column still shows the full value on hover.
+
+### Tests
+- 3 new frontend tests (`LeadsPage.test.jsx`): wrapper allows horizontal overflow, dragging a resize handle widens the column, and the handle doesn't trigger a sort. Full suite: 583 backend (pytest) + 213 frontend (Vitest) passing.
+
 ## [1.44.0] — 2026-07-13
 
 ### Added — New Ticket modal collects more up front

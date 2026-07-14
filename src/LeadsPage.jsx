@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   listLeads, deleteLead, bulkUpdateLeads, bulkDeleteLeads,
   importLeadsCsv, downloadLeadsCsv, downloadLeadsSampleCsv,
@@ -48,21 +48,23 @@ const STAGE_COLOR = {
 };
 
 const COLUMNS = [
-  { key: "priority", label: "Priority" },
-  { key: "business_name", label: "Business Name" },
-  { key: "industry", label: "Category" },
-  { key: "area", label: "Area" },
-  { key: "address", label: "Address", sortable: false },
-  { key: "phone", label: "Phone", sortable: false },
-  { key: "website", label: "Website", sortable: false },
-  { key: "contact_name", label: "Contact" },
-  { key: "contact_email", label: "Email", sortable: false },
-  { key: "outreach_channel", label: "Outreach", sortable: false },
-  { key: "date_contacted", label: "Contacted" },
-  { key: "follow_up_date", label: "Follow-Up" },
-  { key: "stage", label: "Status" },
-  { key: "notes", label: "Notes", sortable: false },
+  { key: "priority", label: "Priority", width: 100 },
+  { key: "business_name", label: "Business Name", width: 180 },
+  { key: "industry", label: "Category", width: 130 },
+  { key: "area", label: "Area", width: 120 },
+  { key: "address", label: "Address", sortable: false, width: 180 },
+  { key: "phone", label: "Phone", sortable: false, width: 120 },
+  { key: "website", label: "Website", sortable: false, width: 160 },
+  { key: "contact_name", label: "Contact", width: 140 },
+  { key: "contact_email", label: "Email", sortable: false, width: 180 },
+  { key: "outreach_channel", label: "Outreach", sortable: false, width: 110 },
+  { key: "date_contacted", label: "Contacted", width: 110 },
+  { key: "follow_up_date", label: "Follow-Up", width: 110 },
+  { key: "stage", label: "Status", width: 110 },
+  { key: "notes", label: "Notes", sortable: false, width: 200 },
 ];
+
+const MIN_COLUMN_WIDTH = 60;
 
 function fmtDate(d) {
   if (!d) return "—";
@@ -84,6 +86,34 @@ export default function LeadsPage({ showToast }) {
   const [modalLead, setModalLead] = useState(undefined); // undefined = closed, null = new, obj = edit
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
+  const [colWidths, setColWidths] = useState(() => Object.fromEntries(COLUMNS.map(c => [c.key, c.width])));
+  const resizing = useRef(null); // { key, startX, startWidth }
+
+  const startResize = (key, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizing.current = { key, startX: e.clientX, startWidth: colWidths[key] };
+    document.addEventListener("mousemove", handleResizeMove);
+    document.addEventListener("mouseup", stopResize);
+  };
+
+  const handleResizeMove = (e) => {
+    if (!resizing.current) return;
+    const { key, startX, startWidth } = resizing.current;
+    const next = Math.max(MIN_COLUMN_WIDTH, startWidth + (e.clientX - startX));
+    setColWidths(w => ({ ...w, [key]: next }));
+  };
+
+  const stopResize = () => {
+    resizing.current = null;
+    document.removeEventListener("mousemove", handleResizeMove);
+    document.removeEventListener("mouseup", stopResize);
+  };
+
+  useEffect(() => () => {
+    document.removeEventListener("mousemove", handleResizeMove);
+    document.removeEventListener("mouseup", stopResize);
+  }, []);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -210,16 +240,23 @@ export default function LeadsPage({ showToast }) {
       key={col.key}
       onClick={col.sortable === false ? undefined : () => handleSort(col.key)}
       style={{
-        padding: "8px 10px", textAlign: "left", fontSize: 11, fontWeight: 700, color: brand.muted,
+        position: "relative", padding: "8px 14px 8px 10px", textAlign: "left", fontSize: 11, fontWeight: 700, color: brand.muted,
         textTransform: "uppercase", letterSpacing: "0.4px", borderBottom: `1px solid ${brand.border}`,
-        cursor: col.sortable === false ? "default" : "pointer", whiteSpace: "nowrap",
+        cursor: col.sortable === false ? "default" : "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+        width: colWidths[col.key], minWidth: colWidths[col.key], maxWidth: colWidths[col.key], boxSizing: "border-box",
       }}
     >
       {col.label}{sortKey === col.key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+      <span
+        onMouseDown={e => startResize(col.key, e)}
+        onClick={e => e.stopPropagation()}
+        style={{ position: "absolute", top: 0, right: 0, width: 6, height: "100%", cursor: "col-resize", userSelect: "none" }}
+      />
     </th>
   );
 
-  const cell = { padding: "9px 10px", borderBottom: `1px solid ${brand.border}`, fontSize: 13, color: brand.text, verticalAlign: "top" };
+  const cell = { padding: "9px 10px", borderBottom: `1px solid ${brand.border}`, fontSize: 13, color: brand.text, verticalAlign: "top", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", boxSizing: "border-box" };
+  const colCell = (col) => ({ ...cell, width: colWidths[col.key], minWidth: colWidths[col.key], maxWidth: colWidths[col.key] });
 
   return (
     <div>
@@ -297,55 +334,55 @@ export default function LeadsPage({ showToast }) {
           No leads in this view yet.
         </div>
       ) : (
-        <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflow: "auto", background: brand.surface }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, overflowX: "auto", overflowY: "hidden", background: brand.surface }}>
+          <table style={{ width: "max-content", minWidth: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
             <thead>
               <tr style={{ background: brand.bg }}>
-                <th style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}` }}>
+                <th style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}`, width: 36, minWidth: 36 }}>
                   <input type="checkbox" checked={selected.size === tabbed.length && tabbed.length > 0} onChange={toggleSelectAll} />
                 </th>
                 {COLUMNS.map(th)}
-                <th style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}` }} />
+                <th style={{ padding: "8px 10px", borderBottom: `1px solid ${brand.border}`, width: 80, minWidth: 80 }} />
               </tr>
             </thead>
             <tbody>
               {sorted.map(lead => (
                 <tr key={lead.id} style={{ cursor: "pointer" }} onClick={() => setModalLead(lead)}>
-                  <td style={cell} onClick={e => e.stopPropagation()}>
+                  <td style={{ ...cell, width: 36, minWidth: 36 }} onClick={e => e.stopPropagation()}>
                     <input type="checkbox" checked={selected.has(lead.id)} onChange={() => toggleSelect(lead.id)} />
                   </td>
-                  <td style={cell}>
+                  <td style={colCell(COLUMNS[0])}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: PRIORITY_COLOR[lead.priority], display: "inline-block" }} />
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: PRIORITY_COLOR[lead.priority], display: "inline-block", flexShrink: 0 }} />
                       {PRIORITY_LABEL[lead.priority]}
                     </span>
                   </td>
-                  <td style={{ ...cell, fontWeight: 700 }}>{lead.business_name}</td>
-                  <td style={cell}>{lead.industry || "—"}</td>
-                  <td style={cell}>{lead.area || "—"}</td>
-                  <td style={cell}>{lead.address || "—"}</td>
-                  <td style={cell}>{lead.phone || "—"}</td>
-                  <td style={cell}>
+                  <td style={{ ...colCell(COLUMNS[1]), fontWeight: 700 }} title={lead.business_name}>{lead.business_name}</td>
+                  <td style={colCell(COLUMNS[2])} title={lead.industry}>{lead.industry || "—"}</td>
+                  <td style={colCell(COLUMNS[3])} title={lead.area}>{lead.area || "—"}</td>
+                  <td style={colCell(COLUMNS[4])} title={lead.address}>{lead.address || "—"}</td>
+                  <td style={colCell(COLUMNS[5])} title={lead.phone}>{lead.phone || "—"}</td>
+                  <td style={colCell(COLUMNS[6])}>
                     {lead.website ? (
                       <a href={/^https?:\/\//.test(lead.website) ? lead.website : `https://${lead.website}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ color: brand.blue }}>
                         {lead.website.replace(/^https?:\/\//, "")}
                       </a>
                     ) : "—"}
                   </td>
-                  <td style={cell}>{lead.contact_name || "—"}</td>
-                  <td style={cell}>{lead.contact_email || "—"}</td>
-                  <td style={cell}>{lead.outreach_channel || "—"}</td>
-                  <td style={cell}>{fmtDate(lead.date_contacted)}</td>
-                  <td style={{ ...cell, color: isOverdue(lead.follow_up_date) && lead.stage !== "won" && lead.stage !== "lost" ? brand.danger : brand.text, fontWeight: isOverdue(lead.follow_up_date) ? 700 : 400 }}>
+                  <td style={colCell(COLUMNS[7])} title={lead.contact_name}>{lead.contact_name || "—"}</td>
+                  <td style={colCell(COLUMNS[8])} title={lead.contact_email}>{lead.contact_email || "—"}</td>
+                  <td style={colCell(COLUMNS[9])} title={lead.outreach_channel}>{lead.outreach_channel || "—"}</td>
+                  <td style={colCell(COLUMNS[10])}>{fmtDate(lead.date_contacted)}</td>
+                  <td style={{ ...colCell(COLUMNS[11]), color: isOverdue(lead.follow_up_date) && lead.stage !== "won" && lead.stage !== "lost" ? brand.danger : brand.text, fontWeight: isOverdue(lead.follow_up_date) ? 700 : 400 }}>
                     {fmtDate(lead.follow_up_date)}
                   </td>
-                  <td style={cell}>
+                  <td style={colCell(COLUMNS[12])}>
                     <span style={{ background: STAGE_COLOR[lead.stage].bg, color: STAGE_COLOR[lead.stage].color, borderRadius: 20, padding: "2px 9px", fontSize: 11, fontWeight: 700 }}>
                       {STAGE_LABEL[lead.stage]}
                     </span>
                   </td>
-                  <td style={{ ...cell, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={lead.notes}>{lead.notes || "—"}</td>
-                  <td style={cell} onClick={e => e.stopPropagation()}>
+                  <td style={colCell(COLUMNS[13])} title={lead.notes}>{lead.notes || "—"}</td>
+                  <td style={{ ...cell, width: 80, minWidth: 80 }} onClick={e => e.stopPropagation()}>
                     <Btn small variant="danger" onClick={() => handleDelete(lead.id, lead.business_name)}>Delete</Btn>
                   </td>
                 </tr>

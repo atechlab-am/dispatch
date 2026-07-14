@@ -139,6 +139,7 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - **Activity timeline** — a log of calls/emails/notes/meetings per lead, plus system-generated stage-change entries
 - **Convert to Client** — a Won lead converts with one click into a real Client (business/contact info carried over), the same pattern as Quote → Invoice conversion below
 - **Follow-up scheduled** — a checkbox next to Follow-Up Date; when checked, the lead shows up in the Schedule tab's "Leads to Follow Up" sidebar and can be dragged onto the calendar to book the follow-up call/meeting, alongside ticket appointments in a distinct color
+- **Resizable columns** — drag a column header's right edge to widen/narrow it; the table scrolls horizontally (visible scrollbar) instead of squeezing every column to fit the screen
 - Toggleable via `FEATURE_LEADS`
 
 ### Clients
