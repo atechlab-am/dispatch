@@ -61,7 +61,7 @@ function TagInput({ value, onChange, placeholder }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 4, border: `1px solid ${brand.border}`, borderRadius: 6, padding: "5px 8px", background: "#fff", minHeight: 36 }}>
       {value.map(t => (
-        <span key={t} style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 20, padding: "2px 8px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+        <span key={t} className="dispatch-pill" style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 20, padding: "2px 8px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
           {t}
           <button type="button" onClick={() => onChange(value.filter(x => x !== t))}
             style={{ background: "none", border: "none", cursor: "pointer", color: brand.muted, fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
@@ -605,7 +605,7 @@ function DocTable({ docs, isAdmin, selected, setSelected, setEditDoc, handleDele
               <td style={{ padding: "12px 14px", borderBottom: `1px solid ${brand.border}`, verticalAlign: "middle" }}>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                   {doc.tags.map(t => (
-                    <span key={t} style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 20, padding: "1px 8px", fontSize: 11 }}>{t}</span>
+                    <span key={t} className="dispatch-pill" style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 20, padding: "1px 8px", fontSize: 11 }}>{t}</span>
                   ))}
                 </div>
               </td>

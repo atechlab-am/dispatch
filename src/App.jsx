@@ -315,7 +315,7 @@ ${ticket.internalNotes ? `<div class="notes-box"><h3>Notes</h3><p>${esc(ticket.i
 // ─── UI primitives ────────────────────────────────────────────────────────────
 const Badge = ({ children, color }) => {
   const c = { blue: [brand.blue,"#fff"], amber: [brand.accent,"#fff"], green: [brand.success,"#fff"], gray: ["#e2e8f0",brand.muted], red: [brand.danger,"#fff"] }[color] || ["#e2e8f0",brand.muted];
-  return <span style={{ background:c[0], color:c[1], borderRadius:20, padding:"2px 10px", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.4px" }}>{children}</span>;
+  return <span className="dispatch-pill" style={{ background:c[0], color:c[1], borderRadius:20, padding:"2px 10px", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.4px" }}>{children}</span>;
 };
 
 const SectionHeader = ({ children }) => (
@@ -798,7 +798,7 @@ export const NewTicketModal = ({ onCreate, onCancel, clients, templates, users }
             <FieldLabel>Start from Template</FieldLabel>
             <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
               {templates.map(tpl => (
-                <button key={tpl.id} onClick={() => applyTemplate(tpl)}
+                <button key={tpl.id} onClick={() => applyTemplate(tpl)} className="dispatch-pill"
                   style={{ padding:"5px 12px", borderRadius:20, fontSize:12, fontWeight:600, cursor:"pointer", border:`1.5px solid ${brand.blue}`, background:"#fff", color:brand.blue }}>
                   {tpl.name}
                 </button>
@@ -1045,9 +1045,9 @@ const BoardView = ({ tickets, onSelect, onStatusChange, users }) => {
             }}>
             {/* Column header */}
             <div style={{ padding: "12px 14px 10px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: col.color, flexShrink: 0 }} />
+              <div className="dispatch-pill" style={{ width: 10, height: 10, borderRadius: "50%", background: col.color, flexShrink: 0 }} />
               <span style={{ fontWeight: 700, fontSize: 13, color: "#0f172a" }}>{col.label}</span>
-              <span style={{ marginLeft: "auto", background: "#e2e8f0", color: "#64748b", borderRadius: 20, padding: "1px 8px", fontSize: 11, fontWeight: 700 }}>{cards.length}</span>
+              <span className="dispatch-pill" style={{ marginLeft: "auto", background: "#e2e8f0", color: "#64748b", borderRadius: 20, padding: "1px 8px", fontSize: 11, fontWeight: 700 }}>{cards.length}</span>
             </div>
 
             {/* Cards */}
@@ -1112,7 +1112,7 @@ const BoardView = ({ tickets, onSelect, onStatusChange, users }) => {
                     {/* Footer row */}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: PRIORITY_DOT[t.priority] ?? "#94a3b8", flexShrink: 0 }} />
+                        <div className="dispatch-pill" style={{ width: 8, height: 8, borderRadius: "50%", background: PRIORITY_DOT[t.priority] ?? "#94a3b8", flexShrink: 0 }} />
                         <span style={{ fontSize: 10, fontWeight: 600, color: "#64748b" }}>{t.priority}</span>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -1122,7 +1122,7 @@ const BoardView = ({ tickets, onSelect, onStatusChange, users }) => {
                           </span>
                         )}
                         {t.assigned_to && assigneeName(t.assigned_to) && (
-                          <div style={{ width: 22, height: 22, borderRadius: "50%", background: brand.blue, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} title={assigneeName(t.assigned_to)}>
+                          <div className="dispatch-pill" style={{ width: 22, height: 22, borderRadius: "50%", background: brand.blue, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} title={assigneeName(t.assigned_to)}>
                             {assigneeName(t.assigned_to).slice(0,2).toUpperCase()}
                           </div>
                         )}
@@ -1215,7 +1215,7 @@ export const TicketList = ({ tickets, total, loading, onSelect, onNew, search, o
         {viewMode === "list" && (
           <div style={{ display:"flex", gap:6 }}>
             {["Active", "All", ...STATUS_OPTIONS].map(s => (
-              <button key={s} onClick={()=>onStatusFilter(s)}
+              <button key={s} onClick={()=>onStatusFilter(s)} className="dispatch-pill"
                 style={{ padding:"6px 14px", borderRadius:20, fontSize:12, fontWeight:600, cursor:"pointer", border:`1.5px solid ${statusFilter===s?brand.blue:brand.border}`, background:statusFilter===s?brand.blue:"#fff", color:statusFilter===s?"#fff":brand.muted }}>
                 {s}
               </button>
@@ -1299,8 +1299,8 @@ export const TicketList = ({ tickets, total, loading, onSelect, onNew, search, o
                 const sla = slaStatus(t.sla_resolution_due, t.created_at, t.priority);
                 if (!sla || t.status === "Resolved" || t.status === "Closed") return null;
                 return (
-                  <div style={{ display:"flex", alignItems:"center", gap:5, background: sla.breached ? "#fee2e2" : "#f0fdf4", border:`1px solid ${sla.color}33`, borderRadius:20, padding:"2px 10px" }}>
-                    <div style={{ width:7, height:7, borderRadius:"50%", background:sla.color }} />
+                  <div className="dispatch-pill" style={{ display:"flex", alignItems:"center", gap:5, background: sla.breached ? "#fee2e2" : "#f0fdf4", border:`1px solid ${sla.color}33`, borderRadius:20, padding:"2px 10px" }}>
+                    <div className="dispatch-pill" style={{ width:7, height:7, borderRadius:"50%", background:sla.color }} />
                     <span style={{ fontSize:11, fontWeight:700, color:sla.color, whiteSpace:"nowrap" }}>
                       {sla.breached ? "SLA Breached" : `SLA ${sla.label}`}
                     </span>
@@ -1390,7 +1390,7 @@ const PlaybookSection = ({ ticketType, ticketId }) => {
           {doc.tags.length > 0 && (
             <div style={{ display: "flex", gap: 4, marginBottom: 4, flexWrap: "wrap" }}>
               {doc.tags.map(t => (
-                <span key={t} style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 20, padding: "1px 7px", fontSize: 11, color: brand.muted }}>{t}</span>
+                <span key={t} className="dispatch-pill" style={{ background: "#fff", border: `1px solid ${brand.border}`, borderRadius: 20, padding: "1px 7px", fontSize: 11, color: brand.muted }}>{t}</span>
               ))}
             </div>
           )}
@@ -1523,8 +1523,8 @@ const CommentsSection = ({ ticketId, currentUser, features }) => {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <span style={{ fontWeight: 700, fontSize: 13, color: brand.text }}>{c.author_name}</span>
-              {!c.author_id && <span style={{ fontSize: 10, fontWeight: 700, background: "#64748b", color: "#fff", borderRadius: 20, padding: "1px 8px", textTransform: "uppercase" }}>Client</span>}
-              {c.is_internal && <span style={{ fontSize: 10, fontWeight: 700, background: brand.accent, color: "#fff", borderRadius: 20, padding: "1px 8px", textTransform: "uppercase" }}>Internal</span>}
+              {!c.author_id && <span className="dispatch-pill" style={{ fontSize: 10, fontWeight: 700, background: "#64748b", color: "#fff", borderRadius: 20, padding: "1px 8px", textTransform: "uppercase" }}>Client</span>}
+              {c.is_internal && <span className="dispatch-pill" style={{ fontSize: 10, fontWeight: 700, background: brand.accent, color: "#fff", borderRadius: 20, padding: "1px 8px", textTransform: "uppercase" }}>Internal</span>}
               <span style={{ fontSize: 11, color: brand.muted }}>{new Date(c.created_at).toLocaleString()}</span>
             </div>
             {/* currentUser?.id === c.author_id is always false when author_id is null
@@ -2230,7 +2230,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
               <div style={{ background: isClosed ? "#f0fdf4" : isPaused ? "#fffbeb" : (reso?.breached ? "#fee2e2" : "#fff"), border:`1.5px solid ${isClosed ? "#86efac" : isPaused ? "#fcd34d" : reso?.breached ? "#fca5a5" : brand.border}`, borderRadius:10, padding:"14px 16px", marginBottom:16 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
                   <div style={{ fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.5px", color:brand.muted }}>SLA</div>
-                  {isPaused && <span style={{ fontSize:11, fontWeight:700, color:"#b45309", background:"#fef3c7", borderRadius:20, padding:"2px 10px" }}>⏸ Paused — {t.status}</span>}
+                  {isPaused && <span className="dispatch-pill" style={{ fontSize:11, fontWeight:700, color:"#b45309", background:"#fef3c7", borderRadius:20, padding:"2px 10px" }}>⏸ Paused — {t.status}</span>}
                 </div>
                 {isClosed ? (
                   <div style={{ fontSize:13, color:"#16a34a", fontWeight:600 }}>Ticket closed — SLA clock stopped</div>
@@ -2492,8 +2492,8 @@ const RecurringPage = ({ showToast, clients = [] }) => {
           <div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
               <span style={{ fontWeight: 700, fontSize: 14, color: brand.text }}>{r.name}</span>
-              <span style={{ fontSize: 11, fontWeight: 600, padding: "1px 8px", borderRadius: 20, background: r.active ? "#e6f4ec" : "#f0f0f0", color: r.active ? brand.success : brand.muted }}>{r.active ? "Active" : "Paused"}</span>
-              <span style={{ fontSize: 11, color: brand.muted, background: brand.bg, padding: "1px 8px", borderRadius: 20 }}>{r.interval}</span>
+              <span className="dispatch-pill" style={{ fontSize: 11, fontWeight: 600, padding: "1px 8px", borderRadius: 20, background: r.active ? "#e6f4ec" : "#f0f0f0", color: r.active ? brand.success : brand.muted }}>{r.active ? "Active" : "Paused"}</span>
+              <span className="dispatch-pill" style={{ fontSize: 11, color: brand.muted, background: brand.bg, padding: "1px 8px", borderRadius: 20 }}>{r.interval}</span>
             </div>
             <div style={{ fontSize: 12, color: brand.muted }}>
               {r.title} · Next run: <strong style={{ color: brand.text }}>{nextRunLabel(r.next_run)}</strong>

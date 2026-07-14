@@ -341,7 +341,7 @@ function TicketPickerPanel({ invoice, showToast, onInvoiceUpdated }) {
                     <td style={rowStyle}>{t.title}</td>
                     <td style={rowStyle}><span style={{ color: brand.muted }}>{t.status}</span></td>
                     <td style={rowStyle}>
-                      <span style={{ ...bc, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{t.billing_status}</span>
+                      <span className="dispatch-pill" style={{ ...bc, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{t.billing_status}</span>
                     </td>
                     <td style={{ ...rowStyle, textAlign: "right" }}>
                       <button onClick={() => handleDetach(t.id)}
@@ -885,7 +885,7 @@ function InvoiceListTab({ showToast }) {
       {/* Status filter */}
       <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
         {STATUSES.map(s => (
-          <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }}
+          <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }} className="dispatch-pill"
             style={{ padding: "5px 14px", borderRadius: 20, border: `1.5px solid ${statusFilter === s ? brand.blue : brand.border}`, background: statusFilter === s ? brand.blue : "#fff", color: statusFilter === s ? "#fff" : brand.muted, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
             {s}
           </button>
@@ -918,7 +918,7 @@ function InvoiceListTab({ showToast }) {
                     <td style={{ ...cell, fontWeight: 700, color: brand.blue }}>{inv.id}</td>
                     <td style={{ ...cell, fontWeight: 600 }}>{inv.client_name || "—"}</td>
                     <td style={cell}>
-                      <span style={{ background: sc.bg, color: sc.color, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{inv.status}</span>
+                      <span className="dispatch-pill" style={{ background: sc.bg, color: sc.color, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{inv.status}</span>
                     </td>
                     <td style={{ ...cell, color: brand.muted, fontSize: 13 }}>{fmtDate(inv.issue_date)}</td>
                     <td style={{ ...cell, color: brand.muted, fontSize: 13 }}>{fmtDate(inv.due_date)}</td>

@@ -163,14 +163,14 @@ function UserRow({ user, currentUserId, onUpdated, onDeactivated, showToast }) {
   const roleBadge = (role) => {
     const color = role === "admin" ? brand.blue : brand.muted;
     return (
-      <span style={{ background: color, color: "#fff", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+      <span className="dispatch-pill" style={{ background: color, color: "#fff", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
         {role}
       </span>
     );
   };
 
   const statusBadge = (active) => (
-    <span style={{ background: active ? "#dcfce7" : "#f3f4f6", color: active ? brand.success : brand.muted, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+    <span className="dispatch-pill" style={{ background: active ? "#dcfce7" : "#f3f4f6", color: active ? brand.success : brand.muted, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
       {active ? "Active" : "Inactive"}
     </span>
   );
@@ -466,7 +466,7 @@ function PortalAccountsTab({ showToast }) {
                 <td style={{ ...cellStyle, color: brand.text }}>{a.name}</td>
                 <td style={{ ...cellStyle, color: brand.muted, fontSize: 13 }}>{a.email}</td>
                 <td style={cellStyle}>
-                  <span style={{ background: a.active ? "#dcfce7" : "#f3f4f6", color: a.active ? brand.success : brand.muted, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                  <span className="dispatch-pill" style={{ background: a.active ? "#dcfce7" : "#f3f4f6", color: a.active ? brand.success : brand.muted, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
                     {a.active ? "Active" : "Inactive"}
                   </span>
                 </td>
@@ -1063,7 +1063,7 @@ function BackupTab({ showToast }) {
                   <tr key={r.id}>
                     <td style={{ padding: "10px 14px", borderBottom: `1px solid ${brand.border}` }}>{new Date(r.started_at).toLocaleString()}</td>
                     <td style={{ padding: "10px 14px", borderBottom: `1px solid ${brand.border}` }}>
-                      <span style={{ background: badge.bg, color: badge.color, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{badge.label}</span>
+                      <span className="dispatch-pill" style={{ background: badge.bg, color: badge.color, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{badge.label}</span>
                     </td>
                     <td style={{ padding: "10px 14px", borderBottom: `1px solid ${brand.border}`, textTransform: "capitalize" }}>{r.triggered_by}</td>
                     <td style={{ padding: "10px 14px", borderBottom: `1px solid ${brand.border}`, fontFamily: "monospace", fontSize: 12 }}>{r.filename || "—"}</td>
@@ -1189,7 +1189,7 @@ function SecurityTab({ showToast }) {
     return (
       <div style={{ maxWidth: 480 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-          <span style={{ background: "#d1fae5", color: "#065f46", borderRadius: 20, padding: "3px 12px", fontSize: 12, fontWeight: 700 }}>Enabled</span>
+          <span className="dispatch-pill" style={{ background: "#d1fae5", color: "#065f46", borderRadius: 20, padding: "3px 12px", fontSize: 12, fontWeight: 700 }}>Enabled</span>
           <span style={{ fontSize: 13, color: brand.muted }}>Two-factor authentication is protecting your account.</span>
         </div>
         {!showDisableForm ? (

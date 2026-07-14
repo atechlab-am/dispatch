@@ -293,7 +293,7 @@ function SLATab() {
                 {data.rows.map(row => (
                   <tr key={row.priority} style={{ background: brand.surface }}>
                     <td style={cellStyle}>
-                      <span style={{ background: SLA_COLORS[row.priority] || brand.muted, color: "#fff", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{row.priority}</span>
+                      <span className="dispatch-pill" style={{ background: SLA_COLORS[row.priority] || brand.muted, color: "#fff", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{row.priority}</span>
                     </td>
                     <td style={cellStyle}>{row.total}</td>
                     <td style={{ ...cellStyle, color: brand.success, fontWeight: 600 }}>{row.within_sla}</td>
@@ -397,7 +397,7 @@ function ARAgingTab() {
                           <td style={cellStyle}>{row.days_overdue}</td>
                           <td style={cellStyle}>${fmt(row.balance)}</td>
                           <td style={cellStyle}>
-                            <span style={{ background: AGING_COLORS[row.bucket] || brand.muted, color: "#fff", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{row.bucket}</span>
+                            <span className="dispatch-pill" style={{ background: AGING_COLORS[row.bucket] || brand.muted, color: "#fff", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{row.bucket}</span>
                           </td>
                         </tr>
                       ))}

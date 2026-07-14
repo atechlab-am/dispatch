@@ -242,7 +242,7 @@ export default function FormTemplatesTab({ showToast, isAdmin }) {
   );
 
   const typeBadge = (t) => (
-    <span style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 20, padding: "2px 9px", fontSize: 11 }}>
+    <span className="dispatch-pill" style={{ background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 20, padding: "2px 9px", fontSize: 11 }}>
       {FIELD_TYPES.find(ft => ft.value === t)?.label ?? t}
     </span>
   );
@@ -284,13 +284,13 @@ export default function FormTemplatesTab({ showToast, isAdmin }) {
                         {tmpl.ticket_types.length === 0
                           ? <span style={{ fontSize: 12, color: brand.muted }}>All ticket types</span>
                           : tmpl.ticket_types.map(t => (
-                            <span key={t} style={{ background: "#e0eaff", color: brand.blue, borderRadius: 20, padding: "2px 9px", fontSize: 11, fontWeight: 700 }}>{t}</span>
+                            <span key={t} className="dispatch-pill" style={{ background: "#e0eaff", color: brand.blue, borderRadius: 20, padding: "2px 9px", fontSize: 11, fontWeight: 700 }}>{t}</span>
                           ))
                         }
                       </div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                         {tmpl.fields.map(f => (
-                          <span key={f.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 20, padding: "2px 9px", fontSize: 11 }}>
+                          <span key={f.id} className="dispatch-pill" style={{ display: "inline-flex", alignItems: "center", gap: 4, background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 20, padding: "2px 9px", fontSize: 11 }}>
                             {f.label}
                             <span style={{ color: brand.muted, fontSize: 10 }}>({FIELD_TYPES.find(ft => ft.value === f.type)?.label ?? f.type})</span>
                             {f.required && <span style={{ color: brand.danger, fontSize: 10 }}>*</span>}

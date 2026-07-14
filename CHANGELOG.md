@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.47.0] — 2026-07-14
+
+### Added — Office UI now sharpens corners app-wide (follow-up to v1.46.0)
+- v1.46.0 scoped the Office UI toggle to colors and typography only, deliberately leaving corners rounded — `border-radius` was hardcoded as raw pixel numbers in ~450 individual places across 26 files with no shared token, and a blind rewrite risked breaking pill-shaped badges/dots/avatars that must stay round. This release completes that scope.
+- **Mechanism**: this app has no global stylesheet at all (every style is inline `style={{...}}`), and inline styles always beat a normal CSS rule — so a lightweight per-file token swap (like the color work in v1.46.0) wasn't possible for radius, which varies per element rather than being one shared value. Added a new `src/theme.css` (imported only in the staff app's entry point, not the portal) with a single rule: `[data-theme="office"] :not(.dispatch-pill) { border-radius: 2px !important; }` — `!important` is the one mechanism that legitimately outranks an inline style. `branding.jsx`'s `applyThemeVars()` now also sets `data-theme` on `<html>` to drive it.
+- **67 pill/circle/dot elements** (status badges, priority dots, avatars, the notification bell's count badge, filter-pill buttons) across 19 files were marked with a `.dispatch-pill` class specifically so the blanket rule exempts them and they stay round in both themes, matching their usual shape.
+- Scoped and executed as a single pass across all 26 files after evaluating (and ruling out) two alternative approaches: a full per-value `isOffice ? 2 : N` ternary rewrite (touches ~390 individual call sites, requires threading `useBranding()` into 24 files that don't have it), and a CSS-attribute-selector approach without `!important` (doesn't work — inline styles always win).
+
+### Tests
+- No new tests added — this is a pure CSS/JSX-attribute change with no new logic branch to unit test; verified via the full existing suite (588 backend + 222 frontend, unchanged pass count) plus a clean production build showing the new `main.css` asset only in the staff bundle, not the portal bundle.
+- Same caveat as v1.46.0: not visually verified in a live browser in this pass (none available in this environment) — recommend a visual check of both themes, especially the pill/badge exemptions, before relying on it.
+
 ## [1.46.0] — 2026-07-13
 
 ### Added — Office UI toggle

@@ -165,7 +165,7 @@ export default function ProjectsPage({ showToast }) {
                         : <span style={{ color: brand.muted }}>—</span>}
                     </td>
                     <td style={cell}>
-                      <span style={{ background: sc.bg, color: sc.color, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{p.stage}</span>
+                      <span className="dispatch-pill" style={{ background: sc.bg, color: sc.color, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{p.stage}</span>
                     </td>
                     <td style={{ ...cell, color: brand.muted, fontSize: 13 }}>{fmtDateTime(p.created_at)}</td>
                   </tr>

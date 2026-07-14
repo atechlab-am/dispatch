@@ -107,7 +107,7 @@ function StatementModal({ client, showToast, onClose }) {
                         <tr key={inv.id}>
                           <td style={{ padding: "8px 12px", borderBottom: `1px solid ${brand.border}`, fontWeight: 700, color: brand.blue }}>{inv.id}</td>
                           <td style={{ padding: "8px 12px", borderBottom: `1px solid ${brand.border}` }}>
-                            <span style={{ background: sc.bg, color: sc.color, borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{inv.status}</span>
+                            <span className="dispatch-pill" style={{ background: sc.bg, color: sc.color, borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{inv.status}</span>
                           </td>
                           <td style={{ padding: "8px 12px", borderBottom: `1px solid ${brand.border}`, color: brand.muted }}>{fmtDate(inv.issue_date)}</td>
                           <td style={{ padding: "8px 12px", borderBottom: `1px solid ${brand.border}`, color: brand.muted }}>{fmtDate(inv.due_date)}</td>
@@ -523,7 +523,7 @@ function CompanyGroup({ primary, contacts, company, showToast, onPrimaryUpdated,
           <span style={{ fontSize: 15, fontWeight: 700, color: brand.text }}>{company}</span>
           {primary.phone && <span style={{ fontSize: 12, color: brand.muted }}>{primary.phone}</span>}
           {primary.email && <span style={{ fontSize: 12, color: brand.muted }}>{primary.email}</span>}
-          <span style={{ background: "#e8f0fd", color: brand.blue, borderRadius: 20, padding: "2px 9px", fontSize: 11, fontWeight: 700 }}>
+          <span className="dispatch-pill" style={{ background: "#e8f0fd", color: brand.blue, borderRadius: 20, padding: "2px 9px", fontSize: 11, fontWeight: 700 }}>
             {contacts.length} {contacts.length === 1 ? "contact" : "contacts"}
           </span>
           {slug && (
@@ -649,7 +649,7 @@ function SectionHeader({ label, count }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "28px 0 12px" }}>
       <span style={{ fontSize: 13, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.8px" }}>{label}</span>
-      <span style={{ fontSize: 12, color: brand.muted, background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 20, padding: "1px 9px" }}>{count}</span>
+      <span className="dispatch-pill" style={{ fontSize: 12, color: brand.muted, background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 20, padding: "1px 9px" }}>{count}</span>
       <div style={{ flex: 1, height: 1, background: brand.border }} />
     </div>
   );

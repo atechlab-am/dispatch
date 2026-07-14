@@ -78,14 +78,14 @@ function TicketRow({ ticket, onSelect }) {
       onMouseLeave={e => e.currentTarget.style.background = "transparent"}
     >
       {/* Priority dot */}
-      <div style={{ width: 10, height: 10, borderRadius: "50%", background: pc, flexShrink: 0 }} />
+      <div className="dispatch-pill" style={{ width: 10, height: 10, borderRadius: "50%", background: pc, flexShrink: 0 }} />
 
       {/* Main content */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: brand.muted, fontFamily: "monospace" }}>{ticket.id}</span>
-          <span style={{ background: pb, color: pc, borderRadius: 20, padding: "1px 8px", fontSize: 10, fontWeight: 700 }}>{ticket.priority}</span>
-          <span style={{ background: "#f0f0f0", color: sc, borderRadius: 20, padding: "1px 8px", fontSize: 10, fontWeight: 700 }}>{ticket.status}</span>
+          <span className="dispatch-pill" style={{ background: pb, color: pc, borderRadius: 20, padding: "1px 8px", fontSize: 10, fontWeight: 700 }}>{ticket.priority}</span>
+          <span className="dispatch-pill" style={{ background: "#f0f0f0", color: sc, borderRadius: 20, padding: "1px 8px", fontSize: 10, fontWeight: 700 }}>{ticket.status}</span>
         </div>
         <div style={{ fontWeight: 600, fontSize: 13, color: brand.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {ticket.title || "(No title)"}
@@ -98,8 +98,8 @@ function TicketRow({ ticket, onSelect }) {
       {/* SLA badge */}
       {sla && (
         <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, background: sla.breached ? "#fee2e2" : "#f8faff", border: `1px solid ${sla.color}44`, borderRadius: 20, padding: "2px 9px" }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: sla.color }} />
+          <div className="dispatch-pill" style={{ display: "flex", alignItems: "center", gap: 4, background: sla.breached ? "#fee2e2" : "#f8faff", border: `1px solid ${sla.color}44`, borderRadius: 20, padding: "2px 9px" }}>
+            <div className="dispatch-pill" style={{ width: 6, height: 6, borderRadius: "50%", background: sla.color }} />
             <span style={{ fontSize: 10, fontWeight: 700, color: sla.color, whiteSpace: "nowrap" }}>
               {sla.breached ? "BREACHED" : sla.label}
             </span>
@@ -213,7 +213,7 @@ function LeadFollowUpRow({ lead, onSelect }) {
       onMouseEnter={e => e.currentTarget.style.background = brand.bg}
       onMouseLeave={e => e.currentTarget.style.background = "transparent"}
     >
-      <div style={{ width: 10, height: 10, borderRadius: "50%", background: overdue ? brand.danger : brand.blue, flexShrink: 0 }} />
+      <div className="dispatch-pill" style={{ width: 10, height: 10, borderRadius: "50%", background: overdue ? brand.danger : brand.blue, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 600, fontSize: 13, color: brand.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {lead.business_name}

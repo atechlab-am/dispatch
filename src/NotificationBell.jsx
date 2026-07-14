@@ -61,7 +61,7 @@ export default function NotificationBell({ user, navigate }) {
           <path d="M13.73 21a2 2 0 01-3.46 0" />
         </svg>
         {count > 0 && (
-          <span style={{ position: "absolute", top: 2, right: 2, background: "#c0392b", color: "#fff", borderRadius: 20, fontSize: 10, fontWeight: 700, minWidth: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px" }}>
+          <span className="dispatch-pill" style={{ position: "absolute", top: 2, right: 2, background: "#c0392b", color: "#fff", borderRadius: 20, fontSize: 10, fontWeight: 700, minWidth: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px" }}>
             {count > 99 ? "99+" : count}
           </span>
         )}

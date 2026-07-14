@@ -77,10 +77,10 @@ export default function SetupPage({ onComplete }) {
 
         {/* Step indicator */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 28 }}>
-          <div style={{ width: 24, height: 24, borderRadius: "50%", background: brand.blue, color: "#fff", fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>1</div>
+          <div className="dispatch-pill" style={{ width: 24, height: 24, borderRadius: "50%", background: brand.blue, color: "#fff", fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>1</div>
           <div style={{ fontSize: 12, fontWeight: 700, color: brand.blue }}>Create admin account</div>
           <div style={{ flex: 1, height: 1, background: brand.border }} />
-          <div style={{ width: 24, height: 24, borderRadius: "50%", background: brand.border, color: brand.muted, fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>2</div>
+          <div className="dispatch-pill" style={{ width: 24, height: 24, borderRadius: "50%", background: brand.border, color: brand.muted, fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>2</div>
           <div style={{ fontSize: 12, color: brand.muted }}>Sign in</div>
         </div>
 

@@ -127,14 +127,15 @@ export default function BrandingSettingsPanel({ onClose, showToast }) {
             <button
               key={p.name}
               onClick={() => applyPreset(p)}
+              className="dispatch-pill"
               style={{
                 display: "flex", alignItems: "center", gap: 6, padding: "6px 12px",
                 borderRadius: 20, border: `2px solid ${form.primaryColor === p.primary ? p.primary : "#e2e8f0"}`,
                 background: form.primaryColor === p.primary ? `${p.primary}12` : "#fff",
                 cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#334155", fontFamily: "inherit",
               }}>
-              <span style={{ width: 12, height: 12, borderRadius: "50%", background: p.primary, flexShrink: 0 }} />
-              <span style={{ width: 12, height: 12, borderRadius: "50%", background: p.accent, flexShrink: 0 }} />
+              <span className="dispatch-pill" style={{ width: 12, height: 12, borderRadius: "50%", background: p.primary, flexShrink: 0 }} />
+              <span className="dispatch-pill" style={{ width: 12, height: 12, borderRadius: "50%", background: p.accent, flexShrink: 0 }} />
               {p.name}
             </button>
           ))}

@@ -275,7 +275,7 @@ export function QuoteEditor({ quote, clients = [], materials = [], onSave, onCan
             </div>
             {!isNew && live && (
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: brand.muted }}>
-                <span style={{ ...(STATUS_COLORS[live.status] || STATUS_COLORS.Draft), borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{live.status}</span>
+                <span className="dispatch-pill" style={{ ...(STATUS_COLORS[live.status] || STATUS_COLORS.Draft), borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{live.status}</span>
                 {live.converted_invoice_id && <span>Converted to invoice {live.converted_invoice_id}</span>}
               </div>
             )}
@@ -591,7 +591,7 @@ export default function QuotesPage({ showToast }) {
 
       <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
         {STATUSES.map(s => (
-          <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }}
+          <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }} className="dispatch-pill"
             style={{ padding: "5px 14px", borderRadius: 20, border: `1.5px solid ${statusFilter === s ? brand.blue : brand.border}`, background: statusFilter === s ? brand.blue : "#fff", color: statusFilter === s ? "#fff" : brand.muted, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
             {s}
           </button>
@@ -624,7 +624,7 @@ export default function QuotesPage({ showToast }) {
                     <td style={{ ...cell, fontWeight: 600 }}>{q.client_name || "—"}</td>
                     <td style={{ ...cell, color: brand.muted }}>{q.project_name || "—"}</td>
                     <td style={cell}>
-                      <span style={{ background: sc.bg, color: sc.color, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{q.status}</span>
+                      <span className="dispatch-pill" style={{ background: sc.bg, color: sc.color, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{q.status}</span>
                     </td>
                     <td style={{ ...cell, color: brand.muted, fontSize: 13 }}>{fmtDate(q.issue_date)}</td>
                     <td style={{ ...cell, color: brand.muted, fontSize: 13 }}>{fmtDate(q.expiry_date)}</td>

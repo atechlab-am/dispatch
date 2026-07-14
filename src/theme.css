@@ -1,0 +1,16 @@
+/*
+ * Office UI corner-sharpening overrides.
+ *
+ * Every page in this app uses inline styles (style={{...}}), which always
+ * beat a normal stylesheet rule — so this file relies on !important, the one
+ * mechanism that legitimately outranks an inline style. It only targets
+ * border-radius, and only while [data-theme="office"] is set on <html> (see
+ * applyThemeVars() in branding.jsx).
+ *
+ * Pills, badges, dots, and avatars (border-radius: 50% or a large pill value
+ * like 20px) must stay round in both themes — they're marked with the
+ * .dispatch-pill class specifically so this blanket rule can exempt them.
+ */
+[data-theme="office"] :not(.dispatch-pill) {
+  border-radius: 2px !important;
+}

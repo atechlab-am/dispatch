@@ -272,7 +272,7 @@ function UserRow({ account, onUpdated, onDeleted, showToast }) {
       <td style={{ ...cell, fontSize: 13, color: brand.muted }}>{account.email}</td>
       <td style={{ ...cell, fontSize: 12, color: brand.muted }}>—</td>
       <td style={cell}>
-        <span style={{
+        <span className="dispatch-pill" style={{
           background: account.active ? "#dcfce7" : "#f3f4f6",
           color: account.active ? brand.success : brand.muted,
           borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700, textTransform: "uppercase",
@@ -339,7 +339,7 @@ function PortalCard({ label, subtitle, badge, slugClient, contacts, portalClient
           <span style={{ fontSize: 15, fontWeight: 700, color: brand.text }}>{label}</span>
           {subtitle && <span style={{ fontSize: 12, color: brand.muted }}>{subtitle}</span>}
           {badge && (
-            <span style={{ background: "#f1f5f9", color: brand.muted, borderRadius: 20, padding: "2px 9px", fontSize: 11, fontWeight: 700 }}>
+            <span className="dispatch-pill" style={{ background: "#f1f5f9", color: brand.muted, borderRadius: 20, padding: "2px 9px", fontSize: 11, fontWeight: 700 }}>
               {badge}
             </span>
           )}
@@ -350,7 +350,7 @@ function PortalCard({ label, subtitle, badge, slugClient, contacts, portalClient
           ) : (
             <span style={{ fontSize: 12, color: "#e67e22", fontStyle: "italic" }}>No portal URL</span>
           )}
-          <span style={{
+          <span className="dispatch-pill" style={{
             background: localAccounts.length > 0 ? "#e8f0fd" : "#f1f5f9",
             color: localAccounts.length > 0 ? brand.blue : brand.muted,
             borderRadius: 20, padding: "2px 9px", fontSize: 11, fontWeight: 700,
@@ -456,7 +456,7 @@ function SectionHeader({ label, count }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "28px 0 12px" }}>
       <span style={{ fontSize: 13, fontWeight: 700, color: brand.muted, textTransform: "uppercase", letterSpacing: "0.8px" }}>{label}</span>
-      <span style={{ fontSize: 12, color: brand.muted, background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 20, padding: "1px 9px" }}>{count}</span>
+      <span className="dispatch-pill" style={{ fontSize: 12, color: brand.muted, background: brand.bg, border: `1px solid ${brand.border}`, borderRadius: 20, padding: "1px 9px" }}>{count}</span>
       <div style={{ flex: 1, height: 1, background: brand.border }} />
     </div>
   );

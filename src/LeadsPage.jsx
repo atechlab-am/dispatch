@@ -303,7 +303,7 @@ export default function LeadsPage({ showToast }) {
           { key: "lost", label: "Lost", count: leads.filter(l => l.stage === "lost").length },
           { key: "all", label: "All", count: leads.length },
         ].map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{
+          <button key={t.key} onClick={() => setTab(t.key)} className="dispatch-pill" style={{
             padding: "6px 14px", borderRadius: 20, border: `1.5px solid ${tab === t.key ? brand.blue : brand.border}`,
             background: tab === t.key ? "#e8f0fd" : "#fff", color: tab === t.key ? brand.blue : brand.muted,
             fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
@@ -353,7 +353,7 @@ export default function LeadsPage({ showToast }) {
                   </td>
                   <td style={colCell(COLUMNS[0])}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: PRIORITY_COLOR[lead.priority], display: "inline-block", flexShrink: 0 }} />
+                      <span className="dispatch-pill" style={{ width: 8, height: 8, borderRadius: "50%", background: PRIORITY_COLOR[lead.priority], display: "inline-block", flexShrink: 0 }} />
                       {PRIORITY_LABEL[lead.priority]}
                     </span>
                   </td>
@@ -377,7 +377,7 @@ export default function LeadsPage({ showToast }) {
                     {fmtDate(lead.follow_up_date)}
                   </td>
                   <td style={colCell(COLUMNS[12])}>
-                    <span style={{ background: STAGE_COLOR[lead.stage].bg, color: STAGE_COLOR[lead.stage].color, borderRadius: 20, padding: "2px 9px", fontSize: 11, fontWeight: 700 }}>
+                    <span className="dispatch-pill" style={{ background: STAGE_COLOR[lead.stage].bg, color: STAGE_COLOR[lead.stage].color, borderRadius: 20, padding: "2px 9px", fontSize: 11, fontWeight: 700 }}>
                       {STAGE_LABEL[lead.stage]}
                     </span>
                   </td>

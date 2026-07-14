@@ -71,6 +71,7 @@ export default function UpdateBanner({ user }) {
             href={info.release_url}
             target="_blank"
             rel="noopener noreferrer"
+            className="dispatch-pill"
             style={{
               color: "#E8A020",
               fontWeight: 700,
@@ -93,6 +94,7 @@ export default function UpdateBanner({ user }) {
         </span>
         <button
           onClick={() => setDismissed(true)}
+          className="dispatch-pill"
           style={{
             background: "rgba(255,255,255,0.15)",
             border: "none",
