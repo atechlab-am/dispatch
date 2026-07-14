@@ -134,5 +134,6 @@ test("lead-based appointments render in a distinct color from ticket appointment
   expect(apptCard).toBeTruthy();
   const cardEl = apptCard.closest("[draggable]");
   expect(cardEl.style.background).not.toBe("");
-  expect(cardEl.style.background).not.toBe("rgb(26, 92, 186)"); // brand.blue used for ticket appts
+  expect(cardEl.style.background).not.toBe("var(--dispatch-primary)"); // brand.blue used for ticket appts
+  expect(cardEl.style.background).toBe("rgb(142, 68, 173)"); // brand.lead — distinct purple
 });

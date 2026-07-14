@@ -59,7 +59,7 @@ test("defaults to the Active status filter on load, not All", async () => {
 
   expect(listInvoices).toHaveBeenCalledWith(expect.objectContaining({ status: "Active" }));
   const activeButton = screen.getByText("Active");
-  expect(activeButton.style.background).toBe("rgb(26, 92, 186)"); // brand.blue — selected pill
+  expect(activeButton.style.background).toBe("var(--dispatch-primary)"); // brand.blue — selected pill
 
   fireEvent.click(screen.getByText("All"));
   expect(listInvoices).toHaveBeenCalledWith(expect.not.objectContaining({ status: expect.anything() }));

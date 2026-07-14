@@ -65,7 +65,7 @@ function card(extra = {}) {
 }
 
 // ─── Sidebar nav item ─────────────────────────────────────────────────────────
-function NavItem({ path, label, icon, active, onClick, primary, collapsed, dark }) {
+function NavItem({ path, label, icon, active, onClick, primary, collapsed, dark, isOffice }) {
   const [hov, setHov] = useState(false);
   const fgBase  = dark ? "rgba(255,255,255,0.72)" : "rgba(15,23,42,0.65)";
   const hovBg   = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)";
@@ -81,7 +81,7 @@ function NavItem({ path, label, icon, active, onClick, primary, collapsed, dark 
         display: "flex", alignItems: "center", gap: 10,
         width: "100%", padding: collapsed ? "10px 0" : "10px 14px",
         justifyContent: collapsed ? "center" : "flex-start",
-        background: bg, border: "none", borderRadius: radius.sm,
+        background: bg, border: "none", borderRadius: isOffice ? 2 : radius.sm,
         color: fg, cursor: "pointer", fontSize: 13, fontWeight: active ? 700 : 500,
         fontFamily: "inherit", transition: "all 0.15s",
         borderLeft: active ? `3px solid ${primary}` : "3px solid transparent",
@@ -127,17 +127,22 @@ export default function AppNew({
   TicketList, TicketEditor, TicketEditorRoute, NewTicketModal, RecurringPage,
 }) {
   const branding = useBranding();
+  const { themeMode, toggleThemeMode } = branding;
+  const isOffice = themeMode === "office";
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [settingsTab, setSettingsTab] = useState("users");
 
   const primary    = branding.primaryColor;
   const accent     = branding.accentColor;
-  const dark       = branding.sidebarDark;
-  const sidebarBg  = dark ? "#0f172a" : "#f1f5f9";
-  const sidebarFg  = dark ? "#ffffff"   : "#0f172a";
-  const sidebarMuted = dark ? "rgba(255,255,255,0.45)" : "rgba(15,23,42,0.4)";
-  const sidebarBorder = dark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
+  // Office UI always uses a flat white Fluent-style sidebar, overriding the
+  // admin-configurable dark/light sidebar setting — that setting is part of
+  // the Modern UI's own identity, not something Office mode blends with.
+  const dark       = isOffice ? false : branding.sidebarDark;
+  const sidebarBg  = isOffice ? "var(--dispatch-surface)" : dark ? "#0f172a" : "#f1f5f9";
+  const sidebarFg  = isOffice ? "var(--dispatch-text)" : dark ? "#ffffff"   : "#0f172a";
+  const sidebarMuted = isOffice ? "var(--dispatch-muted)" : dark ? "rgba(255,255,255,0.45)" : "rgba(15,23,42,0.4)";
+  const sidebarBorder = isOffice ? "var(--dispatch-border)" : dark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
   const collapseBtn  = dark ? { bg: "rgba(255,255,255,0.08)", fg: "rgba(255,255,255,0.6)" }
                              : { bg: "rgba(0,0,0,0.06)",       fg: "rgba(15,23,42,0.5)" };
 
@@ -188,13 +193,14 @@ export default function AppNew({
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f1f5f9", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+    <div style={{ display: "flex", minHeight: "100vh", background: "var(--dispatch-bg)", fontFamily: "var(--dispatch-font)" }}>
       <UpdateBanner user={user} />
 
       {/* ── Sidebar ── */}
       <div style={{
         width: sidebarW, flexShrink: 0,
         background: sidebarBg,
+        borderRight: isOffice ? `1px solid ${sidebarBorder}` : "none",
         display: "flex", flexDirection: "column",
         position: "sticky", top: 0, height: "100vh",
         transition: "width 0.2s ease",
@@ -228,14 +234,14 @@ export default function AppNew({
         {/* Main nav */}
         <nav style={{ flex: 1, padding: "10px 8px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
           {NAV.map(n => (
-            <NavItem key={n.path} {...n} active={isActive(n.path)} onClick={(p) => navigate(p)} primary={accent} collapsed={collapsed} dark={dark} />
+            <NavItem key={n.path} {...n} active={isActive(n.path)} onClick={(p) => navigate(p)} primary={accent} collapsed={collapsed} dark={dark} isOffice={isOffice} />
           ))}
         </nav>
 
         {/* Bottom nav */}
         <div style={{ padding: "8px 8px 6px", borderTop: `1px solid ${sidebarBorder}`, display: "flex", flexDirection: "column", gap: 2 }}>
           {BOTTOM_NAV.map(n => (
-            <NavItem key={n.path} {...n} active={isActive(n.path)} onClick={(p) => navigate(p)} primary={accent} collapsed={collapsed} dark={dark} />
+            <NavItem key={n.path} {...n} active={isActive(n.path)} onClick={(p) => navigate(p)} primary={accent} collapsed={collapsed} dark={dark} isOffice={isOffice} />
           ))}
           {/* User info + logout */}
           {user && (
@@ -258,17 +264,25 @@ export default function AppNew({
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
 
         {/* Top bar */}
-        <div style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "0 28px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 40, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+        <div style={{ background: "var(--dispatch-surface)", borderBottom: "1px solid var(--dispatch-border)", padding: "0 28px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 40, boxShadow: isOffice ? "none" : "0 1px 3px rgba(0,0,0,0.05)" }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{pageTitle}</h1>
+            <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--dispatch-text)" }}>{pageTitle}</h1>
           </div>
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
             {features?.global_search !== false && <GlobalSearch navigate={navigate} />}
             {features?.notifications !== false && <NotificationBell user={user} navigate={navigate} />}
+            <button
+              onClick={toggleThemeMode}
+              title={isOffice ? "Switch to Modern UI" : "Switch to Office UI"}
+              aria-label={isOffice ? "Switch to Modern UI" : "Switch to Office UI"}
+              style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "1px solid var(--dispatch-border)", borderRadius: isOffice ? 2 : radius.sm, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", color: "var(--dispatch-muted)" }}>
+              <Icon d={ICONS.newUI} size={14} />
+              {isOffice ? "Office UI" : "Modern UI"}
+            </button>
             {location.pathname === "/tickets" && (
               <button
                 onClick={handleNew}
-                style={{ background: primary, color: "#fff", border: "none", borderRadius: radius.sm, padding: "8px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: `0 2px 8px ${primary}44` }}>
+                style={{ background: primary, color: "#fff", border: "none", borderRadius: isOffice ? 2 : radius.sm, padding: "8px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: isOffice ? "none" : `0 2px 8px ${primary}44` }}>
                 + New Ticket
               </button>
             )}

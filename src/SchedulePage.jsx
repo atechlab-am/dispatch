@@ -4,8 +4,8 @@ import { listTickets } from "./api/tickets.js";
 import { listLeads } from "./api/leads.js";
 
 const brand = {
-  blue: "#1A5CBA", accent: "#E8A020", bg: "#F4F7FC", surface: "#FFFFFF",
-  border: "#D8E2F0", text: "var(--dispatch-text)", muted: "var(--dispatch-muted)", danger: "#c0392b",
+  blue: "var(--dispatch-primary)", accent: "#E8A020", bg: "var(--dispatch-bg)", surface: "var(--dispatch-surface)",
+  border: "var(--dispatch-border)", text: "var(--dispatch-text)", muted: "var(--dispatch-muted)", danger: "#c0392b",
   lead: "#8E44AD", // distinct color for lead follow-up appointments, separate from ticket (blue) appointments
 };
 

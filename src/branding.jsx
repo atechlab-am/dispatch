@@ -14,6 +14,55 @@ const DEFAULTS = {
   sidebarDark:    true,     // sidebar style: dark=true, light=false
 };
 
+// "modern" = the app's existing card-based look (admin-configurable colors,
+// rounded corners). "office" = a fixed Microsoft/Office 365 palette matching
+// LoginPage.jsx (Segoe UI, #F3F2F1 canvas, sharp corners) — a personal
+// per-browser display preference, not shared company branding, so it lives in
+// localStorage rather than the server-side branding table.
+const THEME_STORAGE_KEY = "dispatch-theme-mode";
+
+const OFFICE_THEME_VARS = {
+  "--dispatch-bg":      "#F3F2F1",
+  "--dispatch-surface": "#FFFFFF",
+  "--dispatch-border":  "#E1DFDD",
+  "--dispatch-primary": "#1A5CBA",
+  "--dispatch-font":    "'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif",
+};
+
+const MODERN_THEME_VARS = {
+  "--dispatch-bg":      "#F4F7FC",
+  "--dispatch-surface": "#FFFFFF",
+  "--dispatch-border":  "#D8E2F0",
+  "--dispatch-primary": "#1A5CBA",
+  "--dispatch-font":    "'Inter', 'Segoe UI', system-ui, sans-serif",
+};
+
+export function applyThemeVars(mode) {
+  const vars = mode === "office" ? OFFICE_THEME_VARS : MODERN_THEME_VARS;
+  const root = document.documentElement.style;
+  for (const [key, value] of Object.entries(vars)) root.setProperty(key, value);
+}
+
+export function getStoredThemeMode() {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY) === "office" ? "office" : "modern";
+  } catch {
+    return "modern"; // localStorage unavailable (private browsing, tests, etc.)
+  }
+}
+
+export function setStoredThemeMode(mode) {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, mode);
+  } catch {
+    /* ignore — falls back to session-only via React state */
+  }
+}
+
+// Apply immediately at module load, same rationale as applyFontColorVars
+// below: pages must never render with an undefined --dispatch-bg/surface/etc.
+applyThemeVars(getStoredThemeMode());
+
 function apiToBranding(data) {
   return {
     companyName: data.company_name,
@@ -79,6 +128,7 @@ export function useBranding() {
 
 export function BrandingProvider({ children }) {
   const [branding, setBranding] = useState(DEFAULTS);
+  const [themeMode, setThemeMode] = useState(getStoredThemeMode);
 
   useEffect(() => {
     getBranding()
@@ -94,6 +144,10 @@ export function BrandingProvider({ children }) {
     applyFontColorVars(branding);
   }, [branding.textColor, branding.mutedColor, branding.onColorText]);
 
+  useEffect(() => {
+    applyThemeVars(themeMode);
+  }, [themeMode]);
+
   // Live preview only — does not persist. Callers that need to persist call
   // save() explicitly (see BrandingSettingsPanel.jsx's handleSave).
   const update = (data) => {
@@ -105,8 +159,16 @@ export function BrandingProvider({ children }) {
     setBranding(apiToBranding(saved));
   };
 
+  const toggleThemeMode = () => {
+    setThemeMode(prev => {
+      const next = prev === "office" ? "modern" : "office";
+      setStoredThemeMode(next);
+      return next;
+    });
+  };
+
   return (
-    <BrandingContext.Provider value={{ ...branding, update, save }}>
+    <BrandingContext.Provider value={{ ...branding, update, save, themeMode, toggleThemeMode }}>
       {children}
     </BrandingContext.Provider>
   );

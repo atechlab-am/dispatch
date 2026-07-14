@@ -82,7 +82,7 @@ test("Active pill is selected by default, not All", () => {
 
   const activeButton = screen.getByText("Active");
   const allButton = screen.getByText("All");
-  expect(activeButton.style.background).toBe("rgb(26, 92, 186)"); // brand.blue — selected
+  expect(activeButton.style.background).toBe("var(--dispatch-primary)"); // brand.blue — selected
   expect(allButton.style.background).toBe("rgb(255, 255, 255)"); // not selected
 });
 

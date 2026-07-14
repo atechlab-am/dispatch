@@ -4,11 +4,11 @@ import { downloadWithAuth } from "./api/client.js";
 import FormTemplatesTab from "./FormTemplatesTab.jsx";
 
 const brand = {
-  blue: "#1A5CBA",
+  blue: "var(--dispatch-primary)",
   accent: "#E8A020",
-  bg: "#F4F7FC",
-  surface: "#FFFFFF",
-  border: "#D8E2F0",
+  bg: "var(--dispatch-bg)",
+  surface: "var(--dispatch-surface)",
+  border: "var(--dispatch-border)",
   text: "var(--dispatch-text)",
   muted: "var(--dispatch-muted)",
   danger: "#c0392b",

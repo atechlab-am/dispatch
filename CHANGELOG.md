@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.46.0] — 2026-07-13
+
+### Added — Office UI toggle
+- User request: a Microsoft/Office 365-style theme for the whole app, matching the existing Login Page's look, toggleable from the app itself.
+- New topbar button ("Office UI" / "Modern UI") switches the entire app shell and every page between the app's existing card-based Modern look and a new Office theme — Segoe UI, neutral `#F3F2F1` canvas, sharp 2px corners, flat Fluent-style sidebar (colored left-accent-bar for the active nav item instead of a filled pill). Personal, per-browser preference saved to `localStorage` — not shared company branding, and it composes with (doesn't replace) the admin-configured primary/accent colors from Settings → Appearance.
+- Mechanism: extended the existing CSS-custom-property pattern already used for font colors (`--dispatch-text`/`--dispatch-muted`) with four new vars — `--dispatch-bg`, `--dispatch-surface`, `--dispatch-border`, `--dispatch-primary`, `--dispatch-font` — applied to `document.documentElement` and read by every page's local `brand` object. All 16 page-level components (`App.jsx`, `ClientsPage.jsx`, `DashboardPage.jsx`, `LeadsPage.jsx`, etc.) already had an identical `brand = { blue, accent, bg, surface, border, ... }` shape copy-pasted per file — swapped the four color fields to reference the new vars, so one toggle now retheme's the whole app without needing per-page logic.
+- Scoped deliberately to colors + typography, not corner radius: `borderRadius` is hardcoded as raw pixel numbers in hundreds of individual places across every page with no shared token, so a safe app-wide "sharp corners everywhere" rewrite wasn't attempted in this pass — Office mode keeps the app's existing rounded corners outside the sidebar/nav (which do go sharp). A page-by-page sharp-corner pass is a natural, separately-scoped follow-up.
+- `LoginPage.jsx` is unchanged — it already is the Office look natively and renders before the branding/theme context exists.
+
+### Tests
+- 5 new frontend tests (`branding.test.jsx`): defaults to Modern UI, toggling applies the Office CSS vars, toggling back restores Modern's vars, the choice persists across a remount (localStorage), and an invalid/corrupt stored value falls back to Modern rather than throwing. 3 existing tests updated to assert the new `var(--dispatch-primary)` value instead of a hardcoded resolved RGB, now that the selected-pill color is theme-aware. Full suite: 588 backend (pytest) + 222 frontend (Vitest) passing.
+- Not independently verified in a live browser in this pass (no browser tooling available in this environment) — verified via full test suite, a clean production build, and manual code review of every touched file; recommend a quick visual check of the toggle in your own browser before relying on it.
+
 ## [1.45.2] — 2026-07-13
 
 ### Fixed — Bare-metal Linux installer still pinned Node.js to v20

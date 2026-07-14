@@ -33,13 +33,13 @@ import { BrandingProvider } from "./branding.jsx";
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const brand = {
-  blue: "#1A5CBA",
+  blue: "var(--dispatch-primary)",
   blueDark: "#143f80",
   accent: "#E8A020",
   accentLight: "#f5c05a",
-  bg: "#F4F7FC",
-  surface: "#FFFFFF",
-  border: "#D8E2F0",
+  bg: "var(--dispatch-bg)",
+  surface: "var(--dispatch-surface)",
+  border: "var(--dispatch-border)",
   text: "var(--dispatch-text)",
   muted: "var(--dispatch-muted)",
   success: "#1a8f4a",

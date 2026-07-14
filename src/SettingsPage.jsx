@@ -11,11 +11,11 @@ import { listBackupRuns, triggerBackup, listAvailableBackups, restoreBackup } fr
 import { me, setup2fa, enable2fa, disable2fa } from "./api/auth.js";
 
 const brand = {
-  blue: "#1A5CBA",
+  blue: "var(--dispatch-primary)",
   accent: "#E8A020",
-  bg: "#F4F7FC",
-  surface: "#FFFFFF",
-  border: "#D8E2F0",
+  bg: "var(--dispatch-bg)",
+  surface: "var(--dispatch-surface)",
+  border: "var(--dispatch-border)",
   text: "var(--dispatch-text)",
   muted: "var(--dispatch-muted)",
   success: "#1a8f4a",

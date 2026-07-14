@@ -10,8 +10,8 @@ import { openPdfWithAuth } from "./api/client.js";
 import { SERVICES } from "./services.js";
 
 const brand = {
-  blue: "#1A5CBA", accent: "#E8A020", bg: "#F4F7FC", surface: "#FFFFFF",
-  border: "#D8E2F0", text: "var(--dispatch-text)", muted: "var(--dispatch-muted)",
+  blue: "var(--dispatch-primary)", accent: "#E8A020", bg: "var(--dispatch-bg)", surface: "var(--dispatch-surface)",
+  border: "var(--dispatch-border)", text: "var(--dispatch-text)", muted: "var(--dispatch-muted)",
   success: "#1a8f4a", danger: "#c0392b",
 };
 
