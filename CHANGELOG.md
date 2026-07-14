@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.43.0] — 2026-07-13
+
+### Added — Scheduling controls for remote tickets and lead follow-ups
+- **Tickets**: new independent "Work Location" (On-Site / Remote) and "Needs Scheduling" fields in a new Scheduling section of the ticket editor. Work Location is purely descriptive; Needs Scheduling is what actually controls whether the ticket shows up in the Schedule tab's "Unscheduled Tickets" sidebar — a remote ticket may still need a call booked, so the two are deliberately decoupled. Picking Remote auto-defaults Needs Scheduling to No, but only at ticket-creation time; editing Work Location on an existing ticket never silently overrides an already-set Needs Scheduling value.
+- **Leads**: new "Follow-up scheduled" checkbox next to the existing Follow-Up Date field. When checked, the lead appears in a new "Leads to Follow Up" section of the Schedule tab's sidebar and can be dragged onto the calendar grid just like a ticket, creating a real appointment — rendered in a distinct color from ticket appointments so the two are visually separable at a glance.
+- **Schema**: the `Appointment` table's `ticket_id` is now nullable and a new nullable `lead_id` was added, with a check constraint enforcing exactly one of the two is set (never both, never neither). This gives tickets and lead follow-ups one shared calendar/grid instead of a separate table per type. Migration `0047`.
+
+### Tests
+- 4 new backend tests (ticket `work_location`/`needs_scheduling` defaults and roundtrip, unscheduled-sidebar filter respecting `needs_scheduling`), 3 new backend tests (lead `follow_up_scheduled` defaults, roundtrip, list filter), 6 new backend tests (lead-based appointment create/validate-exactly-one/404/list/delete/reschedule). 5 new frontend tests (ticket editor Scheduling section + auto-default-on-creation-only behavior), 2 new frontend tests (LeadModal checkbox), 3 new frontend tests (SchedulePage leads sidebar, lead drag-drop, distinct appointment color). Full suite: 583 backend (pytest) + 206 frontend (Vitest) passing.
+
+## [1.42.2] — 2026-07-13
+
+### Fixed — Resolved/Closed tickets lingered in the Schedule tab's "Unscheduled Tickets" sidebar
+- Reported: finished tickets with no appointment kept showing up as "unscheduled" work on the Schedule page indefinitely.
+- The sidebar's ticket fetch (`listTickets({ has_appointment: false, ... })`) had no status filter at all, so any ticket without an appointment appeared there regardless of status — including ones already Resolved or Closed, which aren't outstanding work needing a visit. Now filtered to `status: "Active"` (Open/In Progress/Awaiting Client), reusing the same alias added in v1.42.0.
+
+### Tests
+- New frontend test confirming the Schedule page's ticket fetch includes `status: "Active"`. Full suite: 571 backend (pytest) + 196 frontend (Vitest) passing.
+
 ## [1.42.1] — 2026-07-13
 
 ### Fixed — Tickets list/board "Total Revenue" and per-ticket dollar amount always showed $0

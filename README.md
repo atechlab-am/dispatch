@@ -121,12 +121,14 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - **Email-to-ticket** — clients replying to a ticket notification email have their reply threaded onto the ticket automatically; unmatched inbound emails create a new ticket (optional — requires `INBOUND_EMAIL_SECRET`, safely disabled if unset)
 - **Canned responses** — insert a reusable snippet into the comment box; the library is managed by admins from Settings
 - **Materials Used** — log parts/materials consumed on a ticket alongside Hours Log: search the Materials catalog or type a new name, set quantity, get an autofilled editable unit price. Billing/reference only (no inventory tracking); rolls into the ticket total, PDF export, CSV export, and invoice conversion, same as service lines and hour logs
+- **Work Location** (On-Site / Remote) and **Needs Scheduling** — two independent fields in the ticket editor's Scheduling section. Work Location is purely descriptive; Needs Scheduling controls whether the ticket appears in the Schedule tab's "Unscheduled Tickets" sidebar. Picking Remote on a brand-new ticket auto-defaults Needs Scheduling to No (a remote ticket usually doesn't need a technician dispatched), but this is only a one-time default at creation — editing Work Location on an existing ticket never silently changes an already-set Needs Scheduling value, since a remote ticket may still need a call booked
 
 ### Scheduling
 - Day/week dispatch calendar — drag a ticket onto a technician's time slot to schedule an on-site appointment
 - A ticket can have zero, one, or many appointments, independent of its assignee
 - Scheduling/rescheduling/cancelling notifies the technician and logs to the ticket's Activity trail
 - No double-booking validation or technician availability modeling yet (planned as a future refinement)
+- **"Leads to Follow Up" sidebar** — leads with Follow-up scheduled checked (see Leads below) can also be dragged onto the calendar grid, creating a follow-up appointment in a distinct color from ticket appointments
 
 ### Leads (sales pipeline)
 - Track sales prospects through a pipeline (New → Contacted → Qualified → Proposal → Won/Lost) before they become a Client — priority, source, outreach channel, contact/business info, notes, and a value estimate
@@ -135,6 +137,7 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - **CSV import/export** — bulk-import from a spreadsheet with forgiving header names and common shorthand values, tolerant of Excel/Windows encodings; a downloadable sample CSV round-trips cleanly; export produces a full snapshot
 - **Activity timeline** — a log of calls/emails/notes/meetings per lead, plus system-generated stage-change entries
 - **Convert to Client** — a Won lead converts with one click into a real Client (business/contact info carried over), the same pattern as Quote → Invoice conversion below
+- **Follow-up scheduled** — a checkbox next to Follow-Up Date; when checked, the lead shows up in the Schedule tab's "Leads to Follow Up" sidebar and can be dragged onto the calendar to book the follow-up call/meeting, alongside ticket appointments in a distinct color
 - Toggleable via `FEATURE_LEADS`
 
 ### Clients

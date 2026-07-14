@@ -48,6 +48,7 @@ class LeadBase(BaseModel):
     value_estimate: Optional[float] = None
     date_contacted: Optional[date] = None
     follow_up_date: Optional[date] = None
+    follow_up_scheduled: bool = False
     notes: str = Field("", max_length=5000)
 
 
@@ -72,6 +73,7 @@ class LeadUpdate(BaseModel):
     value_estimate: Optional[float] = None
     date_contacted: Optional[date] = None
     follow_up_date: Optional[date] = None
+    follow_up_scheduled: Optional[bool] = None
     notes: Optional[str] = Field(None, max_length=5000)
 
 
@@ -175,6 +177,7 @@ def _is_similar(a: str, b: str, cutoff: float = 0.75) -> bool:
 @router.get("", response_model=list[LeadOut])
 def list_leads(
     stage: Optional[LeadStage] = Query(None),
+    follow_up_scheduled: Optional[bool] = Query(None),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -182,6 +185,8 @@ def list_leads(
     q = db.query(Lead)
     if stage:
         q = q.filter(Lead.stage == stage)
+    if follow_up_scheduled is not None:
+        q = q.filter(Lead.follow_up_scheduled == follow_up_scheduled)
     return q.order_by(Lead.created_at.desc()).all()
 
 
@@ -258,6 +263,7 @@ def create_lead(
         contact_name=body.contact_name, contact_email=body.contact_email, contact_phone=body.contact_phone,
         source=body.source, priority=body.priority, outreach_channel=body.outreach_channel,
         value_estimate=body.value_estimate, date_contacted=body.date_contacted, follow_up_date=body.follow_up_date,
+        follow_up_scheduled=body.follow_up_scheduled,
         notes=body.notes, owner_id=current_user.id, created_at=now, updated_at=now,
     )
     db.add(lead)

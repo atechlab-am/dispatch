@@ -30,6 +30,13 @@ def tech_id(client, tech_headers):
     return client.get("/api/auth/me", headers=tech_headers).json()["id"]
 
 
+@pytest.fixture()
+def lead_id(client, admin_headers):
+    r = client.post("/api/leads", json={"business_name": "Follow-up Scheduling Co"}, headers=admin_headers)
+    assert r.status_code == 201
+    return r.json()["id"]
+
+
 def test_create_appointment(client, admin_headers, ticket_id, tech_id):
     r = client.post("/api/appointments", json={
         "ticket_id": ticket_id, "technician_id": tech_id,
@@ -130,3 +137,79 @@ def test_delete_appointment_writes_audit(client, admin_headers, ticket_id, tech_
 def test_unauthenticated_cannot_list_appointments(client):
     r = client.get("/api/appointments", params={"start": "2026-01-01T00:00:00Z", "end": "2026-01-02T00:00:00Z"})
     assert r.status_code in (401, 403)
+
+
+def test_create_lead_appointment(client, admin_headers, lead_id, tech_id):
+    r = client.post("/api/appointments", json={
+        "lead_id": lead_id, "technician_id": tech_id,
+        "start_at": "2026-08-10T09:00:00Z", "end_at": "2026-08-10T10:00:00Z", "notes": "Follow-up call",
+    }, headers=admin_headers)
+    assert r.status_code == 201
+    data = r.json()
+    assert data["lead_id"] == lead_id
+    assert data["ticket_id"] is None
+    assert data["lead_business_name"] == "Follow-up Scheduling Co"
+    assert data["technician_name"] == "Test Tech"
+
+
+def test_create_appointment_requires_exactly_one_of_ticket_or_lead(client, admin_headers, ticket_id, lead_id, tech_id):
+    # Neither set
+    r = client.post("/api/appointments", json={
+        "technician_id": tech_id, "start_at": "2026-08-11T09:00:00Z", "end_at": "2026-08-11T10:00:00Z",
+    }, headers=admin_headers)
+    assert r.status_code == 422
+
+    # Both set
+    r2 = client.post("/api/appointments", json={
+        "ticket_id": ticket_id, "lead_id": lead_id, "technician_id": tech_id,
+        "start_at": "2026-08-11T09:00:00Z", "end_at": "2026-08-11T10:00:00Z",
+    }, headers=admin_headers)
+    assert r2.status_code == 422
+
+
+def test_create_lead_appointment_missing_lead_404s(client, admin_headers, tech_id):
+    r = client.post("/api/appointments", json={
+        "lead_id": 999999, "technician_id": tech_id,
+        "start_at": "2026-08-12T09:00:00Z", "end_at": "2026-08-12T10:00:00Z",
+    }, headers=admin_headers)
+    assert r.status_code == 404
+
+
+def test_lead_appointment_appears_in_range_listing(client, admin_headers, lead_id, tech_id):
+    client.post("/api/appointments", json={
+        "lead_id": lead_id, "technician_id": tech_id,
+        "start_at": "2026-09-05T09:00:00Z", "end_at": "2026-09-05T10:00:00Z",
+    }, headers=admin_headers)
+
+    r = client.get("/api/appointments", params={"start": "2026-09-05T00:00:00Z", "end": "2026-09-06T00:00:00Z"}, headers=admin_headers)
+    assert r.status_code == 200
+    assert any(a["lead_id"] == lead_id for a in r.json())
+
+
+def test_delete_lead_appointment(client, admin_headers, lead_id, tech_id):
+    r = client.post("/api/appointments", json={
+        "lead_id": lead_id, "technician_id": tech_id,
+        "start_at": "2026-08-13T09:00:00Z", "end_at": "2026-08-13T10:00:00Z",
+    }, headers=admin_headers)
+    aid = r.json()["id"]
+
+    r2 = client.delete(f"/api/appointments/{aid}", headers=admin_headers)
+    assert r2.status_code == 204
+
+    r3 = client.get("/api/appointments", params={"start": "2026-08-13T00:00:00Z", "end": "2026-08-14T00:00:00Z"}, headers=admin_headers)
+    assert not any(a["id"] == aid for a in r3.json())
+
+
+def test_reschedule_lead_appointment(client, admin_headers, lead_id, tech_id):
+    r = client.post("/api/appointments", json={
+        "lead_id": lead_id, "technician_id": tech_id,
+        "start_at": "2026-08-14T09:00:00Z", "end_at": "2026-08-14T10:00:00Z",
+    }, headers=admin_headers)
+    aid = r.json()["id"]
+
+    r2 = client.put(f"/api/appointments/{aid}", json={
+        "lead_id": lead_id, "technician_id": tech_id,
+        "start_at": "2026-08-15T14:00:00Z", "end_at": "2026-08-15T15:00:00Z",
+    }, headers=admin_headers)
+    assert r2.status_code == 200
+    assert r2.json()["start_at"].startswith("2026-08-15")

@@ -228,3 +228,43 @@ def test_has_appointment_filter(client, admin_headers, tech_headers):
     sched_ids = {t["id"] for t in r_sched.json()["items"]}
     assert scheduled_id in sched_ids
     assert unscheduled_id not in sched_ids
+
+
+def test_has_appointment_false_excludes_tickets_that_dont_need_scheduling(client, admin_headers):
+    r = client.post("/api/tickets", json={
+        **TICKET_BASE, "title": "Remote, no call needed", "needs_scheduling": False,
+    }, headers=admin_headers)
+    no_schedule_id = r.json()["id"]
+    r2 = client.post("/api/tickets", json={**TICKET_BASE, "title": "Needs a visit"}, headers=admin_headers)
+    needs_schedule_id = r2.json()["id"]
+
+    r = client.get("/api/tickets", params={"has_appointment": "false", "page_size": 100}, headers=admin_headers)
+    ids = {t["id"] for t in r.json()["items"]}
+    assert needs_schedule_id in ids
+    assert no_schedule_id not in ids
+
+
+def test_ticket_work_location_and_needs_scheduling_defaults(client, admin_headers):
+    r = client.post("/api/tickets", json=TICKET_BASE, headers=admin_headers)
+    data = r.json()
+    assert data["work_location"] == "on_site"
+    assert data["needs_scheduling"] is True
+
+
+def test_ticket_work_location_and_needs_scheduling_roundtrip(client, admin_headers):
+    r = client.post("/api/tickets", json={
+        **TICKET_BASE, "work_location": "remote", "needs_scheduling": False,
+    }, headers=admin_headers)
+    assert r.status_code == 201
+    tid = r.json()["id"]
+    assert r.json()["work_location"] == "remote"
+    assert r.json()["needs_scheduling"] is False
+
+    r2 = client.get(f"/api/tickets/{tid}", headers=admin_headers)
+    assert r2.json()["work_location"] == "remote"
+    assert r2.json()["needs_scheduling"] is False
+
+    updated = {**TICKET_BASE, "work_location": "remote", "needs_scheduling": True}
+    r3 = client.put(f"/api/tickets/{tid}", json=updated, headers=admin_headers)
+    assert r3.status_code == 200
+    assert r3.json()["needs_scheduling"] is True

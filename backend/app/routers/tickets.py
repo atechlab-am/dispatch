@@ -288,11 +288,14 @@ def list_tickets(
     # itself must keep working regardless of this unrelated optional param.
     if has_appointment is not None and config.FEATURE_SCHEDULING:
         from ..models.models import Appointment
-        appt_ticket_ids = db.query(Appointment.ticket_id).distinct()
+        appt_ticket_ids = db.query(Appointment.ticket_id).filter(Appointment.ticket_id.isnot(None)).distinct()
         if has_appointment:
             q = q.filter(Ticket.id.in_(appt_ticket_ids))
         else:
-            q = q.filter(Ticket.id.notin_(appt_ticket_ids))
+            # "Needs scheduling" too — a ticket flagged as not needing a visit
+            # (e.g. remote work with no call required) shouldn't linger in the
+            # Schedule tab's Unscheduled Tickets sidebar forever.
+            q = q.filter(Ticket.id.notin_(appt_ticket_ids), Ticket.needs_scheduling.is_(True))
 
     total = q.count()
     items = (
@@ -347,6 +350,8 @@ def create_ticket(
         description=body.description,
         internal_notes=body.internal_notes,
         travel_fee=body.travel_fee,
+        work_location=body.work_location,
+        needs_scheduling=body.needs_scheduling,
         created_by=current_user.id,
         sla_response_due=sla_response,
         sla_resolution_due=sla_resolution,
@@ -464,6 +469,8 @@ def update_ticket(
     ticket.description = body.description
     ticket.internal_notes = body.internal_notes
     ticket.travel_fee = body.travel_fee
+    ticket.work_location = body.work_location
+    ticket.needs_scheduling = body.needs_scheduling
     ticket.updated_at = now
     client_changed = audit_old["client_id"] != body.client_id
     if priority_changed or client_changed or ticket.sla_response_due is None:

@@ -1,7 +1,7 @@
 from datetime import datetime, date
 from typing import Optional
 from pydantic import BaseModel, EmailStr, Field
-from .models.models import TicketType, TicketStatus, TicketPriority, ClientType, TravelFee, ServiceLineType, UserRole, RecurringInterval
+from .models.models import TicketType, TicketStatus, TicketPriority, ClientType, TravelFee, WorkLocation, ServiceLineType, UserRole, RecurringInterval
 
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -119,6 +119,8 @@ class TicketIn(BaseModel):
     description: str = Field("", max_length=20000)
     internal_notes: str = Field("", max_length=20000)
     travel_fee: TravelFee = TravelFee.none
+    work_location: WorkLocation = WorkLocation.on_site
+    needs_scheduling: bool = True
     service_lines: list[ServiceLineIn] = Field(default=[], max_length=100)
     hour_logs: list[HourLogIn] = Field(default=[], max_length=500)
     materials_used: list[TicketMaterialIn] = Field(default=[], max_length=200)
@@ -140,6 +142,8 @@ class TicketOut(BaseModel):
     description: str
     internal_notes: str
     travel_fee: TravelFee
+    work_location: WorkLocation
+    needs_scheduling: bool
     billing_status: Optional[str] = "unbilled"
     created_at: datetime
     updated_at: datetime
@@ -170,6 +174,8 @@ class TicketListItem(BaseModel):
     sla_response_due: Optional[datetime] = None
     sla_resolution_due: Optional[datetime] = None
     grand_total: float = 0
+    work_location: WorkLocation
+    needs_scheduling: bool
 
     model_config = {"from_attributes": True}
 
@@ -348,7 +354,10 @@ class RecurringInvoiceOut(BaseModel):
 # ─── Appointments ─────────────────────────────────────────────────────────────
 
 class AppointmentIn(BaseModel):
-    ticket_id: str
+    # Exactly one of ticket_id/lead_id must be set — validated in the router
+    # (a clearer 422 message there than a generic Pydantic model-validator).
+    ticket_id: Optional[str] = None
+    lead_id: Optional[int] = None
     technician_id: int
     start_at: datetime
     end_at: datetime
@@ -357,7 +366,8 @@ class AppointmentIn(BaseModel):
 
 class AppointmentOut(BaseModel):
     id: int
-    ticket_id: str
+    ticket_id: Optional[str] = None
+    lead_id: Optional[int] = None
     technician_id: int
     start_at: datetime
     end_at: datetime
@@ -365,6 +375,7 @@ class AppointmentOut(BaseModel):
     created_by: int
     created_at: datetime
     ticket_title: str = ""
+    lead_business_name: str = ""
     technician_name: str = ""
 
     model_config = {"from_attributes": True}

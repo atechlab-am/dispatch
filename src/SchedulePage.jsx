@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { listAppointments, createAppointment, updateAppointment, deleteAppointment } from "./api/appointments.js";
 import { listTickets } from "./api/tickets.js";
+import { listLeads } from "./api/leads.js";
 
 const brand = {
   blue: "#1A5CBA", accent: "#E8A020", bg: "#F4F7FC", surface: "#FFFFFF",
   border: "#D8E2F0", text: "var(--dispatch-text)", muted: "var(--dispatch-muted)", danger: "#c0392b",
+  lead: "#8E44AD", // distinct color for lead follow-up appointments, separate from ticket (blue) appointments
 };
 
 // Full 24-hour range so an appointment at any hour (however it was created) is
@@ -39,7 +41,8 @@ export default function SchedulePage({ users = [], showToast }) {
   const [anchor, setAnchor] = useState(() => new Date());
   const [appointments, setAppointments] = useState([]);
   const [unscheduled, setUnscheduled] = useState([]);
-  const [dragging, setDragging] = useState(null); // ticket being dragged, or {appointment} being rescheduled
+  const [leadsToFollowUp, setLeadsToFollowUp] = useState([]);
+  const [dragging, setDragging] = useState(null); // ticket/lead being dragged, or {appointment} being rescheduled
   const [loading, setLoading] = useState(true);
   const gridScrollRef = useRef(null);
 
@@ -58,12 +61,18 @@ export default function SchedulePage({ users = [], showToast }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [appts, unsched] = await Promise.all([
+      const [appts, unsched, leads] = await Promise.all([
         listAppointments(rangeStart.toISOString(), rangeEnd.toISOString()),
-        listTickets({ has_appointment: false, page_size: 50 }),
+        // Resolved/Closed tickets with no appointment aren't actually
+        // "unscheduled work" — they're just done. Restrict to Active
+        // (Open/In Progress/Awaiting Client) so finished tickets don't
+        // linger in this sidebar forever.
+        listTickets({ has_appointment: false, status: "Active", page_size: 50 }),
+        listLeads({ follow_up_scheduled: true }),
       ]);
       setAppointments(appts);
       setUnscheduled(unsched.items || []);
+      setLeadsToFollowUp(leads || []);
     } catch {
       showToast?.("Failed to load schedule.", "err");
     } finally {
@@ -91,8 +100,13 @@ export default function SchedulePage({ users = [], showToast }) {
     try {
       if (dragging.rescheduling) {
         await updateAppointment(dragging.id, {
-          ticket_id: dragging.ticket_id, technician_id: technicianId,
+          ticket_id: dragging.ticket_id, lead_id: dragging.lead_id, technician_id: technicianId,
           start_at: start.toISOString(), end_at: end.toISOString(), notes: dragging.notes || "",
+        });
+      } else if (dragging.isLead) {
+        await createAppointment({
+          lead_id: dragging.id, technician_id: technicianId,
+          start_at: start.toISOString(), end_at: end.toISOString(), notes: "",
         });
       } else {
         await createAppointment({
@@ -142,7 +156,7 @@ export default function SchedulePage({ users = [], showToast }) {
       {/* Unscheduled sidebar */}
       <div style={{ width: 220, flexShrink: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 13, color: brand.text, marginBottom: 10 }}>Unscheduled Tickets</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: "70vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: "35vh", overflowY: "auto", marginBottom: 20 }}>
           {unscheduled.length === 0 && <div style={{ color: brand.muted, fontSize: 12 }}>All tickets scheduled.</div>}
           {unscheduled.map(t => (
             <div key={t.id}
@@ -152,6 +166,21 @@ export default function SchedulePage({ users = [], showToast }) {
               style={{ background: "#fff", border: `1px solid ${brand.border}`, borderLeft: `3px solid ${brand.blue}`, borderRadius: 8, padding: "8px 10px", cursor: "grab", fontSize: 12 }}>
               <div style={{ fontWeight: 700, color: brand.text, marginBottom: 2 }}>{t.title || "(No title)"}</div>
               <div style={{ color: brand.muted, fontSize: 11 }}>{t.id}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ fontWeight: 700, fontSize: 13, color: brand.text, marginBottom: 10 }}>Leads to Follow Up</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: "35vh", overflowY: "auto" }}>
+          {leadsToFollowUp.length === 0 && <div style={{ color: brand.muted, fontSize: 12 }}>No follow-ups pending.</div>}
+          {leadsToFollowUp.map(l => (
+            <div key={`lead-${l.id}`}
+              draggable
+              onDragStart={() => setDragging({ id: l.id, isLead: true })}
+              onDragEnd={() => setDragging(null)}
+              style={{ background: "#fff", border: `1px solid ${brand.border}`, borderLeft: `3px solid ${brand.lead}`, borderRadius: 8, padding: "8px 10px", cursor: "grab", fontSize: 12 }}>
+              <div style={{ fontWeight: 700, color: brand.text, marginBottom: 2 }}>{l.business_name}</div>
+              <div style={{ color: brand.muted, fontSize: 11 }}>{l.follow_up_date ? `Follow up ${l.follow_up_date}` : "Lead"}</div>
             </div>
           ))}
         </div>
@@ -213,9 +242,9 @@ export default function SchedulePage({ users = [], showToast }) {
                               draggable
                               onDragStart={() => setDragging({ ...a, rescheduling: true })}
                               onDragEnd={() => setDragging(null)}
-                              style={{ background: brand.blue, color: "#fff", borderRadius: 6, padding: "4px 6px", fontSize: 11, marginBottom: 3, cursor: "grab" }}
+                              style={{ background: a.lead_id ? brand.lead : brand.blue, color: "#fff", borderRadius: 6, padding: "4px 6px", fontSize: 11, marginBottom: 3, cursor: "grab" }}
                               title={a.notes}>
-                              <div style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.ticket_title || a.ticket_id}</div>
+                              <div style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.lead_id ? (a.lead_business_name || `Lead #${a.lead_id}`) : (a.ticket_title || a.ticket_id)}</div>
                               <button onClick={() => handleCancel(a.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 10, padding: 0, marginTop: 2 }}>Cancel</button>
                             </div>
                           ))}

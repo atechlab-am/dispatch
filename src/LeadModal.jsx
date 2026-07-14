@@ -42,7 +42,7 @@ const EMPTY_FORM = {
   business_name: "", title: "", industry: "", address: "", area: "",
   phone: "", website: "", contact_name: "", contact_email: "", contact_phone: "",
   source: "other", priority: "medium", outreach_channel: "", value_estimate: "",
-  date_contacted: "", follow_up_date: "", notes: "",
+  date_contacted: "", follow_up_date: "", follow_up_scheduled: false, notes: "",
 };
 
 const ACTIVITY_LABEL = { call: "Call", email: "Email", note: "Note", meeting: "Meeting", stage_change: "Stage Change" };
@@ -59,7 +59,8 @@ export default function LeadModal({ lead, existingLeads, showToast, onClose, onS
     area: lead.area, phone: lead.phone, website: lead.website, contact_name: lead.contact_name,
     contact_email: lead.contact_email, contact_phone: lead.contact_phone, source: lead.source,
     priority: lead.priority, outreach_channel: lead.outreach_channel || "", value_estimate: lead.value_estimate ?? "",
-    date_contacted: lead.date_contacted || "", follow_up_date: lead.follow_up_date || "", notes: lead.notes,
+    date_contacted: lead.date_contacted || "", follow_up_date: lead.follow_up_date || "",
+    follow_up_scheduled: lead.follow_up_scheduled || false, notes: lead.notes,
   } : EMPTY_FORM);
   const [stage, setStage] = useState(lead?.stage || "new");
   const [lostReason, setLostReason] = useState(lead?.lost_reason || "");
@@ -263,7 +264,14 @@ export default function LeadModal({ lead, existingLeads, showToast, onClose, onS
               </select>
             </div>
             <div><FieldLabel>Date Contacted</FieldLabel><input style={inp} type="date" value={form.date_contacted} onChange={e => up("date_contacted", e.target.value)} /></div>
-            <div><FieldLabel>Follow-Up Date</FieldLabel><input style={inp} type="date" value={form.follow_up_date} onChange={e => up("follow_up_date", e.target.value)} /></div>
+            <div>
+              <FieldLabel>Follow-Up Date</FieldLabel>
+              <input style={inp} type="date" value={form.follow_up_date} onChange={e => up("follow_up_date", e.target.value)} />
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: brand.text, cursor: "pointer", marginTop: 6 }}>
+                <input type="checkbox" checked={form.follow_up_scheduled} onChange={e => up("follow_up_scheduled", e.target.checked)} style={{ cursor: "pointer" }} />
+                Follow-up scheduled
+              </label>
+            </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>

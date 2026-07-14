@@ -67,6 +67,7 @@ const baseTicket = () => ({
   clientName: "Acme Corp", clientEmail: "acme@example.com", clientPhone: "", clientAddress: "",
   title: "Quote QUO-2026-00001 approved — work order",
   description: "", internalNotes: "", travelFee: "travel_none",
+  workLocation: "on_site", needsScheduling: true,
   billingStatus: "unbilled",
   services: [], hourLogs: [], materialsUsed: [],
 });
@@ -201,6 +202,57 @@ describe("Autosave pending indicator", () => {
   test("does not show the pending indicator on initial render with no edits", () => {
     render(<TicketEditor ticket={baseTicket()} onSave={vi.fn()} showToast={() => {}} />);
     expect(screen.queryByText("● Unsaved changes…")).not.toBeInTheDocument();
+  });
+});
+
+describe("Scheduling section (Work Location / Needs Scheduling)", () => {
+  test("defaults to On-Site and Needs Scheduling checked", () => {
+    render(<TicketEditor ticket={baseTicket()} onSave={vi.fn()} showToast={() => {}} />);
+    expect(screen.getByLabelText("Needs scheduling")).toBeChecked();
+  });
+
+  test("picking Remote on a NEW ticket auto-unchecks Needs Scheduling", () => {
+    const newTicket = { ...baseTicket(), id: null };
+    render(<TicketEditor ticket={newTicket} onSave={vi.fn()} showToast={() => {}} />);
+
+    fireEvent.click(screen.getByText("Remote"));
+    expect(screen.getByLabelText("Needs scheduling")).not.toBeChecked();
+  });
+
+  test("picking Remote on an EXISTING ticket does not touch Needs Scheduling", () => {
+    render(<TicketEditor ticket={baseTicket()} onSave={vi.fn()} showToast={() => {}} />);
+
+    fireEvent.click(screen.getByText("Remote"));
+    // baseTicket() already has id set (existing ticket) and needsScheduling: true —
+    // the auto-default rule must only apply at creation time, never on edit.
+    expect(screen.getByLabelText("Needs scheduling")).toBeChecked();
+  });
+
+  test("manually re-checking Needs Scheduling after picking Remote on a new ticket works normally", () => {
+    const newTicket = { ...baseTicket(), id: null };
+    render(<TicketEditor ticket={newTicket} onSave={vi.fn()} showToast={() => {}} />);
+
+    fireEvent.click(screen.getByText("Remote"));
+    expect(screen.getByLabelText("Needs scheduling")).not.toBeChecked();
+
+    fireEvent.click(screen.getByLabelText("Needs scheduling"));
+    expect(screen.getByLabelText("Needs scheduling")).toBeChecked();
+  });
+
+  test("saves the chosen work location and needs-scheduling value", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const onSave = vi.fn().mockResolvedValue();
+    render(<TicketEditor ticket={baseTicket()} onSave={onSave} showToast={() => {}} />);
+
+    fireEvent.click(screen.getByText("Remote"));
+    fireEvent.click(screen.getByLabelText("Needs scheduling")); // uncheck
+
+    vi.advanceTimersByTime(3000);
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ workLocation: "remote", needsScheduling: false }), true,
+    ));
+
+    vi.useRealTimers();
   });
 });
 

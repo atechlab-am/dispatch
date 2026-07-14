@@ -98,3 +98,25 @@ test("activity timeline loads and a new note can be added", async () => {
 
   await waitFor(() => expect(addLeadActivity).toHaveBeenCalledWith(5, "call", "Follow up next week"));
 });
+
+test("Follow-up scheduled checkbox defaults unchecked and is saved when toggled on", async () => {
+  createLead.mockResolvedValue({ ...WON_LEAD, id: 9, business_name: "New Biz Co", stage: "new", follow_up_scheduled: true });
+  render(<LeadModal lead={null} existingLeads={[]} showToast={() => {}} onClose={() => {}} onSaved={() => {}} onConverted={() => {}} onDeleted={() => {}} />);
+
+  const checkbox = screen.getByLabelText("Follow-up scheduled");
+  expect(checkbox).not.toBeChecked();
+
+  fireEvent.change(screen.getByPlaceholderText("Acme Plumbing"), { target: { value: "New Biz Co" } });
+  fireEvent.click(checkbox);
+  expect(checkbox).toBeChecked();
+
+  fireEvent.click(screen.getByText("Save"));
+  await waitFor(() => expect(createLead).toHaveBeenCalledWith(expect.objectContaining({ follow_up_scheduled: true })));
+});
+
+test("Follow-up scheduled checkbox reflects an existing lead's saved value", async () => {
+  render(<LeadModal lead={{ ...WON_LEAD, follow_up_date: "2026-08-01", follow_up_scheduled: true }} existingLeads={[]} showToast={() => {}} onClose={() => {}} onSaved={() => {}} onConverted={() => {}} onDeleted={() => {}} />);
+
+  await screen.findByText("Won Co");
+  expect(screen.getByLabelText("Follow-up scheduled")).toBeChecked();
+});

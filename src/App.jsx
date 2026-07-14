@@ -98,6 +98,8 @@ const apiToEditor = (t) => ({
   description:   t.description,
   internalNotes: t.internal_notes,
   travelFee:     t.travel_fee,
+  workLocation:  t.work_location ?? "on_site",
+  needsScheduling: t.needs_scheduling ?? true,
   billingStatus: t.billing_status ?? "unbilled",
   services: (t.service_lines ?? []).map((sl) => ({
     _id:          sl.id,
@@ -146,6 +148,8 @@ const editorToApi = (t) => ({
   description:   t.description,
   internal_notes:t.internalNotes,
   travel_fee:    t.travelFee,
+  work_location: t.workLocation ?? "on_site",
+  needs_scheduling: t.needsScheduling ?? true,
   service_lines: t.services.filter((s) => s.serviceId).map((s) => ({
     service_id:    s.serviceId,
     name:          s.name,
@@ -1628,6 +1632,17 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
 
   const up = (field, val) => setT(prev => ({ ...prev, [field]: val }));
 
+  // Picking Remote auto-defaults Needs Scheduling to No — but only while
+  // creating a new ticket. Editing Work Location on an existing ticket never
+  // silently overrides a Needs Scheduling value the user already set.
+  const setWorkLocation = (loc) => {
+    setT(prev => ({
+      ...prev,
+      workLocation: loc,
+      needsScheduling: isNew && loc === "remote" ? false : prev.needsScheduling,
+    }));
+  };
+
   // ── Client picker (business: company → contact; residential: flat list) ──
   const { pickableClients, companyMembers } = (() => {
     const businessGroups = {};
@@ -2133,6 +2148,25 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
                   <div style={{ fontSize:14, fontWeight:800, color:t.travelFee===tf.id?brand.blue:brand.text, marginTop:2 }}>{tf.fee>0?fmt(tf.fee):"—"}</div>
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div style={{ background:brand.surface, border:`1px solid ${brand.border}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
+            <SectionHeader>Scheduling</SectionHeader>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:12 }}>
+              {[{ id:"on_site", label:"On-Site" }, { id:"remote", label:"Remote" }].map(wl => (
+                <button key={wl.id} onClick={()=>setWorkLocation(wl.id)}
+                  style={{ padding:"10px 12px", borderRadius:8, fontWeight:600, fontSize:12, cursor:"pointer", border:`2px solid ${t.workLocation===wl.id?brand.blue:brand.border}`, background:t.workLocation===wl.id?brand.bg:"#fff", color:t.workLocation===wl.id?brand.blue:brand.muted, textAlign:"left" }}>
+                  {wl.label}
+                </button>
+              ))}
+            </div>
+            <label style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, fontWeight:600, color:brand.text, cursor:"pointer" }}>
+              <input type="checkbox" checked={t.needsScheduling} onChange={e=>up("needsScheduling", e.target.checked)} style={{ cursor:"pointer" }} />
+              Needs scheduling
+            </label>
+            <div style={{ fontSize:11, color:brand.muted, marginTop:4 }}>
+              Unchecking this hides the ticket from the Schedule tab's "Unscheduled Tickets" list — for work that doesn't need a technician dispatched or a call booked.
             </div>
           </div>
 

@@ -59,6 +59,37 @@ def test_get_lead(client, admin_headers):
     assert r.json()["business_name"] == "Get Test Co"
 
 
+def test_lead_follow_up_scheduled_defaults_false(client, admin_headers):
+    lead = _make_lead(client, admin_headers, business_name="Default Follow-up Co")
+    assert lead["follow_up_scheduled"] is False
+
+
+def test_lead_follow_up_scheduled_roundtrip(client, admin_headers):
+    lead = _make_lead(
+        client, admin_headers, business_name="Follow-up Co",
+        follow_up_date="2026-08-01", follow_up_scheduled=True,
+    )
+    assert lead["follow_up_scheduled"] is True
+    assert lead["follow_up_date"] == "2026-08-01"
+
+    r = client.patch(f"/api/leads/{lead['id']}", json={"follow_up_scheduled": False}, headers=admin_headers)
+    assert r.status_code == 200
+    assert r.json()["follow_up_scheduled"] is False
+
+
+def test_list_leads_filter_by_follow_up_scheduled(client, admin_headers):
+    scheduled = _make_lead(
+        client, admin_headers, business_name="Scheduled Follow-up Co",
+        follow_up_date="2026-08-01", follow_up_scheduled=True,
+    )
+    not_scheduled = _make_lead(client, admin_headers, business_name="Unscheduled Follow-up Co")
+
+    r = client.get("/api/leads", params={"follow_up_scheduled": "true"}, headers=admin_headers)
+    ids = {l["id"] for l in r.json()}
+    assert scheduled["id"] in ids
+    assert not_scheduled["id"] not in ids
+
+
 def test_get_lead_404(client, admin_headers):
     r = client.get("/api/leads/999999", headers=admin_headers)
     assert r.status_code == 404

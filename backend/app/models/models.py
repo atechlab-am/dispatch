@@ -1,7 +1,7 @@
 from datetime import datetime, date, timezone
 from sqlalchemy import (
     Column, String, Integer, BigInteger, Numeric, Boolean, Date,
-    DateTime, ForeignKey, Text, Enum as SAEnum, Table
+    DateTime, ForeignKey, Text, Enum as SAEnum, Table, CheckConstraint
 )
 from sqlalchemy.orm import relationship
 import enum
@@ -60,6 +60,11 @@ class TravelFee(str, enum.Enum):
     within_15 = "travel_15"
     within_30 = "travel_30"
     over_30 = "travel_30p"
+
+
+class WorkLocation(str, enum.Enum):
+    on_site = "on_site"
+    remote = "remote"
 
 
 class ServiceLineType(str, enum.Enum):
@@ -142,6 +147,12 @@ class Ticket(Base):
     description = Column(Text, nullable=False, default="")
     internal_notes = Column(Text, nullable=False, default="")
     travel_fee = Column(SAEnum(TravelFee, values_callable=_enum_vals), nullable=False, default=TravelFee.none)
+    work_location = Column(SAEnum(WorkLocation, values_callable=_enum_vals), nullable=False, default=WorkLocation.on_site)
+    # Whether this ticket should appear in the Schedule tab's "Unscheduled
+    # Tickets" sidebar. Independent of work_location — a remote ticket may
+    # still need a call booked, so remote doesn't automatically mean "no
+    # scheduling needed"; it only sets this default at ticket-creation time.
+    needs_scheduling = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     sla_response_due = Column(DateTime, nullable=True)
@@ -412,13 +423,22 @@ class Notification(Base):
 
 
 class Appointment(Base):
-    """A scheduled on-site visit or technician appointment for a ticket.
-    Independent of Ticket.assigned_to — a ticket can have zero, one, or many
-    appointments (e.g. an initial visit plus a follow-up)."""
+    """A scheduled on-site visit or technician appointment for a ticket, OR a
+    lead follow-up reminder — exactly one of ticket_id/lead_id is set (never
+    both, never neither; enforced by the check constraint below and by the
+    API layer). Independent of Ticket.assigned_to — a ticket can have zero,
+    one, or many appointments (e.g. an initial visit plus a follow-up)."""
     __tablename__ = "appointments"
+    __table_args__ = (
+        CheckConstraint(
+            "(ticket_id IS NOT NULL AND lead_id IS NULL) OR (ticket_id IS NULL AND lead_id IS NOT NULL)",
+            name="ck_appointment_exactly_one_of_ticket_or_lead",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    ticket_id = Column(String(32), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False, index=True)
+    ticket_id = Column(String(32), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=True, index=True)
+    lead_id = Column(Integer, ForeignKey("leads.id", ondelete="CASCADE"), nullable=True, index=True)
     technician_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     start_at = Column(DateTime, nullable=False, index=True)
     end_at = Column(DateTime, nullable=False)
@@ -427,6 +447,7 @@ class Appointment(Base):
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     ticket = relationship("Ticket", back_populates="appointments")
+    lead = relationship("Lead")
     technician = relationship("User", foreign_keys=[technician_id])
 
 
@@ -849,6 +870,10 @@ class Lead(Base):
     lost_reason = Column(Text, nullable=False, default="")
     date_contacted = Column(Date, nullable=True)
     follow_up_date = Column(Date, nullable=True)
+    # When set (alongside follow_up_date), this lead is draggable onto the
+    # Schedule tab's calendar grid as a follow-up reminder, distinct from
+    # ticket appointments.
+    follow_up_scheduled = Column(Boolean, nullable=False, default=False)
     notes = Column(Text, nullable=False, default="")
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     converted_client_id = Column(Integer, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True)
