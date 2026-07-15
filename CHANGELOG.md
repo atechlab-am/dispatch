@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.50.1] — 2026-07-14
+
+### Changed — Suite Switcher: added Folio, Forge, Passvault, Scout
+- User has 4 more suite apps beyond Pulse/Tether. Confirmed via AskUserQuestion to keep the same one-named-var-per-app pattern (not switch to a generic combined-list var) even at 6 apps, favoring explicitness/typo-safety over zero-redeploy extensibility.
+- New `.env` vars: `SUITE_FOLIO_URL`, `SUITE_FORGE_URL`, `SUITE_PASSVAULT_URL`, `SUITE_SCOUT_URL` — same shape as `SUITE_PULSE_URL`/`SUITE_TETHER_URL` from v1.50.0. `GET /api/config`'s `suite_apps` list now includes any of the 6 that are set. `SuiteSwitcher.jsx` needed no frontend change at all — it already renders whatever list it's given.
+
+### Tests
+- Updated the existing "lists configured URLs" backend test to cover all 6 apps; added a new frontend test rendering all 6 to confirm the dropdown isn't hardcoded to two. Full suite: 591 backend (pytest) + 233 frontend (Vitest) passing.
+
+## [1.50.0] — 2026-07-14
+
+### Added — Suite Switcher (first piece of Phase 11 suite integration)
+- User request: a way to switch between ATech Solutions suite apps (Pulse, Tether) from Dispatch, Servarr-style (URL + per-app config, no shared auth server).
+- Scoped deliberately in two stages after discussion: this release ships the plain-link switcher only. True single sign-on across the suite (shared login, no re-entering credentials per app) was explicitly deferred — it requires matching auth code in Pulse and Tether too (a central identity provider, or a lighter "each app trusts a signed token from its siblings" scheme), not something one app can build alone. Confirmed via AskUserQuestion this is acceptable for now, with real SSO planned as its own future project.
+- New optional `.env` vars, one per sibling app: `SUITE_PULSE_URL`, `SUITE_TETHER_URL`. Unset = that app doesn't appear; both unset = the switcher icon doesn't render at all.
+- `GET /api/config` gained a `suite_apps: [{name, url}]` field (empty array by default) alongside the existing `FEATURE_*` booleans.
+- New `SuiteSwitcher.jsx` — a small grid-icon button in the topbar (next to the theme toggle, not on the logo, so the logo's existing behavior is untouched) opening a dropdown of configured apps as plain `target="_blank"` links. Same click-outside-to-close pattern as the existing `NotificationBell`.
+- Deliberately no API keys/tokens in this pass — a link needs none. Keys become relevant for the other two Phase 11 items (Pulse alert webhook, Tether asset lookup), which are separate, not-yet-scoped follow-ups.
+
+### Tests
+- 3 new backend tests (`test_config_toggles.py`): empty by default, lists configured URLs by name, omits unset ones. 5 new frontend tests (`SuiteSwitcher.test.jsx`): renders nothing with no apps, dropdown lists links with correct `href`/`target`/`rel`, closes on outside click, closes on link click. Full suite: 591 backend (pytest, up from 588) + 232 frontend (Vitest, up from 227) passing.
+- Not visually verified in a live browser in this pass (none available in this environment) — verified via tests, a clean production build, and code review against the existing `NotificationBell` pattern it mirrors.
+
 ## [1.49.0] — 2026-07-14
 
 ### Added — Client detail pages

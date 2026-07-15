@@ -22,6 +22,7 @@ import PortalSettingsPanel from "./PortalSettingsPanel.jsx";
 import DocumentBrandingSettingsPanel from "./DocumentBrandingSettingsPanel.jsx";
 import UpdateBanner from "./UpdateBanner.jsx";
 import NotificationBell from "./NotificationBell.jsx";
+import SuiteSwitcher from "./SuiteSwitcher.jsx";
 import GlobalSearch from "./GlobalSearch.jsx";
 
 // ─── Icon set (inline SVG helpers) ───────────────────────────────────────────
@@ -272,6 +273,7 @@ export default function AppNew({
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
             {features?.global_search !== false && <GlobalSearch navigate={navigate} />}
             {features?.notifications !== false && <NotificationBell user={user} navigate={navigate} />}
+            <SuiteSwitcher apps={features?.suite_apps} />
             <button
               onClick={toggleThemeMode}
               title={isOffice ? "Switch to Modern UI" : "Switch to Office UI"}

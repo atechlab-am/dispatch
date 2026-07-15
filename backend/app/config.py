@@ -29,6 +29,17 @@ UPLOAD_DIR: str = os.environ.get("UPLOAD_DIR", "/app/uploads")
 GITHUB_REPO: str = os.environ.get("GITHUB_REPO", "")
 GITHUB_TOKEN: str = os.environ.get("GITHUB_TOKEN", "")
 
+# ATech Solutions suite switcher — optional. Each var is the base URL of a
+# sibling app; a switcher icon in the topbar links out to whichever of these
+# are set (plain links only, no shared login — each app's own sign-in page).
+# Leave a var unset/blank to hide that app from the switcher entirely.
+SUITE_PULSE_URL: str = os.environ.get("SUITE_PULSE_URL", "").rstrip("/")
+SUITE_TETHER_URL: str = os.environ.get("SUITE_TETHER_URL", "").rstrip("/")
+SUITE_FOLIO_URL: str = os.environ.get("SUITE_FOLIO_URL", "").rstrip("/")
+SUITE_FORGE_URL: str = os.environ.get("SUITE_FORGE_URL", "").rstrip("/")
+SUITE_PASSVAULT_URL: str = os.environ.get("SUITE_PASSVAULT_URL", "").rstrip("/")
+SUITE_SCOUT_URL: str = os.environ.get("SUITE_SCOUT_URL", "").rstrip("/")
+
 # Stripe — optional; leave all three blank to disable online payments entirely.
 # Keys come from the Stripe dashboard: Developers > API keys / Developers > Webhooks.
 STRIPE_SECRET_KEY: str = os.environ.get("STRIPE_SECRET_KEY", "")

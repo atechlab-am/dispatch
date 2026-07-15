@@ -44,8 +44,39 @@ def test_get_config_returns_all_six_keys(client, admin_headers):
         "audit_log", "timer", "ar_aging", "notifications",
         "recurring_invoicing", "scheduling",
         "quotes", "global_search", "canned_responses", "sla_escalation", "sla_tiers",
-        "two_factor_auth", "materials", "backups", "leads",
+        "two_factor_auth", "materials", "backups", "leads", "suite_apps",
     }
+
+
+def test_get_config_suite_apps_empty_by_default(client, admin_headers):
+    r = client.get("/api/config", headers=admin_headers)
+    assert r.json()["suite_apps"] == []
+
+
+def test_get_config_suite_apps_lists_configured_urls(client, admin_headers, monkeypatch):
+    monkeypatch.setattr(config, "SUITE_PULSE_URL", "https://pulse.example.com")
+    monkeypatch.setattr(config, "SUITE_TETHER_URL", "https://tether.example.com")
+    monkeypatch.setattr(config, "SUITE_FOLIO_URL", "https://folio.example.com")
+    monkeypatch.setattr(config, "SUITE_FORGE_URL", "https://forge.example.com")
+    monkeypatch.setattr(config, "SUITE_PASSVAULT_URL", "https://passvault.example.com")
+    monkeypatch.setattr(config, "SUITE_SCOUT_URL", "https://scout.example.com")
+    r = client.get("/api/config", headers=admin_headers)
+    apps = r.json()["suite_apps"]
+    assert {"name": "Pulse", "url": "https://pulse.example.com"} in apps
+    assert {"name": "Tether", "url": "https://tether.example.com"} in apps
+    assert {"name": "Folio", "url": "https://folio.example.com"} in apps
+    assert {"name": "Forge", "url": "https://forge.example.com"} in apps
+    assert {"name": "Passvault", "url": "https://passvault.example.com"} in apps
+    assert {"name": "Scout", "url": "https://scout.example.com"} in apps
+    assert len(apps) == 6
+
+
+def test_get_config_suite_apps_omits_unset_urls(client, admin_headers, monkeypatch):
+    monkeypatch.setattr(config, "SUITE_PULSE_URL", "https://pulse.example.com")
+    monkeypatch.setattr(config, "SUITE_TETHER_URL", "")
+    r = client.get("/api/config", headers=admin_headers)
+    apps = r.json()["suite_apps"]
+    assert apps == [{"name": "Pulse", "url": "https://pulse.example.com"}]
 
 
 def test_get_config_reflects_toggled_value(client, admin_headers, monkeypatch):

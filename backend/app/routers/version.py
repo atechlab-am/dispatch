@@ -138,6 +138,11 @@ def check_version(_: User = Depends(get_current_user)):
     )
 
 
+class SuiteAppOut(BaseModel):
+    name: str
+    url: str
+
+
 class FeatureConfigOut(BaseModel):
     audit_log: bool
     timer: bool
@@ -154,10 +159,25 @@ class FeatureConfigOut(BaseModel):
     materials: bool
     backups: bool
     leads: bool
+    suite_apps: list[SuiteAppOut] = []
 
 
 @config_router.get("/config", response_model=FeatureConfigOut)
 def get_feature_config(_: User = Depends(get_current_user)):
+    suite_apps = []
+    if config.SUITE_PULSE_URL:
+        suite_apps.append(SuiteAppOut(name="Pulse", url=config.SUITE_PULSE_URL))
+    if config.SUITE_TETHER_URL:
+        suite_apps.append(SuiteAppOut(name="Tether", url=config.SUITE_TETHER_URL))
+    if config.SUITE_FOLIO_URL:
+        suite_apps.append(SuiteAppOut(name="Folio", url=config.SUITE_FOLIO_URL))
+    if config.SUITE_FORGE_URL:
+        suite_apps.append(SuiteAppOut(name="Forge", url=config.SUITE_FORGE_URL))
+    if config.SUITE_PASSVAULT_URL:
+        suite_apps.append(SuiteAppOut(name="Passvault", url=config.SUITE_PASSVAULT_URL))
+    if config.SUITE_SCOUT_URL:
+        suite_apps.append(SuiteAppOut(name="Scout", url=config.SUITE_SCOUT_URL))
+
     return FeatureConfigOut(
         audit_log=config.FEATURE_AUDIT_LOG,
         timer=config.FEATURE_TIMER,
@@ -174,4 +194,5 @@ def get_feature_config(_: User = Depends(get_current_user)):
         materials=config.FEATURE_MATERIALS,
         backups=config.FEATURE_BACKUPS,
         leads=config.FEATURE_LEADS,
+        suite_apps=suite_apps,
     )

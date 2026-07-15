@@ -106,6 +106,10 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 ### Global Search
 - Topbar search box (staff app) — type to search tickets, clients, invoices, and quotes at once; click a result to jump straight to it
 
+### Suite Switcher
+- Optional topbar icon linking out to sibling ATech Solutions apps (Pulse, Tether, Folio, Forge, Passvault, Scout) — shown only when at least one is configured via `SUITE_*_URL` in `.env`
+- Plain links only — no shared login between apps; clicking opens that app's own sign-in page in a new tab. (True single sign-on across the suite is a separate, larger project not yet built.)
+
 ### Tickets
 - Create, edit, delete tickets with status, priority, client, and technician assignment
 - **New Ticket modal** collects Description, Assigned Technician, and Work Location/Needs Scheduling up front (in addition to Type, Title, Client/Contact, Priority) — no need to open the full editor just to fill these in right after creating
@@ -271,6 +275,8 @@ Each feature below can be turned off independently via env vars. A disabled feat
 - `FEATURE_BACKUPS` — the scheduled/manual backup loop, the Settings → Backup tab, and the restore flow (default enabled; also requires `BACKUP_NAS_HOST`/`BACKUP_NAS_SHARE` to actually run — see `.env.example`)
 - `FEATURE_LEADS` — the Leads sales-pipeline page, duplicate detection, bulk actions, CSV import/export, and Convert to Client (default enabled)
 - `FEATURE_2FA` — two-factor auth enrollment and enforcement (**default DISABLED** — set to `true` to opt in; unlike every toggle above, this one changes the login flow itself)
+
+The Suite Switcher (see above) isn't a `FEATURE_*` boolean — it's gated per-app by whether `SUITE_PULSE_URL` / `SUITE_TETHER_URL` / `SUITE_FOLIO_URL` / `SUITE_FORGE_URL` / `SUITE_PASSVAULT_URL` / `SUITE_SCOUT_URL` is set, so each sibling app appears independently as soon as its URL is configured.
 
 ### Setup Wizard
 - First-boot admin account creation
