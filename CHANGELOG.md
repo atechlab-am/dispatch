@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.50.2] — 2026-07-17
+
+### Fixed — Dashboard SLA breach/warning ignored paused SLA clocks
+- User-reported bug: a ticket set to "Awaiting Client" (on hold) still showed up under "SLA Breached"/"SLA Warning" on the Dashboard as if its SLA clock were still running, even though `Ticket.sla_paused_at` is set specifically to stop that clock while awaiting the client.
+- Root cause: `GET /api/dashboard`'s `breached`/`sla_warning` queries (`backend/app/routers/dashboard.py`) compared `sla_resolution_due` directly against `now` with no `sla_paused_at` check. The SLA breach-notification cron job (`backend/app/tasks.py`) already excludes paused tickets (`Ticket.sla_paused_at.is_(None)`) — the dashboard just never had the same guard.
+- Fix: both `breached` and `sla_warning` now exclude tickets with a non-null `sla_paused_at`, matching the existing cron job's logic.
+
+### Tests
+- Added `test_dashboard_sla_breach_excludes_paused_tickets` — regression test inserting a breached-but-paused ticket alongside a breached-and-active one, asserting only the active one appears in `sla_urgent`. Full backend suite: 592 passing.
+
 ## [1.50.1] — 2026-07-14
 
 ### Changed — Suite Switcher: added Folio, Forge, Passvault, Scout

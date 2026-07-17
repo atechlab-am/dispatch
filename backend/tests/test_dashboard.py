@@ -1,5 +1,30 @@
 """Tests for the dashboard endpoint."""
 
+from datetime import datetime, timedelta, timezone
+
+import app.database as _db_module
+from app.models.models import Ticket
+
+
+def _make_ticket(**overrides):
+    """Insert a ticket directly via the DB session, bypassing the API, so
+    sla_resolution_due/sla_paused_at can be set to arbitrary values that the
+    normal create/update endpoints wouldn't let a test set directly."""
+    db = _db_module.SessionLocal()
+    try:
+        n = db.query(Ticket).count()
+        ticket = Ticket(
+            id=f"TKT-TEST-{n:05d}",
+            title="Dashboard SLA test ticket",
+            **{"status": "Open", **overrides},
+        )
+        db.add(ticket)
+        db.commit()
+        db.refresh(ticket)
+        return ticket.id
+    finally:
+        db.close()
+
 
 def test_dashboard_returns_expected_shape(client, admin_headers):
     r = client.get("/api/dashboard", headers=admin_headers)
@@ -46,6 +71,31 @@ def test_dashboard_total_tickets_matches_list(client, admin_headers):
     total_stat = next(s for s in dash["stats"] if s["label"] == "Total Tickets")
     list_total = client.get("/api/tickets", headers=admin_headers).json()["total"]
     assert total_stat["value"] == list_total
+
+
+def test_dashboard_sla_breach_excludes_paused_tickets(client, admin_headers):
+    """A ticket on hold (Awaiting Client, sla_paused_at set) has its SLA clock
+    stopped and must not count as breached even if sla_resolution_due is in
+    the past — regression test for the dashboard not honoring sla_paused_at."""
+    now = datetime.now(timezone.utc)
+    past_due = now - timedelta(hours=3)
+
+    breached_id = _make_ticket(
+        status="Open",
+        sla_resolution_due=past_due,
+        sla_paused_at=None,
+    )
+    paused_id = _make_ticket(
+        status="Awaiting Client",
+        sla_resolution_due=past_due,
+        sla_paused_at=now - timedelta(hours=1),
+    )
+
+    dash = client.get("/api/dashboard", headers=admin_headers).json()
+    urgent_ids = {t["id"] for t in dash["sla_urgent"]}
+
+    assert breached_id in urgent_ids
+    assert paused_id not in urgent_ids
 
 
 def test_dashboard_includes_lead_stats(client, admin_headers):

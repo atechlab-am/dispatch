@@ -60,11 +60,12 @@ def get_dashboard(
     urgent = [t for t in active if t.priority == "Urgent"]
     breached = [
         t for t in active
-        if t.sla_resolution_due and t.sla_resolution_due.replace(tzinfo=timezone.utc) < now
+        if t.sla_resolution_due and t.sla_paused_at is None
+        and t.sla_resolution_due.replace(tzinfo=timezone.utc) < now
     ]
     sla_warning = [
         t for t in active
-        if t.sla_resolution_due
+        if t.sla_resolution_due and t.sla_paused_at is None
         and now <= t.sla_resolution_due.replace(tzinfo=timezone.utc) <= sla_warn_threshold
     ]
 
