@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.50.3] — 2026-08-08
+
+### Fixed — `.env.example` missing `FEATURE_LEADS`
+- `FEATURE_LEADS` has been a fully wired feature toggle (`backend/app/config.py`, gated in `backend/app/routers/leads.py` and referenced by `dashboard.py`/`version.py`) but was never added to `.env.example`, so there was no documented way to see or toggle it off without reading the backend source.
+- Added `#FEATURE_LEADS=true` to `.env.example`'s feature toggles block, alongside the other `FEATURE_*` vars.
+
 ## [1.50.2] — 2026-07-17
 
 ### Fixed — Dashboard SLA breach/warning ignored paused SLA clocks

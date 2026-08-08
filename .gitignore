@@ -12,6 +12,7 @@ dist/
 
 # macOS
 .DS_Store
+._.DS_Store
 
 # Python
 **/__pycache__/
