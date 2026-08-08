@@ -18,8 +18,8 @@ def test_get_branding_returns_defaults_when_unconfigured(client, tech_headers):
     r = client.get("/api/branding", headers=tech_headers)
     assert r.status_code == 200
     data = r.json()
-    assert data["company_name"] == "ATech Solutions"
-    assert data["primary_color"] == "#1A5CBA"
+    assert data["company_name"] == "Your Company"
+    assert data["primary_color"] == "#2563EB"
     assert data["text_color"] == "#0D1B2A"
     assert data["muted_color"] == "#5B6D82"
     assert data["on_color_text"] == "#FFFFFF"

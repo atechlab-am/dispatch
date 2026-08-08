@@ -1,6 +1,6 @@
 # Dispatch
 
-Internal ticketing and client management system for ATechSolutions.
+A self-hosted ticketing and client management system for IT/MSP teams.
 
 ## Install (new machine, Docker)
 
@@ -107,7 +107,7 @@ React 18 + Vite · FastAPI · PostgreSQL · nginx · Docker
 - Topbar search box (staff app) — type to search tickets, clients, invoices, and quotes at once; click a result to jump straight to it
 
 ### Suite Switcher
-- Optional topbar icon linking out to sibling ATech Solutions apps (Pulse, Tether, Folio, Forge, Passvault, Scout) — shown only when at least one is configured via `SUITE_*_URL` in `.env`
+- Optional topbar icon linking out to sibling apps in your own suite — shown only when at least one is configured via `SUITE_*_URL` in `.env`
 - Plain links only — no shared login between apps; clicking opens that app's own sign-in page in a new tab. (True single sign-on across the suite is a separate, larger project not yet built.)
 
 ### Tickets

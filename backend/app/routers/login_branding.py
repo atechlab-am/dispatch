@@ -12,10 +12,10 @@ router = APIRouter(prefix="/login-branding", tags=["login-branding"])
 
 
 class LoginBrandingIn(BaseModel):
-    company_name: str = Field("ATech Solutions", max_length=255)
+    company_name: str = Field("Your Company", max_length=255)
     subtitle: str = Field("internal use only", max_length=255)
-    primary_color: str = Field("#1A5CBA", max_length=20)
-    accent_color: str = Field("#E8A020", max_length=20)
+    primary_color: str = Field("#2563EB", max_length=20)
+    accent_color: str = Field("#F59E0B", max_length=20)
     text_color: str = Field("#0D1B2A", max_length=20)
     muted_color: str = Field("#5B6D82", max_length=20)
     on_color_text: str = Field("#FFFFFF", max_length=20)

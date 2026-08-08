@@ -14,9 +14,9 @@ def test_get_returns_defaults(client, admin_headers):
     r = client.get("/api/document-branding", headers=admin_headers)
     assert r.status_code == 200
     data = r.json()
-    assert data["company_name"] == "ATech Solutions"
-    assert data["primary_color"] == "#1A5CBA"
-    assert data["accent_color"] == "#E8A020"
+    assert data["company_name"] == "Your Company"
+    assert data["primary_color"] == "#2563EB"
+    assert data["accent_color"] == "#F59E0B"
     assert data["footer_text"] == "Thank you for your business"
     assert data["text_color"] == "#0F172A"
     assert data["muted_color"] == "#64748B"
@@ -59,8 +59,8 @@ def test_document_branding_independent_of_other_branding_tables(client, admin_he
 
 
 DEFAULT_DOCUMENT_BRANDING = {
-    "company_name": "ATech Solutions", "website": "atechsolutions.org",
-    "primary_color": "#1A5CBA", "accent_color": "#E8A020",
+    "company_name": "Your Company", "website": "example.com",
+    "primary_color": "#2563EB", "accent_color": "#F59E0B",
     "text_color": "#0F172A", "muted_color": "#64748B", "on_color_text": "#FFFFFF",
     "logo_url": "", "footer_text": "Thank you for your business",
     "font_size_header": 22, "font_size_body": 14, "font_size_table": 13, "font_size_totals": 15,
@@ -89,7 +89,7 @@ def test_invoice_pdf_reflects_custom_branding(client, admin_headers):
         assert "acme-consulting.example" in pdf.text
         assert "#123456" in pdf.text
         assert "Questions? Call us anytime." in pdf.text
-        assert "ATechSolutions" not in pdf.text
+        assert "YourCompany" not in pdf.text
     finally:
         _reset_document_branding(client, admin_headers)
 
@@ -109,7 +109,7 @@ def test_quote_pdf_reflects_custom_branding(client, admin_headers):
         assert "Acme Consulting" in pdf.text
         assert "acme-consulting.example" in pdf.text
         assert "#123456" in pdf.text
-        assert "ATechSolutions" not in pdf.text
+        assert "YourCompany" not in pdf.text
     finally:
         _reset_document_branding(client, admin_headers)
 
@@ -321,7 +321,7 @@ def test_preview_invoice_template_renders_with_sample_data(client, admin_headers
                      json={"template": "<html><body>{{company_name}} / {{invoice_id}}</body></html>"},
                      headers=admin_headers)
     assert r.status_code == 200
-    assert "ATech Solutions" in r.text
+    assert "Your Company" in r.text
     assert "INV-2026-00001" in r.text
 
 
@@ -337,7 +337,7 @@ def test_preview_quote_template_renders_with_sample_data(client, admin_headers):
                      json={"template": "<html><body>{{company_name}} / {{quote_id}}</body></html>"},
                      headers=admin_headers)
     assert r.status_code == 200
-    assert "ATech Solutions" in r.text
+    assert "Your Company" in r.text
     assert "QUO-2026-00001" in r.text
 
 

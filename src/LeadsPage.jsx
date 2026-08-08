@@ -6,7 +6,7 @@ import {
 import LeadModal from "./LeadModal.jsx";
 
 const brand = {
-  blue: "var(--dispatch-primary)", accent: "#E8A020", bg: "var(--dispatch-bg)", surface: "var(--dispatch-surface)",
+  blue: "var(--dispatch-primary)", accent: "#F59E0B", bg: "var(--dispatch-bg)", surface: "var(--dispatch-surface)",
   border: "var(--dispatch-border)", text: "var(--dispatch-text)", muted: "var(--dispatch-muted)",
   success: "#1a8f4a", danger: "#c0392b",
 };

@@ -10,10 +10,10 @@ vi.mock("../api/loginBranding.js", () => ({
 import { getLoginBranding, updateLoginBranding } from "../api/loginBranding.js";
 
 const DEFAULT_FORM = {
-  company_name: "ATech Solutions",
+  company_name: "Your Company",
   subtitle: "internal use only",
-  primary_color: "#1A5CBA",
-  accent_color: "#E8A020",
+  primary_color: "#2563EB",
+  accent_color: "#F59E0B",
   text_color: "#0D1B2A",
   muted_color: "#5B6D82",
   on_color_text: "#FFFFFF",
@@ -31,7 +31,7 @@ test("loads current settings and saves changes", async () => {
 
   render(<LoginPageSettingsPanel onClose={() => {}} showToast={showToast} />);
 
-  const nameInput = await screen.findByDisplayValue("ATech Solutions");
+  const nameInput = await screen.findByDisplayValue("Your Company");
   fireEvent.change(nameInput, { target: { value: "New Name" } });
   fireEvent.click(screen.getByText("Save Changes"));
 
@@ -46,7 +46,7 @@ test("shows an error toast when saving fails", async () => {
 
   render(<LoginPageSettingsPanel onClose={() => {}} showToast={showToast} />);
 
-  await screen.findByDisplayValue("ATech Solutions");
+  await screen.findByDisplayValue("Your Company");
   fireEvent.click(screen.getByText("Save Changes"));
 
   await waitFor(() => expect(showToast).toHaveBeenCalledWith("Failed to save Login Page settings.", "err"));
@@ -66,7 +66,7 @@ test("close button calls onClose without saving", async () => {
   const onClose = vi.fn();
   render(<LoginPageSettingsPanel onClose={onClose} showToast={vi.fn()} />);
 
-  await screen.findByDisplayValue("ATech Solutions");
+  await screen.findByDisplayValue("Your Company");
   fireEvent.click(screen.getByText("Close"));
 
   expect(updateLoginBranding).not.toHaveBeenCalled();

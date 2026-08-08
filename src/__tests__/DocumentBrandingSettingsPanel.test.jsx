@@ -16,10 +16,10 @@ import {
 } from "../api/documentBranding.js";
 
 const DEFAULT_FORM = {
-  company_name: "ATech Solutions",
-  website: "atechsolutions.org",
-  primary_color: "#1A5CBA",
-  accent_color: "#E8A020",
+  company_name: "Your Company",
+  website: "example.com",
+  primary_color: "#2563EB",
+  accent_color: "#F59E0B",
   text_color: "#0F172A",
   muted_color: "#64748B",
   on_color_text: "#FFFFFF",
@@ -50,7 +50,7 @@ test("loads current settings and saves changes", async () => {
 
   render(<DocumentBrandingSettingsPanel onClose={() => {}} showToast={showToast} />);
 
-  const nameInput = await screen.findByDisplayValue("ATech Solutions");
+  const nameInput = await screen.findByDisplayValue("Your Company");
   fireEvent.change(nameInput, { target: { value: "New Name" } });
   fireEvent.click(screen.getByText("Save Changes"));
 
@@ -65,7 +65,7 @@ test("shows an error toast when saving fails", async () => {
 
   render(<DocumentBrandingSettingsPanel onClose={() => {}} showToast={showToast} />);
 
-  await screen.findByDisplayValue("ATech Solutions");
+  await screen.findByDisplayValue("Your Company");
   fireEvent.click(screen.getByText("Save Changes"));
 
   await waitFor(() => expect(showToast).toHaveBeenCalledWith("Failed to save Quote/Invoice PDF settings.", "err"));
@@ -85,7 +85,7 @@ test("close button calls onClose without saving", async () => {
   const onClose = vi.fn();
   render(<DocumentBrandingSettingsPanel onClose={onClose} showToast={vi.fn()} />);
 
-  await screen.findByDisplayValue("ATech Solutions");
+  await screen.findByDisplayValue("Your Company");
   fireEvent.click(screen.getByText("Close"));
 
   expect(updateDocumentBranding).not.toHaveBeenCalled();
@@ -110,7 +110,7 @@ test("shows the specific server error when a custom template save is rejected", 
   const showToast = vi.fn();
 
   render(<DocumentBrandingSettingsPanel onClose={() => {}} showToast={showToast} />);
-  await screen.findByDisplayValue("ATech Solutions");
+  await screen.findByDisplayValue("Your Company");
   fireEvent.click(screen.getByText("Save Changes"));
 
   await waitFor(() => expect(showToast).toHaveBeenCalledWith("Invoice template error: Unknown placeholder(s): bogus", "err"));
@@ -120,7 +120,7 @@ test("shows the Font Colors section and saves a changed body text color", async 
   updateDocumentBranding.mockResolvedValue({ ...DEFAULT_FORM, text_color: "#123456" });
   render(<DocumentBrandingSettingsPanel onClose={() => {}} showToast={vi.fn()} />);
 
-  await screen.findByDisplayValue("ATech Solutions");
+  await screen.findByDisplayValue("Your Company");
   expect(screen.getByText("Font Colors")).toBeInTheDocument();
 
   const textColorInput = screen.getByDisplayValue("#0F172A");
@@ -134,7 +134,7 @@ test("adjusts a font size slider and saves it", async () => {
   updateDocumentBranding.mockResolvedValue({ ...DEFAULT_FORM, font_size_header: 30 });
   render(<DocumentBrandingSettingsPanel onClose={() => {}} showToast={vi.fn()} />);
 
-  await screen.findByDisplayValue("ATech Solutions");
+  await screen.findByDisplayValue("Your Company");
   expect(screen.getByText("22px")).toBeInTheDocument();
 
   const sliders = screen.getAllByRole("slider");
@@ -146,7 +146,7 @@ test("adjusts a font size slider and saves it", async () => {
 
 test("enabling a custom invoice template reveals the editor, placeholders, and preview button", async () => {
   render(<DocumentBrandingSettingsPanel onClose={() => {}} showToast={vi.fn()} />);
-  await screen.findByDisplayValue("ATech Solutions");
+  await screen.findByDisplayValue("Your Company");
 
   expect(screen.queryByText(/Available placeholders/)).not.toBeInTheDocument();
   fireEvent.click(screen.getByText("Use a custom invoice template"));
@@ -162,7 +162,7 @@ test("previewing an invoice template opens the rendered HTML", async () => {
   });
 
   render(<DocumentBrandingSettingsPanel onClose={() => {}} showToast={vi.fn()} />);
-  await screen.findByDisplayValue("ATech Solutions");
+  await screen.findByDisplayValue("Your Company");
   fireEvent.click(screen.getByText("Use a custom invoice template"));
 
   const textarea = await screen.findByPlaceholderText("<html>...</html>");
@@ -181,7 +181,7 @@ test("shows an error toast when previewing a broken template", async () => {
   const showToast = vi.fn();
 
   render(<DocumentBrandingSettingsPanel onClose={() => {}} showToast={showToast} />);
-  await screen.findByDisplayValue("ATech Solutions");
+  await screen.findByDisplayValue("Your Company");
   fireEvent.click(screen.getByText("Use a custom invoice template"));
 
   const textarea = await screen.findByPlaceholderText("<html>...</html>");
@@ -193,7 +193,7 @@ test("shows an error toast when previewing a broken template", async () => {
 
 test("enabling a custom quote template shows its own editor independent of the invoice one", async () => {
   render(<DocumentBrandingSettingsPanel onClose={() => {}} showToast={vi.fn()} />);
-  await screen.findByDisplayValue("ATech Solutions");
+  await screen.findByDisplayValue("Your Company");
 
   fireEvent.click(screen.getByText("Use a custom quote template"));
   expect(await screen.findByText(/Available placeholders \(3\)/)).toBeInTheDocument();

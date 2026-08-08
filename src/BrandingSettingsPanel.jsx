@@ -82,7 +82,7 @@ export default function BrandingSettingsPanel({ onClose, showToast }) {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           <div>
             {label("Company Name")}
-            <input style={inp} value={form.companyName} onChange={e => up("companyName", e.target.value)} placeholder="ATech Solutions" />
+            <input style={inp} value={form.companyName} onChange={e => up("companyName", e.target.value)} placeholder="Your Company" />
           </div>
           <div>
             {label("Tagline")}
@@ -146,7 +146,7 @@ export default function BrandingSettingsPanel({ onClose, showToast }) {
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input type="color" value={form.primaryColor} onChange={e => up("primaryColor", e.target.value)}
                 style={{ width: 40, height: 36, border: "1px solid #e2e8f0", borderRadius: "var(--dispatch-radius-md)", cursor: "pointer", padding: 2, background: "#fff" }} />
-              <input style={{ ...inp }} value={form.primaryColor} onChange={e => up("primaryColor", e.target.value)} placeholder="#1A5CBA" />
+              <input style={{ ...inp }} value={form.primaryColor} onChange={e => up("primaryColor", e.target.value)} placeholder="#2563EB" />
             </div>
           </div>
           <div>
@@ -154,7 +154,7 @@ export default function BrandingSettingsPanel({ onClose, showToast }) {
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input type="color" value={form.accentColor} onChange={e => up("accentColor", e.target.value)}
                 style={{ width: 40, height: 36, border: "1px solid #e2e8f0", borderRadius: "var(--dispatch-radius-md)", cursor: "pointer", padding: 2, background: "#fff" }} />
-              <input style={{ ...inp }} value={form.accentColor} onChange={e => up("accentColor", e.target.value)} placeholder="#E8A020" />
+              <input style={{ ...inp }} value={form.accentColor} onChange={e => up("accentColor", e.target.value)} placeholder="#F59E0B" />
             </div>
           </div>
         </div>
@@ -231,7 +231,7 @@ export default function BrandingSettingsPanel({ onClose, showToast }) {
         <button onClick={handleCancel} style={{ padding: "9px 20px", borderRadius: "var(--dispatch-radius-md)", border: "1px solid #e2e8f0", background: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", color: "#64748b" }}>
           Cancel (revert)
         </button>
-        <button onClick={handleSave} disabled={saving} style={{ padding: "9px 24px", borderRadius: "var(--dispatch-radius-md)", border: "none", background: "#1A5CBA", color: "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit", boxShadow: "0 2px 8px #1A5CBA44", opacity: saving ? 0.7 : 1 }}>
+        <button onClick={handleSave} disabled={saving} style={{ padding: "9px 24px", borderRadius: "var(--dispatch-radius-md)", border: "none", background: "#2563EB", color: "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit", boxShadow: "0 2px 8px #2563EB44", opacity: saving ? 0.7 : 1 }}>
           {saving ? "Saving…" : saved ? "✓ Saved!" : "Save Changes"}
         </button>
       </div>

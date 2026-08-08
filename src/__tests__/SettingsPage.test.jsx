@@ -188,7 +188,7 @@ describe("SettingsPage — Users tab (admin)", () => {
     await screen.findByText("admin@test.com");
 
     fireEvent.change(screen.getByPlaceholderText("Full name"), { target: { value: "New User" } });
-    fireEvent.change(screen.getByPlaceholderText("user@atechsolutions.org"), { target: { value: "new@test.com" } });
+    fireEvent.change(screen.getByPlaceholderText("user@example.com"), { target: { value: "new@test.com" } });
     fireEvent.change(screen.getByPlaceholderText("Temporary password"), { target: { value: "newpass123" } });
     fireEvent.click(screen.getByRole("button", { name: /\+ Add/i }));
 

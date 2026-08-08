@@ -12,7 +12,7 @@ import { me, setup2fa, enable2fa, disable2fa } from "./api/auth.js";
 
 const brand = {
   blue: "var(--dispatch-primary)",
-  accent: "#E8A020",
+  accent: "#F59E0B",
   bg: "var(--dispatch-bg)",
   surface: "var(--dispatch-surface)",
   border: "var(--dispatch-border)",
@@ -94,7 +94,7 @@ function AddUserForm({ onAdded, showToast }) {
           </div>
           <div>
             <FieldLabel>Email</FieldLabel>
-            <input style={inp} type="email" value={form.email} onChange={e => up("email", e.target.value)} placeholder="user@atechsolutions.org" required />
+            <input style={inp} type="email" value={form.email} onChange={e => up("email", e.target.value)} placeholder="user@example.com" required />
           </div>
           <div>
             <FieldLabel>Password</FieldLabel>

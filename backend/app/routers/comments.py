@@ -67,6 +67,7 @@ def add_comment(
 
     if not body.is_internal and ticket.client_email:
         mailer.notify_comment_added(
+            db,
             ticket_id=ticket_id,
             title=ticket.title,
             comment_body=body.body,

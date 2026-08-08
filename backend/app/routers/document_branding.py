@@ -16,10 +16,10 @@ router = APIRouter(prefix="/document-branding", tags=["document-branding"])
 
 
 class DocumentBrandingIn(BaseModel):
-    company_name: str = Field("ATech Solutions", max_length=255)
-    website: str = Field("atechsolutions.org", max_length=255)
-    primary_color: str = Field("#1A5CBA", max_length=20)
-    accent_color: str = Field("#E8A020", max_length=20)
+    company_name: str = Field("Your Company", max_length=255)
+    website: str = Field("example.com", max_length=255)
+    primary_color: str = Field("#2563EB", max_length=20)
+    accent_color: str = Field("#F59E0B", max_length=20)
     text_color: str = Field("#0F172A", max_length=20)
     muted_color: str = Field("#64748B", max_length=20)
     on_color_text: str = Field("#FFFFFF", max_length=20)
@@ -60,13 +60,13 @@ def _sample_invoice_context() -> dict:
     needing a real invoice — same field set as _invoice_template_context()
     in routers/invoices.py, kept in sync manually (no live DB row needed)."""
     return {
-        "company_name": "ATech Solutions", "website": "atechsolutions.org",
+        "company_name": "Your Company", "website": "example.com",
         "footer_text": "Thank you for your business",
-        "logo_html": '<div class="logo">ATech<span>Solutions</span></div>',
-        "primary_color": "#1A5CBA", "accent_color": "#E8A020",
+        "logo_html": '<div class="logo">Your<span>Company</span></div>',
+        "primary_color": "#2563EB", "accent_color": "#F59E0B",
         "text_color": "#0F172A", "muted_color": "#64748B", "on_color_text": "#FFFFFF",
         "font_size_header": 22, "font_size_body": 14, "font_size_table": 13, "font_size_totals": 15,
-        "invoice_id": "INV-2026-00001", "status": "Sent", "status_color": "#1A5CBA",
+        "invoice_id": "INV-2026-00001", "status": "Sent", "status_color": "#2563EB",
         "paid_stamp_html": "",
         "client_name": "Acme Corp", "client_email_html": "<p>billing@acme.example.com</p>",
         "address_html": "<p style='white-space:pre-line'>123 Main St, Springfield</p>",
@@ -85,13 +85,13 @@ def _sample_invoice_context() -> dict:
 
 def _sample_quote_context() -> dict:
     return {
-        "company_name": "ATech Solutions", "website": "atechsolutions.org",
+        "company_name": "Your Company", "website": "example.com",
         "footer_text": "Thank you for your business",
-        "logo_html": '<div class="logo">ATech<span>Solutions</span></div>',
-        "primary_color": "#1A5CBA", "accent_color": "#E8A020",
+        "logo_html": '<div class="logo">Your<span>Company</span></div>',
+        "primary_color": "#2563EB", "accent_color": "#F59E0B",
         "text_color": "#0F172A", "muted_color": "#64748B", "on_color_text": "#FFFFFF",
         "font_size_header": 22, "font_size_body": 14, "font_size_table": 13, "font_size_totals": 15,
-        "quote_id": "QUO-2026-00001", "status": "Sent", "status_color": "#1A5CBA",
+        "quote_id": "QUO-2026-00001", "status": "Sent", "status_color": "#2563EB",
         "client_name": "Acme Corp", "client_email_html": "<p>billing@acme.example.com</p>",
         "project_html": "<p><strong>Project:</strong> Office Network Upgrade</p>",
         "issue_date": str(date.today()), "expiry_html": "<p><strong>Expires:</strong> 2026-08-01</p>",

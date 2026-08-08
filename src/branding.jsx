@@ -2,13 +2,13 @@ import { createContext, useContext, useState, useEffect } from "react";
 import { getBranding, updateBranding } from "./api/branding.js";
 
 const DEFAULTS = {
-  primaryColor:   "#1A5CBA",
-  accentColor:    "#E8A020",
+  primaryColor:   "#2563EB",
+  accentColor:    "#F59E0B",
   textColor:      "#0D1B2A",
   mutedColor:     "#5B6D82",
   onColorText:    "#FFFFFF",
-  companyName:    "ATech Solutions",
-  tagline:        "IT Support & Managed Services",
+  companyName:    "Your Company",
+  tagline:        "",
   logoUrl:        "",       // empty = text logo
   faviconUrl:     "",       // empty = no custom favicon
   sidebarDark:    true,     // sidebar style: dark=true, light=false
@@ -25,7 +25,7 @@ const OFFICE_THEME_VARS = {
   "--dispatch-bg":      "#F3F2F1",
   "--dispatch-surface": "#FFFFFF",
   "--dispatch-border":  "#E1DFDD",
-  "--dispatch-primary": "#1A5CBA",
+  "--dispatch-primary": "#2563EB",
   "--dispatch-font":    "'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif",
 };
 
@@ -33,7 +33,7 @@ const MODERN_THEME_VARS = {
   "--dispatch-bg":      "#F4F7FC",
   "--dispatch-surface": "#FFFFFF",
   "--dispatch-border":  "#D8E2F0",
-  "--dispatch-primary": "#1A5CBA",
+  "--dispatch-primary": "#2563EB",
   "--dispatch-font":    "'Inter', 'Segoe UI', system-ui, sans-serif",
 };
 

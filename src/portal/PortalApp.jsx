@@ -12,8 +12,8 @@ import { isInvoicePayable } from "./helpers.js";
 // ─── Brand ───────────────────────────────────────────────────────────────────
 
 const brand = {
-  primary: "#1A5CBA",
-  accent: "#E8A020",
+  primary: "#2563EB",
+  accent: "#F59E0B",
   muted: "var(--dispatch-portal-muted)",
   bg: "#f1f5f9",
   white: "#fff",
@@ -22,7 +22,7 @@ const brand = {
 };
 
 const DEFAULT_PORTAL_BRANDING = {
-  company_name: "ATech Solutions",
+  company_name: "Your Company",
   primary_color: brand.primary,
   accent_color: brand.accent,
   text_color: "#0f172a",

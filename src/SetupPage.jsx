@@ -3,7 +3,7 @@ import { completeSetup } from "./api/setup.js";
 
 const brand = {
   blue: "var(--dispatch-primary)",
-  accent: "#E8A020",
+  accent: "#F59E0B",
   bg: "var(--dispatch-bg)",
   surface: "var(--dispatch-surface)",
   border: "var(--dispatch-border)",
@@ -66,7 +66,7 @@ export default function SetupPage({ onComplete }) {
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div style={{ fontWeight: 800, fontSize: 26, color: brand.blue, letterSpacing: "-0.3px", marginBottom: 6 }}>
-            ATech<span style={{ color: brand.accent }}>Solutions</span>
+            Your<span style={{ color: brand.accent }}>Company</span>
           </div>
           <div style={{ fontWeight: 700, fontSize: 16, color: brand.text, marginBottom: 8 }}>Welcome to Dispatch</div>
           <div style={{ fontSize: 13, color: brand.muted, lineHeight: 1.5 }}>
@@ -105,7 +105,7 @@ export default function SetupPage({ onComplete }) {
               type="email"
               value={form.email}
               onChange={e => up("email", e.target.value)}
-              placeholder="you@atechsolutions.org"
+              placeholder="you@example.com"
               required
             />
           </div>

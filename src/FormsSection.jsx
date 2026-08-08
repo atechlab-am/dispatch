@@ -10,7 +10,7 @@ import {
 } from "./api/formTemplates.js";
 
 const brand = {
-  blue: "var(--dispatch-primary)", accent: "#E8A020", bg: "var(--dispatch-bg)", surface: "var(--dispatch-surface)",
+  blue: "var(--dispatch-primary)", accent: "#F59E0B", bg: "var(--dispatch-bg)", surface: "var(--dispatch-surface)",
   border: "var(--dispatch-border)", text: "var(--dispatch-text)", muted: "var(--dispatch-muted)",
   success: "#1a8f4a", danger: "#c0392b",
 };
@@ -61,9 +61,9 @@ function printInstance(instance, ticket) {
 <style>body{font-family:system-ui,sans-serif;margin:0;padding:32px;color:#0D1B2A}@media print{body{padding:0}}</style>
 </head><body>
 <div style="max-width:760px;margin:0 auto">
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;padding-bottom:16px;border-bottom:2px solid #1A5CBA">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;padding-bottom:16px;border-bottom:2px solid #2563EB">
     <div>
-      <div style="font-size:22px;font-weight:800;color:#1A5CBA">${esc(instance.template_name)}</div>
+      <div style="font-size:22px;font-weight:800;color:#2563EB">${esc(instance.template_name)}</div>
       <div style="font-size:13px;color:#5B6D82;margin-top:4px">Ticket: ${esc(ticket?.id ?? "")} &mdash; ${esc(ticket?.title ?? "")}</div>
     </div>
     <div style="text-align:right;font-size:12px;color:#5B6D82">

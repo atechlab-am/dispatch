@@ -11,8 +11,8 @@ vi.mock("../api/client.js", () => ({
 }));
 vi.mock("../api/loginBranding.js", () => ({
   getLoginBrandingPublic: vi.fn().mockResolvedValue({
-    company_name: "ATech Solutions", subtitle: "internal use only",
-    primary_color: "#1A5CBA", accent_color: "#E8A020",
+    company_name: "Your Company", subtitle: "internal use only",
+    primary_color: "#2563EB", accent_color: "#F59E0B",
     text_color: "#0D1B2A", muted_color: "#5B6D82", on_color_text: "#FFFFFF",
     logo_url: "",
   }),

@@ -29,14 +29,14 @@ import ClientsPage from "./ClientsPage.jsx";
 import SetupPage from "./SetupPage.jsx";
 import { getSetupStatus } from "./api/setup.js";
 import AppNew from "./AppNew.jsx";
-import { BrandingProvider } from "./branding.jsx";
+import { BrandingProvider, useBranding } from "./branding.jsx";
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const brand = {
   blue: "var(--dispatch-primary)",
-  blueDark: "#143f80",
-  accent: "#E8A020",
-  accentLight: "#f5c05a",
+  blueDark: "#184098",
+  accent: "#F59E0B",
+  accentLight: "#f8bf60",
   bg: "var(--dispatch-bg)",
   surface: "var(--dispatch-surface)",
   border: "var(--dispatch-border)",
@@ -180,7 +180,7 @@ const editorToApi = (t) => ({
 });
 
 // ─── PDF / Print ──────────────────────────────────────────────────────────────
-const printTicket = (ticket) => {
+const printTicket = (ticket, branding) => {
   const travel   = TRAVEL_FEES.find((t) => t.id === ticket.travelFee);
   const travelFee = travel?.fee || 0;
   const svcTotal  = ticket.services.reduce((s, sv) => s + calcServiceTotal(sv), 0);
@@ -188,28 +188,37 @@ const printTicket = (ticket) => {
   const materialsTotal = calcMaterialsTotal(ticket.materialsUsed);
   const grand     = svcTotal + hourTotal + materialsTotal + travelFee;
 
+  const companyName = branding?.companyName || "Your Company";
+  const primaryColor = branding?.primaryColor || "#2563EB";
+  const accentColor = branding?.accentColor || "#F59E0B";
+  const [logoFirst, ...logoRestParts] = companyName.split(" ");
+  const logoRest = logoRestParts.join(" ");
+  const logoHtml = branding?.logoUrl
+    ? `<img src="${esc(branding.logoUrl)}" alt="${esc(companyName)}" style="max-height:32px;max-width:220px"/>`
+    : `<div class="logo">${esc(logoFirst)}<span>${esc(logoRest)}</span></div>`;
+
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
 <title>Ticket ${ticket.id}</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#0D1B2A;padding:32px;background:#fff}
-.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1A5CBA;padding-bottom:16px;margin-bottom:20px}
-.logo{font-size:22px;font-weight:800;color:#1A5CBA;letter-spacing:-0.5px}
-.logo span{color:#E8A020}
+.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid ${primaryColor};padding-bottom:16px;margin-bottom:20px}
+.logo{font-size:22px;font-weight:800;color:${primaryColor};letter-spacing:-0.5px}
+.logo span{color:${accentColor}}
 .meta{text-align:right;color:#5B6D82;font-size:11px}
 .meta strong{color:#0D1B2A;font-size:15px;display:block;margin-bottom:4px}
 .badges{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
 .badge{padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase}
-.b-blue{background:#1A5CBA;color:#fff}.b-amber{background:#E8A020;color:#fff}
+.b-blue{background:${primaryColor};color:#fff}.b-amber{background:${accentColor};color:#fff}
 .b-green{background:#1a8f4a;color:#fff}.b-gray{background:#e2e8f0;color:#5B6D82}
 .b-red{background:#c0392b;color:#fff}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
 .card{background:#F4F7FC;border:1px solid #D8E2F0;border-radius:6px;padding:14px}
-.card h3{font-size:10px;font-weight:700;text-transform:uppercase;color:#1A5CBA;letter-spacing:0.5px;margin-bottom:10px}
+.card h3{font-size:10px;font-weight:700;text-transform:uppercase;color:${primaryColor};letter-spacing:0.5px;margin-bottom:10px}
 .card p{margin-bottom:5px;line-height:1.5}
 .label{color:#5B6D82;font-size:10px;display:block}
 table{width:100%;border-collapse:collapse;margin-bottom:20px}
-th{background:#1A5CBA;color:#fff;text-align:left;padding:8px 10px;font-size:11px}
+th{background:${primaryColor};color:#fff;text-align:left;padding:8px 10px;font-size:11px}
 td{padding:7px 10px;border-bottom:1px solid #D8E2F0;font-size:11px}
 tr:nth-child(even) td{background:#F4F7FC}
 .right{text-align:right}
@@ -217,16 +226,15 @@ tr:nth-child(even) td{background:#F4F7FC}
 .totals{width:280px;border-collapse:collapse}
 .totals td{padding:6px 10px;font-size:12px;border-bottom:1px solid #D8E2F0}
 .totals .lbl{color:#5B6D82}.totals .val{text-align:right;font-weight:600}
-.grand td{font-size:15px;font-weight:800;color:#1A5CBA;border-top:2px solid #1A5CBA!important}
-.notes-box{background:#fffbf0;border:1px solid #E8A020;border-radius:6px;padding:14px;margin-bottom:20px}
-.notes-box h3{font-size:10px;font-weight:700;text-transform:uppercase;color:#E8A020;letter-spacing:0.5px;margin-bottom:8px}
+.grand td{font-size:15px;font-weight:800;color:${primaryColor};border-top:2px solid ${primaryColor}!important}
+.notes-box{background:#fffbf0;border:1px solid ${accentColor};border-radius:6px;padding:14px;margin-bottom:20px}
+.notes-box h3{font-size:10px;font-weight:700;text-transform:uppercase;color:${accentColor};letter-spacing:0.5px;margin-bottom:8px}
 .footer{text-align:center;color:#5B6D82;font-size:10px;border-top:1px solid #D8E2F0;padding-top:14px;margin-top:20px}
 @media print{body{padding:16px}}
 </style></head><body>
 <div class="header">
   <div>
-    <div class="logo">ATech<span>Solutions</span></div>
-    <div style="color:#5B6D82;font-size:11px;margin-top:4px">atechsolutions.org &nbsp;|&nbsp; (514) 826-5351 &nbsp;|&nbsp; info@atechsolutions.org</div>
+    ${logoHtml}
   </div>
   <div class="meta">
     <strong>${esc(ticket.id)}</strong>
@@ -301,8 +309,7 @@ ${ticket.materialsUsed.length > 0 ? `
 </div>
 ${ticket.internalNotes ? `<div class="notes-box"><h3>Notes</h3><p>${esc(ticket.internalNotes).replace(/\n/g, "<br/>")}</p></div>` : ""}
 <div class="footer">
-  ATechSolutions &nbsp;|&nbsp; amartins@atechsolutions.org &nbsp;|&nbsp; (514) 826-5351 &nbsp;|&nbsp; atechsolutions.org<br/>
-  Sainte-Marthe-sur-le-Lac, QC &nbsp;|&nbsp; Serving the North Shore &amp; Laurentians
+  ${esc(companyName)}
 </div>
 <script>window.onload=()=>window.print();</script>
 </body></html>`;
@@ -1664,6 +1671,7 @@ const AttachmentsSection = ({ ticketId, currentUser }) => {
 
 // ─── Ticket editor ────────────────────────────────────────────────────────────
 export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreateInvoice, users, currentUser, onTemplateSaved, showToast, clients = [], onClientUpdated, features, materials = [] }) => {
+  const branding = useBranding();
   const [t, setT] = useState(ticket);
   const [savingTpl, setSavingTpl] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState(null); // null | "pending" | "saving" | "saved"
@@ -2009,7 +2017,7 @@ export const TicketEditor = ({ ticket, onSave, onBack, onDelete, saving, onCreat
           {autoSaveStatus === "saving" && <span style={{ fontSize:12, color:brand.muted }}>Saving…</span>}
           {autoSaveStatus === "saved" && <span style={{ fontSize:12, color:"#16a34a", fontWeight:600 }}>✓ Saved</span>}
           <Btn onClick={handleSaveAsTemplate} variant="ghost" disabled={savingTpl}>{savingTpl ? "Saving…" : "Save as Template"}</Btn>
-          <Btn onClick={()=>printTicket(t)} variant="secondary">🖨 Export PDF</Btn>
+          <Btn onClick={()=>printTicket(t, branding)} variant="secondary">🖨 Export PDF</Btn>
           <Btn onClick={handleSaveClick} variant="accent" disabled={saving}>{saving ? "Saving…" : "✓ Save Ticket"}</Btn>
         </div>
       </div>

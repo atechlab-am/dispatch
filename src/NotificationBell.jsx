@@ -72,7 +72,7 @@ export default function NotificationBell({ user, navigate }) {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderBottom: "1px solid #e2e8f0" }}>
             <span style={{ fontWeight: 700, fontSize: 13, color: "#0f172a" }}>Notifications</span>
             {items.some(i => !i.read) && (
-              <button onClick={handleMarkAllRead} style={{ background: "none", border: "none", color: "#1A5CBA", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+              <button onClick={handleMarkAllRead} style={{ background: "none", border: "none", color: "#2563EB", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
                 Mark all read
               </button>
             )}

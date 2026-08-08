@@ -9,7 +9,7 @@ ALGORITHM: str = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-# Comma-separated list of allowed CORS origins, e.g. "https://dispatch.atechsolutions.org"
+# Comma-separated list of allowed CORS origins, e.g. "https://dispatch.example.com"
 _cors_raw: str = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173")
 ALLOWED_ORIGINS: list[str] = [o.strip() for o in _cors_raw.split(",") if o.strip()]
 
@@ -18,7 +18,7 @@ SMTP_HOST: str = os.environ.get("SMTP_HOST", "")
 SMTP_PORT: int = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER: str = os.environ.get("SMTP_USER", "")
 SMTP_PASSWORD: str = os.environ.get("SMTP_PASSWORD", "")
-SMTP_FROM: str = os.environ.get("SMTP_FROM", "dispatch@atechsolutions.org")
+SMTP_FROM: str = os.environ.get("SMTP_FROM", "dispatch@example.com")
 SMTP_TLS: bool = os.environ.get("SMTP_TLS", "true").lower() == "true"
 
 # File uploads — mounted volume in production
@@ -29,9 +29,9 @@ UPLOAD_DIR: str = os.environ.get("UPLOAD_DIR", "/app/uploads")
 GITHUB_REPO: str = os.environ.get("GITHUB_REPO", "")
 GITHUB_TOKEN: str = os.environ.get("GITHUB_TOKEN", "")
 
-# ATech Solutions suite switcher — optional. Each var is the base URL of a
-# sibling app; a switcher icon in the topbar links out to whichever of these
-# are set (plain links only, no shared login — each app's own sign-in page).
+# Suite switcher — optional. Each var is the base URL of a sibling app; a
+# switcher icon in the topbar links out to whichever of these are set (plain
+# links only, no shared login — each app's own sign-in page).
 # Leave a var unset/blank to hide that app from the switcher entirely.
 SUITE_PULSE_URL: str = os.environ.get("SUITE_PULSE_URL", "").rstrip("/")
 SUITE_TETHER_URL: str = os.environ.get("SUITE_TETHER_URL", "").rstrip("/")

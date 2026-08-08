@@ -39,7 +39,7 @@ export function UploadButton({ accept, onDataUrl, label: btnLabel }) {
 }
 
 export const PRESET_PALETTES = [
-  { name: "ATech Blue",   primary: "#1A5CBA", accent: "#E8A020" },
+  { name: "Blue",         primary: "#2563EB", accent: "#F59E0B" },
   { name: "Slate",        primary: "#334155", accent: "#f97316" },
   { name: "Indigo",       primary: "#4f46e5", accent: "#ec4899" },
   { name: "Emerald",      primary: "#059669", accent: "#f59e0b" },

@@ -713,10 +713,10 @@ class Branding(Base):
     __tablename__ = "branding"
 
     id = Column(Integer, primary_key=True, default=1)
-    company_name = Column(String(255), nullable=False, default="ATech Solutions")
-    tagline = Column(String(255), nullable=False, default="IT Support & Managed Services")
-    primary_color = Column(String(20), nullable=False, default="#1A5CBA")
-    accent_color = Column(String(20), nullable=False, default="#E8A020")
+    company_name = Column(String(255), nullable=False, default="Your Company")
+    tagline = Column(String(255), nullable=False, default="")
+    primary_color = Column(String(20), nullable=False, default="#2563EB")
+    accent_color = Column(String(20), nullable=False, default="#F59E0B")
     text_color = Column(String(20), nullable=False, default="#0D1B2A")
     muted_color = Column(String(20), nullable=False, default="#5B6D82")
     on_color_text = Column(String(20), nullable=False, default="#FFFFFF")
@@ -735,10 +735,10 @@ class LoginPageBranding(Base):
     __tablename__ = "login_branding"
 
     id = Column(Integer, primary_key=True, default=1)
-    company_name = Column(String(255), nullable=False, default="ATech Solutions")
+    company_name = Column(String(255), nullable=False, default="Your Company")
     subtitle = Column(String(255), nullable=False, default="internal use only")
-    primary_color = Column(String(20), nullable=False, default="#1A5CBA")
-    accent_color = Column(String(20), nullable=False, default="#E8A020")
+    primary_color = Column(String(20), nullable=False, default="#2563EB")
+    accent_color = Column(String(20), nullable=False, default="#F59E0B")
     text_color = Column(String(20), nullable=False, default="#0D1B2A")
     muted_color = Column(String(20), nullable=False, default="#5B6D82")
     on_color_text = Column(String(20), nullable=False, default="#FFFFFF")
@@ -754,9 +754,9 @@ class PortalBranding(Base):
     __tablename__ = "portal_branding"
 
     id = Column(Integer, primary_key=True, default=1)
-    company_name = Column(String(255), nullable=False, default="ATech Solutions")
-    primary_color = Column(String(20), nullable=False, default="#1A5CBA")
-    accent_color = Column(String(20), nullable=False, default="#E8A020")
+    company_name = Column(String(255), nullable=False, default="Your Company")
+    primary_color = Column(String(20), nullable=False, default="#2563EB")
+    accent_color = Column(String(20), nullable=False, default="#F59E0B")
     text_color = Column(String(20), nullable=False, default="#0D1B2A")
     muted_color = Column(String(20), nullable=False, default="#5B6D82")
     on_color_text = Column(String(20), nullable=False, default="#FFFFFF")
@@ -779,10 +779,10 @@ class DocumentBranding(Base):
     __tablename__ = "document_branding"
 
     id = Column(Integer, primary_key=True, default=1)
-    company_name = Column(String(255), nullable=False, default="ATech Solutions")
-    website = Column(String(255), nullable=False, default="atechsolutions.org")
-    primary_color = Column(String(20), nullable=False, default="#1A5CBA")
-    accent_color = Column(String(20), nullable=False, default="#E8A020")
+    company_name = Column(String(255), nullable=False, default="Your Company")
+    website = Column(String(255), nullable=False, default="example.com")
+    primary_color = Column(String(20), nullable=False, default="#2563EB")
+    accent_color = Column(String(20), nullable=False, default="#F59E0B")
     text_color = Column(String(20), nullable=False, default="#0F172A")
     muted_color = Column(String(20), nullable=False, default="#64748B")
     on_color_text = Column(String(20), nullable=False, default="#FFFFFF")

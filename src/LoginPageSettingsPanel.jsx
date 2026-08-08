@@ -13,10 +13,10 @@ const label = (text) => (
 );
 
 const DEFAULT_FORM = {
-  company_name: "ATechSolutions",
+  company_name: "Your Company",
   subtitle: "internal use only",
-  primary_color: "#1A5CBA",
-  accent_color: "#E8A020",
+  primary_color: "#2563EB",
+  accent_color: "#F59E0B",
   text_color: "#0D1B2A",
   muted_color: "#5B6D82",
   on_color_text: "#FFFFFF",
@@ -84,7 +84,7 @@ export default function LoginPageSettingsPanel({ onClose, showToast }) {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           <div>
             {label("Company Name")}
-            <input style={inp} value={form.company_name} onChange={e => up("company_name", e.target.value)} placeholder="ATech Solutions" />
+            <input style={inp} value={form.company_name} onChange={e => up("company_name", e.target.value)} placeholder="Your Company" />
           </div>
           <div>
             {label("Subtitle")}
@@ -133,7 +133,7 @@ export default function LoginPageSettingsPanel({ onClose, showToast }) {
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input type="color" value={form.primary_color} onChange={e => up("primary_color", e.target.value)}
                 style={{ width: 40, height: 36, border: "1px solid #e2e8f0", borderRadius: "var(--dispatch-radius-md)", cursor: "pointer", padding: 2, background: "#fff" }} />
-              <input style={{ ...inp }} value={form.primary_color} onChange={e => up("primary_color", e.target.value)} placeholder="#1A5CBA" />
+              <input style={{ ...inp }} value={form.primary_color} onChange={e => up("primary_color", e.target.value)} placeholder="#2563EB" />
             </div>
           </div>
           <div>
@@ -141,7 +141,7 @@ export default function LoginPageSettingsPanel({ onClose, showToast }) {
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input type="color" value={form.accent_color} onChange={e => up("accent_color", e.target.value)}
                 style={{ width: 40, height: 36, border: "1px solid #e2e8f0", borderRadius: "var(--dispatch-radius-md)", cursor: "pointer", padding: 2, background: "#fff" }} />
-              <input style={{ ...inp }} value={form.accent_color} onChange={e => up("accent_color", e.target.value)} placeholder="#E8A020" />
+              <input style={{ ...inp }} value={form.accent_color} onChange={e => up("accent_color", e.target.value)} placeholder="#F59E0B" />
             </div>
           </div>
         </div>
@@ -181,7 +181,7 @@ export default function LoginPageSettingsPanel({ onClose, showToast }) {
         <button onClick={onClose} style={{ padding: "9px 20px", borderRadius: "var(--dispatch-radius-md)", border: "1px solid #e2e8f0", background: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", color: "#64748b" }}>
           Close
         </button>
-        <button onClick={handleSave} disabled={saving} style={{ padding: "9px 24px", borderRadius: "var(--dispatch-radius-md)", border: "none", background: "#1A5CBA", color: "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit", boxShadow: "0 2px 8px #1A5CBA44", opacity: saving ? 0.7 : 1 }}>
+        <button onClick={handleSave} disabled={saving} style={{ padding: "9px 24px", borderRadius: "var(--dispatch-radius-md)", border: "none", background: "#2563EB", color: "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit", boxShadow: "0 2px 8px #2563EB44", opacity: saving ? 0.7 : 1 }}>
           {saving ? "Saving…" : saved ? "✓ Saved!" : "Save Changes"}
         </button>
       </div>

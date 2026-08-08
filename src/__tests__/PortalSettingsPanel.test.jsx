@@ -10,9 +10,9 @@ vi.mock("../api/portalBranding.js", () => ({
 import { getPortalBranding, updatePortalBranding } from "../api/portalBranding.js";
 
 const DEFAULT_FORM = {
-  company_name: "ATech Solutions",
-  primary_color: "#1A5CBA",
-  accent_color: "#E8A020",
+  company_name: "Your Company",
+  primary_color: "#2563EB",
+  accent_color: "#F59E0B",
   text_color: "#0D1B2A",
   muted_color: "#5B6D82",
   on_color_text: "#FFFFFF",
@@ -30,7 +30,7 @@ test("loads current settings and saves changes", async () => {
 
   render(<PortalSettingsPanel onClose={() => {}} showToast={showToast} />);
 
-  const nameInput = await screen.findByDisplayValue("ATech Solutions");
+  const nameInput = await screen.findByDisplayValue("Your Company");
   fireEvent.change(nameInput, { target: { value: "New Name" } });
   fireEvent.click(screen.getByText("Save Changes"));
 
@@ -45,7 +45,7 @@ test("shows an error toast when saving fails", async () => {
 
   render(<PortalSettingsPanel onClose={() => {}} showToast={showToast} />);
 
-  await screen.findByDisplayValue("ATech Solutions");
+  await screen.findByDisplayValue("Your Company");
   fireEvent.click(screen.getByText("Save Changes"));
 
   await waitFor(() => expect(showToast).toHaveBeenCalledWith("Failed to save Client Portal settings.", "err"));
@@ -56,7 +56,7 @@ test("close button calls onClose without saving", async () => {
   const onClose = vi.fn();
   render(<PortalSettingsPanel onClose={onClose} showToast={vi.fn()} />);
 
-  await screen.findByDisplayValue("ATech Solutions");
+  await screen.findByDisplayValue("Your Company");
   fireEvent.click(screen.getByText("Close"));
 
   expect(updatePortalBranding).not.toHaveBeenCalled();

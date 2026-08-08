@@ -5,7 +5,7 @@ import FormTemplatesTab from "./FormTemplatesTab.jsx";
 
 const brand = {
   blue: "var(--dispatch-primary)",
-  accent: "#E8A020",
+  accent: "#F59E0B",
   bg: "var(--dispatch-bg)",
   surface: "var(--dispatch-surface)",
   border: "var(--dispatch-border)",

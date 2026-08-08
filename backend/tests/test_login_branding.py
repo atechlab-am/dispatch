@@ -16,9 +16,9 @@ def test_public_get_returns_defaults_without_auth(client):
     r = client.get("/api/login-branding/public")
     assert r.status_code == 200
     data = r.json()
-    assert data["company_name"] == "ATech Solutions"
+    assert data["company_name"] == "Your Company"
     assert data["subtitle"] == "internal use only"
-    assert data["primary_color"] == "#1A5CBA"
+    assert data["primary_color"] == "#2563EB"
     assert data["text_color"] == "#0D1B2A"
     assert data["muted_color"] == "#5B6D82"
     assert data["on_color_text"] == "#FFFFFF"

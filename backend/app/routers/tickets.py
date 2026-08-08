@@ -379,6 +379,7 @@ def create_ticket(
         assignee = db.query(User).filter(User.id == body.assigned_to).first()
         assignee_email = assignee.email if assignee else ""
     mailer.notify_ticket_created(
+        db,
         ticket_id=ticket_id,
         title=body.title,
         priority=body.priority.value,
@@ -549,6 +550,7 @@ def update_ticket(
         assignee_email = assignee.email if assignee else ""
     new_status = body.status.value if hasattr(body.status, "value") else body.status
     mailer.notify_ticket_updated(
+        db,
         ticket_id=ticket_id,
         title=body.title,
         status=new_status,

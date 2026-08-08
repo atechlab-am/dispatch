@@ -31,13 +31,12 @@ def get_document_branding(db: Session) -> DocumentBranding:
 
 def logo_html(branding: DocumentBranding) -> str:
     """An <img> when a logo is configured, else a wordmark styled from
-    company_name split at the first space (matches the pre-branding
-    hardcoded "ATech<span>Solutions</span>" look when no logo is set)."""
+    company_name split at the first space."""
     if branding.logo_url:
         safe_url = html_lib.escape(branding.logo_url)
         safe_name = html_lib.escape(branding.company_name)
         return f'<img src="{safe_url}" alt="{safe_name}" style="max-height:36px;max-width:220px">'
-    name = branding.company_name or "ATech Solutions"
+    name = branding.company_name or "Your Company"
     parts = name.split(" ", 1)
     first = html_lib.escape(parts[0])
     rest = html_lib.escape(parts[1]) if len(parts) > 1 else ""

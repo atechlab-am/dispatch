@@ -46,7 +46,7 @@ export default function UpdateBanner({ user }) {
       left: 0,
       right: 0,
       zIndex: 9999,
-      background: "linear-gradient(90deg, #1A5CBA 0%, #143f80 100%)",
+      background: "linear-gradient(90deg, #2563EB 0%, #184098 100%)",
       color: "#fff",
       padding: "10px 20px",
       display: "flex",
@@ -73,7 +73,7 @@ export default function UpdateBanner({ user }) {
             rel="noopener noreferrer"
             className="dispatch-pill"
             style={{
-              color: "#E8A020",
+              color: "#F59E0B",
               fontWeight: 700,
               textDecoration: "none",
               border: "1px solid rgba(232,160,32,0.6)",
