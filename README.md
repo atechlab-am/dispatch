@@ -280,4 +280,5 @@ The Suite Switcher (see above) isn't a `FEATURE_*` boolean — it's gated per-ap
 
 ### Setup Wizard
 - First-boot admin account creation
+- Company branding step (name, tagline, color palette, logo) — skippable, defaults used if skipped
 - Setup endpoint locked permanently after first use

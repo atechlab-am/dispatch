@@ -54,3 +54,48 @@ def test_setup_locked_after_first_use(client_no_seed):
         "password": "goodpassword",
     })
     assert r.status_code == 409
+
+
+def test_setup_complete_applies_branding_when_provided(client_no_seed):
+    r = client_no_seed.post("/api/setup/complete", json={
+        "name": "Admin",
+        "email": "admin@fresh.com",
+        "password": "freshpass123",
+        "branding": {
+            "company_name": "Acme Inc",
+            "tagline": "We fix things",
+            "primary_color": "#111111",
+            "accent_color": "#222222",
+            "logo_url": "",
+        },
+    })
+    assert r.status_code == 201
+
+    login = client_no_seed.post("/api/auth/login", json={
+        "email": "admin@fresh.com",
+        "password": "freshpass123",
+    })
+    token = login.json()["access_token"]
+    b = client_no_seed.get("/api/branding", headers={"Authorization": f"Bearer {token}"})
+    assert b.status_code == 200
+    assert b.json()["company_name"] == "Acme Inc"
+    assert b.json()["tagline"] == "We fix things"
+    assert b.json()["primary_color"] == "#111111"
+
+
+def test_setup_complete_without_branding_keeps_defaults(client_no_seed):
+    r = client_no_seed.post("/api/setup/complete", json={
+        "name": "Admin",
+        "email": "admin@fresh.com",
+        "password": "freshpass123",
+    })
+    assert r.status_code == 201
+
+    login = client_no_seed.post("/api/auth/login", json={
+        "email": "admin@fresh.com",
+        "password": "freshpass123",
+    })
+    token = login.json()["access_token"]
+    b = client_no_seed.get("/api/branding", headers={"Authorization": f"Bearer {token}"})
+    assert b.status_code == 200
+    assert b.json()["company_name"] == "Your Company"

@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.51.0] — 2026-08-08
+
+### Added — First-run setup wizard: branding step
+- De-branding pass removed all hardcoded company defaults, so a fresh install had no way to set
+  company name/colors/logo before reaching the (now-generic) app — user has to know Settings
+  exists and find the branding screen themselves post-login.
+- `SetupPage.jsx` is now a real 2-step wizard: step 1 (admin account, unchanged) → step 2
+  (company name, tagline, color palette, logo upload — reuses `UploadButton`/`PRESET_PALETTES`
+  from `brandingUpload.jsx`). "Skip for now" available on step 2 to keep defaults.
+- Backend: `POST /api/setup/complete` accepts an optional `branding` object and writes the
+  `Branding` row (id=1) in the same call as admin-account creation, before the account exists
+  to hit the normal admin-gated `PUT /api/branding` endpoint.
+
+### Removed — Passport SSO integration (Dispatch will use standalone auth)
+- Deleted `PASSPORT_INTEGRATION.md` (root planning doc) and stripped Passport cross-references
+  from `.claude/context/tether_integration_plan.md` and `.claude/context/debranding_checklist.md`.
+- No code was ever wired to Passport — this was a planning-only reversal. Dispatch's local
+  login/JWT/`RefreshToken` model remains the only auth system.
+
+### Tests
+- `backend/tests/test_setup.py` — added tests for branding applied when provided and defaults
+  kept when omitted.
+- `src/__tests__/SetupPage.test.jsx` — rewritten for the 2-step flow (advance to step 2, submit
+  with branding, skip branding, API error still surfaces).
+- Not executed in this sandbox — no pip/npm install available. Run before merge:
+  `cd backend && python3 -m pytest tests/test_setup.py -v` and
+  `npm run test:run -- src/__tests__/SetupPage.test.jsx`.
+
 ## [1.50.3] — 2026-08-08
 
 ### Fixed — `.env.example` missing `FEATURE_LEADS`
