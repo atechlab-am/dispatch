@@ -1,5 +1,42 @@
 # Changelog
 
+## [1.52.0] — 2026-08-08
+
+### Added — In-app documentation (`docs/` folder + sidebar Docs page)
+- New `docs/` folder: `getting-started.md` (new — first-boot/setup-wizard walkthrough),
+  `features.md` (moved from README's Features section, verbatim), `operations.md` (moved from
+  the root `setup.md` added earlier this session). README now links out to all three instead of
+  inlining the full feature list, and gained a short "Documentation" section.
+- Backend: new `GET /api/docs` (list) and `GET /api/docs/{slug}` (content) endpoints
+  (`backend/app/routers/docs.py`) — serve the same `docs/*.md` files shipped in the image
+  (`COPY docs/ /app/docs` added to `backend/Dockerfile`, same pattern as the existing `VERSION`
+  copy). Slugs are a fixed allowlist, not derived from user input — no path-traversal surface.
+  Bare-metal installs need no script change: the router walks up from its own file to find
+  `docs/` next to `backend/`, same mechanism `version.py` already uses for `VERSION`.
+- Frontend: new **Docs** sidebar item (`src/DocsPage.jsx`, any authenticated user — not
+  admin-gated) renders the fetched Markdown with a small hand-rolled renderer (headings, bold,
+  inline code, fenced code blocks, tables, lists, links) — no new dependency added, since the
+  three doc files only use that subset.
+
+### Tests
+- `backend/tests/test_docs.py` — list/get shape, 404 on unknown slug, auth required, non-admin
+  (technician) can read.
+- `src/__tests__/DocsPage.test.jsx` — page list renders, switching pages re-fetches, Markdown
+  renders headings/bold/lists/links.
+- Not executed in this sandbox — no pip/npm install available. Run before merge:
+  `cd backend && python3 -m pytest tests/test_docs.py -v` and
+  `npm run test:run -- src/__tests__/DocsPage.test.jsx`.
+
+## [1.51.1] — 2026-08-08
+
+### Added — `setup.md` operations guide
+- `.env.example` referenced a `setup.md` for adding an nginx location block for the Stripe
+  webhook on existing deployments — that file never existed, and the location block it
+  described already ships by default in `nginx.portal.conf`. Removed the stale reference.
+- Added `setup.md`: day-2 ops reference (health checks, log locations, common failure modes,
+  where data lives) — deliberately not duplicating README's install/update/backup/restore
+  content. Linked from the top of `README.md`.
+
 ## [1.51.0] — 2026-08-08
 
 ### Added — First-run setup wizard: branding step

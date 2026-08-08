@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir -r requirements-dev.txt
 
 COPY backend/ .
 COPY VERSION /app/VERSION
+COPY docs/ /app/docs
 
 ENV DATABASE_URL=sqlite:///./test.db
 ENV SECRET_KEY=test-secret-key-at-least-32-chars-long
@@ -27,6 +28,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ .
 COPY VERSION /app/VERSION
+COPY docs/ /app/docs
 
 RUN addgroup --system app && adduser --system --ingroup app app
 RUN chown -R app:app /app && chmod +x entrypoint.sh
