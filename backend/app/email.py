@@ -84,6 +84,7 @@ def _footer_html(branding: Branding) -> str:
 
 def notify_ticket_created(db: Session, ticket_id: str, title: str, priority: str, client_email: str, client_name: str, assignee_email: str = "") -> None:
     branding = _get_branding(db)
+    safe_title = html_lib.escape(title)
     priority_color = {"Urgent": "#c0392b", "High": "#d97706", "Medium": branding.primary_color, "Low": branding.muted_color}.get(priority, branding.muted_color)
     html = f"""<!DOCTYPE html><html><head><style>{_ticket_style(branding)}</style></head><body>
     <div class="wrap">
@@ -91,7 +92,7 @@ def notify_ticket_created(db: Session, ticket_id: str, title: str, priority: str
       <div class="body">
         <p style="font-size:16px;font-weight:700;margin:0 0 16px">New Ticket Created</p>
         <div class="field"><div class="label">Ticket ID</div><div class="value" style="font-family:monospace">{ticket_id}</div></div>
-        <div class="field"><div class="label">Title</div><div class="value">{title}</div></div>
+        <div class="field"><div class="label">Title</div><div class="value">{safe_title}</div></div>
         <div class="field"><div class="label">Priority</div><div class="value"><span class="badge" style="background:{priority_color};color:#fff">{priority}</span></div></div>
         <p style="margin-top:20px;color:{branding.muted_color};font-size:13px">Log in to Dispatch to view and update this ticket.</p>
       </div>
@@ -108,6 +109,7 @@ def notify_ticket_updated(db: Session, ticket_id: str, title: str, status: str, 
     if status == prev_status:
         return
     branding = _get_branding(db)
+    safe_title = html_lib.escape(title)
     status_color = {"Open": branding.primary_color, "In Progress": "#d97706", "Awaiting Client": branding.muted_color, "Resolved": "#1a8f4a", "Closed": branding.muted_color}.get(status, branding.muted_color)
     html = f"""<!DOCTYPE html><html><head><style>{_ticket_style(branding)}</style></head><body>
     <div class="wrap">
@@ -115,7 +117,7 @@ def notify_ticket_updated(db: Session, ticket_id: str, title: str, status: str, 
       <div class="body">
         <p style="font-size:16px;font-weight:700;margin:0 0 16px">Ticket Updated</p>
         <div class="field"><div class="label">Ticket ID</div><div class="value" style="font-family:monospace">{ticket_id}</div></div>
-        <div class="field"><div class="label">Title</div><div class="value">{title}</div></div>
+        <div class="field"><div class="label">Title</div><div class="value">{safe_title}</div></div>
         <div class="field"><div class="label">Status</div><div class="value"><span class="badge" style="background:{status_color};color:#fff">{status}</span></div></div>
         <p style="margin-top:20px;color:{branding.muted_color};font-size:13px">Log in to Dispatch to view this ticket.</p>
       </div>
@@ -130,14 +132,17 @@ def notify_ticket_updated(db: Session, ticket_id: str, title: str, status: str, 
 
 def notify_comment_added(db: Session, ticket_id: str, title: str, comment_body: str, author_name: str, client_email: str) -> None:
     branding = _get_branding(db)
+    safe_title = html_lib.escape(title)
+    safe_author_name = html_lib.escape(author_name)
+    safe_comment_body = html_lib.escape(comment_body)
     html = f"""<!DOCTYPE html><html><head><style>{_ticket_style(branding)}</style></head><body>
     <div class="wrap">
       <div class="header">{_logo_html(branding)}</div>
       <div class="body">
         <p style="font-size:16px;font-weight:700;margin:0 0 16px">New Comment on Your Ticket</p>
-        <div class="field"><div class="label">Ticket</div><div class="value" style="font-family:monospace">{ticket_id} — {title}</div></div>
-        <div class="field"><div class="label">From</div><div class="value">{author_name}</div></div>
-        <div style="background:#F4F7FC;border-left:3px solid {branding.primary_color};padding:12px 16px;border-radius:0 6px 6px 0;margin-top:12px;font-size:14px;white-space:pre-wrap">{comment_body}</div>
+        <div class="field"><div class="label">Ticket</div><div class="value" style="font-family:monospace">{ticket_id} — {safe_title}</div></div>
+        <div class="field"><div class="label">From</div><div class="value">{safe_author_name}</div></div>
+        <div style="background:#F4F7FC;border-left:3px solid {branding.primary_color};padding:12px 16px;border-radius:0 6px 6px 0;margin-top:12px;font-size:14px;white-space:pre-wrap">{safe_comment_body}</div>
         <p style="margin-top:20px;color:{branding.muted_color};font-size:13px">Log in to Dispatch to reply.</p>
       </div>
       {_footer_html(branding)}

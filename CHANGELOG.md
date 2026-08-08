@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- `backend/app/email.py` — escape user-supplied ticket title, comment body, and author name
+  before interpolating into staff/client notification emails (`notify_ticket_created`,
+  `notify_ticket_updated`, `notify_comment_added`), preventing HTML/script injection via
+  ticket/comment content.
+
 ## [1.52.0] — 2026-08-08
 
 ### Added — In-app documentation (`docs/` folder + sidebar Docs page)
